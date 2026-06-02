@@ -16,11 +16,12 @@ Resolution (most specific wins): word → tag → global → built-in.
 
 Run:  python3 karaoke_subtitle_gui_v2.py
 """
-import os, json, copy, tkinter as tk
+import os, json, tkinter as tk
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 import app_base as base
 import engine
+import controller
 from engine.model import make_project, _tag_of, BUILTIN, PALETTE
 from engine.render import project_to_render
 project_to_render_v2 = project_to_render
@@ -54,11 +55,27 @@ apply_cues_v2 = apply_cues
 # ─────────────────────────────────────────────────────────────────────
 class AppV2(base.App):
     def __init__(self):
+        self._session = None            # so the _project setter is safe during base __init__
         super().__init__()
+        self._session = controller.Session(on_change=self._rebuild_render)
+        if getattr(self, "_pending_project", None) is not None:
+            self._session.set_project(self._pending_project)
         self.title("Karaoke Subtitle Studio v2")
-        self._undo, self._redo = [], []
         self._theme = getattr(self, "_theme", "Dark")
         self._build_toolbar()
+
+    @property
+    def _project(self):
+        s = getattr(self, "_session", None)
+        return s.project if s is not None else getattr(self, "_pending_project", None)
+
+    @_project.setter
+    def _project(self, v):
+        s = getattr(self, "_session", None)
+        if s is None:
+            self._pending_project = v       # before the session exists (base __init__)
+        else:
+            s.set_project(v)
 
     def _build_toolbar(self):
         """Top toolbar (common with the editor) — currently the theme selector."""
@@ -92,27 +109,13 @@ class AppV2(base.App):
         return project_to_render_v2(project)
     def _build_ass(self, cfg, groups):
         return build_ass_v2(cfg, groups)
-    def _on_project_loaded(self):
-        self._undo, self._redo = [], []
 
     # undo
-    def push_undo(self):
-        self._undo.append(copy.deepcopy(self._project))
-        if len(self._undo) > 100:
-            self._undo.pop(0)
-        self._redo.clear()
-
     def undo(self):
-        if self._undo:
-            self._redo.append(copy.deepcopy(self._project))
-            self._project = self._undo.pop()
-            self._rebuild_render()
+        self._session.undo()
 
     def redo(self):
-        if self._redo:
-            self._undo.append(copy.deepcopy(self._project))
-            self._project = self._redo.pop()
-            self._rebuild_render()
+        self._session.redo()
 
     # _generate / _render_exact are inherited from app_base.App (they call the
     # _build_ass hook above), so no override is needed here.
@@ -163,112 +166,22 @@ class AppV2(base.App):
                     rows.append((gi, li, ti, tok))
         return rows
 
-    def _next_color(self, lane):
-        used = {t["color"] for t in self._project[lane]}
-        pal = self._project["palette"]
-        for c in range(len(pal)):
-            if c not in used:
-                return c
-        return len(self._project[lane]) % len(pal)
-
-    def make_tag(self, lane, ids):
-        if len(ids) < 1:
-            return
-        self.push_undo()
-        tags = self._project[lane]
-        ids = set(ids)
-        # remove these ids from existing tags (a word belongs to one tag/lane)
-        for t in tags:
-            t["ids"] -= ids
-        tags[:] = [t for t in tags if t["ids"]]
-        tags.append({"ids": ids, "color": self._next_color(lane), "trigger": None, "dur": None})
-        self._rebuild_render()
-
-    def clear_tag(self, lane, ids):
-        self.push_undo()
-        for t in self._project[lane]:
-            t["ids"] -= set(ids)
-        self._project[lane][:] = [t for t in self._project[lane] if t["ids"]]
-        self._rebuild_render()
-
-    def set_tag_props(self, lane, ti, trigger, dur):
-        self.push_undo()
-        self._project[lane][ti]["trigger"] = trigger
-        self._project[lane][ti]["dur"] = dur
-        self._rebuild_render()
-
-    def set_global(self, key, val):
-        self.push_undo()
-        self._project["globals"][key] = val
-        self._rebuild_render()
-
+    def make_tag(self, lane, ids):                 self._session.do("make_tag", lane, set(ids))
+    def clear_tag(self, lane, ids):                self._session.do("clear_tag", lane, set(ids))
+    def set_tag_props(self, lane, ti, trigger, dur): self._session.do("set_tag_props", lane, ti, trigger, dur)
+    def set_global(self, key, val):                self._session.do("set_global", key, val)
     def set_layout_props(self, gi, win_start, win_end, linger, accumulate):
-        self.push_undo()
-        g = self._project["layout"][gi]
-        g["win_start"] = win_start; g["win_end"] = win_end
-        g["linger"] = linger; g["accumulate"] = accumulate
-        self._rebuild_render()
-
-    def toggle_word_del(self, ids, value):
-        self.push_undo()
-        idset = set(ids)
-        for g in self._project["layout"]:
-            for ln in g["lines"]:
-                for tok in ln["toks"]:
-                    if any(i in idset for i in tok["ids"]):
-                        tok["del"] = value
-        self._rebuild_render()
-
-    def add_break(self, gi, li, ti, after=True):
-        """Split a line at a token boundary (line-break before/after a word)."""
-        self.push_undo()
-        ln = self._project["layout"][gi]["lines"][li]; toks = ln["toks"]
-        pos = ti + 1 if after else ti
-        if 0 < pos < len(toks):
-            self._project["layout"][gi]["lines"][li:li + 1] = [{"toks": toks[:pos]}, {"toks": toks[pos:]}]
-        self._rebuild_render()
-
-    def merge_prev_word(self, gi, li, ti, sep=""):
-        """Merge token ti with the previous token (same line)."""
-        self.push_undo()
-        toks = self._project["layout"][gi]["lines"][li]["toks"]
-        if ti > 0:
-            ids = toks[ti - 1]["ids"] + toks[ti]["ids"]
-            toks[ti - 1:ti + 1] = [{"ids": ids, "sep": sep, "del": toks[ti - 1].get("del", False)}]
-        self._rebuild_render()
-
-    # ── layout-lane (event) structure ──
+        self._session.do("set_layout_props", gi, win_start, win_end, linger, accumulate)
+    def set_group_style(self, gi, partial):        self._session.do("set_group_style", gi, partial)
+    def set_cue_style(self, ids, partial):         self._session.do("set_cue_style", set(ids), partial)
+    def toggle_word_del(self, ids, value):         self._session.do("toggle_word_del", set(ids), value)
+    def add_break(self, gi, li, ti, after=True):   self._session.do("add_break", gi, li, ti, after)
+    def merge_prev_word(self, gi, li, ti, sep=""): self._session.do("merge_prev_word", gi, li, ti, sep)
+    def layout_ungroup(self, gi):                  self._session.do("layout_ungroup", gi)
+    def layout_split_event(self, gi, li):          self._session.do("layout_split_event", gi, li)
     def layout_merge(self, gidxs):
-        """Merge adjacent layout groups (events) into one (concatenate lines)."""
-        idx = sorted(set(gidxs))
-        if len(idx) < 2 or idx != list(range(idx[0], idx[-1] + 1)):
-            self.log("Merge events: select adjacent layout groups"); return
-        self.push_undo()
-        L = self._project["layout"]; first = L[idx[0]]
-        lines = [ln for gi in idx for ln in L[gi]["lines"]]
-        merged = {**first, "lines": lines, "win_start": None, "win_end": None}
-        self._project["layout"] = L[:idx[0]] + [merged] + L[idx[-1] + 1:]
-        self._rebuild_render()
-
-    def layout_ungroup(self, gi):
-        """Split an event into one event per line."""
-        self.push_undo()
-        L = self._project["layout"]; g = L[gi]
-        new = [{"label": g["label"], "lines": [ln], "accumulate": g["accumulate"],
-                "win_start": None, "win_end": None, "linger": g.get("linger"), "del": False}
-               for ln in g["lines"]]
-        self._project["layout"] = L[:gi] + new + L[gi + 1:]
-        self._rebuild_render()
-
-    def layout_split_event(self, gi, li):
-        """Split event gi so that line li starts a new event."""
-        self.push_undo()
-        L = self._project["layout"]; g = L[gi]
-        if 0 < li < len(g["lines"]):
-            a = {**g, "lines": g["lines"][:li], "win_start": None, "win_end": None}
-            b = {**g, "lines": g["lines"][li:], "win_start": None, "win_end": None}
-            self._project["layout"] = L[:gi] + [a, b] + L[gi + 1:]
-        self._rebuild_render()
+        if not self._session.do("layout_merge", set(gidxs)):
+            self.log("Merge events: select adjacent layout groups")
 
 
 class _ToolTip:
