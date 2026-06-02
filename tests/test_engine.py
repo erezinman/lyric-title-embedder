@@ -77,6 +77,21 @@ def t_engine_no_tk():
             src_ok = False
     return (src_ok), f"tkinter_in_engine_ns={not src_ok} (loaded elsewhere ok)"
 
+def t_build_two_styles_for_boxmode():
+    p = m.make_project_v2(CFG)
+    mut.set_group_style(p, 1, {"border_style": 3})     # second event = opaque box
+    g = m.project_to_render_v2(p); text, n = m.build_ass_v2(CFG, g)
+    n_styles = text.count("\nStyle: ")
+    return (n_styles == 2 and "Style: Box," in text), f"n_styles={n_styles}"
+
+def t_build_inline_cue_color():
+    p = m.make_project_v2(CFG)
+    wid = p["layout"][0]["lines"][0]["toks"][0]["ids"][0]
+    mut.set_cue_style(p, {wid}, {"primary": "#FF0000"})
+    g = m.project_to_render_v2(p); text, n = m.build_ass_v2(CFG, g)
+    # #FF0000 -> ASS &H0000FF& on \1c
+    return ("\\1c&H0000FF&" in text), "missing inline 1c override"
+
 for name, fn in list(globals().items()):
     if name.startswith("t_"): check(name, fn)
 npass = sum(1 for ok, *_ in results if ok)
