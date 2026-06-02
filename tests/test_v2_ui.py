@@ -250,6 +250,25 @@ def t_preview_couple():
     ed.couple.set(False)
     return (t > 0), f"time scrubbed to {t:.2f}"
 
+def t_group_style_apply():
+    app.set_group_style(0, {"fontsize": 96, "border_style": 3}); pump(2)
+    g = app._groups[0].get("group_style", {})
+    text, n = v2.build_ass_v2(app.cfg(), app._groups)
+    return (g.get("fontsize") == 96 and "Style: Box," in text), f"gstyle={g}"
+
+def t_cue_style_apply():
+    wid = app._project["layout"][0]["lines"][0]["toks"][0]["ids"][0]
+    app.set_cue_style({wid}, {"primary": "#FF0000"}); pump(2)
+    text, n = v2.build_ass_v2(app.cfg(), app._groups)
+    return ("\\1c&H0000FF&" in text), "missing inline cue color"
+
+def t_project_style_roundtrip():
+    app.set_group_style(0, {"font": "Arial"}); pump(1)
+    d = app._preset_dict()
+    app._reload_groups(); pump(2)
+    ok = v2.apply_cues_v2(app._project, d["cues_v2"]); app._rebuild_render(); pump(1)
+    return (ok and app._project["layout"][0]["style"].get("font") == "Arial"), "roundtrip lost style"
+
 tests = [
     ("click selects word (fade-in)", t_click_selects_word),
     ("ctrl-click multi-select", t_ctrl_multiselect),
@@ -274,6 +293,9 @@ tests = [
     ("split event no crash", t_split_event_no_crash),
     ("empty-selection ops are no-ops", t_empty_ops_noop),
     ("preview-couple scrubs time", t_preview_couple),
+    ("group style apply -> render+build", t_group_style_apply),
+    ("cue style apply -> inline color", t_cue_style_apply),
+    ("project style roundtrip", t_project_style_roundtrip),
 ]
 for name, fn in tests:
     check(name, fn)

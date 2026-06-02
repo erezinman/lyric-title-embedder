@@ -88,8 +88,8 @@ class App(ctk.CTk):
         ctk.CTkButton(bar, text="Edit cues…", command=self.open_editor).pack(side="left")
         ctk.CTkButton(bar, text="Generate .ass", command=self.on_generate).pack(side="left", padx=6)
         ctk.CTkButton(bar, text="Generate + Burn video", command=self.on_burn).pack(side="left", padx=6)
-        ctk.CTkButton(bar, text="Save preset", command=self.on_save_preset).pack(side="left", padx=6)
-        ctk.CTkButton(bar, text="Load preset", command=self.on_load_preset).pack(side="left")
+        ctk.CTkButton(bar, text="Save project", command=self.on_save_preset).pack(side="left", padx=6)
+        ctk.CTkButton(bar, text="Load project", command=self.on_load_preset).pack(side="left")
         ctk.CTkButton(bar, text="Quit", fg_color="#883333", hover_color="#aa4444",
                       command=self.destroy).pack(side="right")
         self._action_bar = bar
@@ -729,7 +729,7 @@ class App(ctk.CTk):
         self._resync_canvas()
 
     def on_save_preset(self):
-        p = filedialog.asksaveasfilename(defaultextension=".json", initialfile="karaoke_preset.json",
+        p = filedialog.asksaveasfilename(defaultextension=".json", initialfile="karaoke_project.json",
                                          filetypes=[("Preset JSON", "*.json")])
         if not p: return
         try:
