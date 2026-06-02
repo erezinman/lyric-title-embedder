@@ -20,11 +20,11 @@ import os, json, copy, tkinter as tk
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 import app_base as base
+import engine
+from engine.model import make_project, _tag_of, BUILTIN, PALETTE
+make_project_v2 = make_project          # back-compat name used elsewhere/tests
 
 ESC = base.esc
-PALETTE = ["#7a4a4a", "#4a7a4a", "#4a5a7a", "#7a6a3a", "#6a4a7a",
-           "#3a7a7a", "#7a3a5a", "#5a7a3a", "#3a5a7a", "#7a5a3a"]
-BUILTIN = {"fade_in_ms": 250, "fade_out_ms": 1000, "linger": 0.0}
 
 # Editor themes: tk.Text pane colors + group-color palette (chrome is driven by
 # ctk.set_appearance_mode, so no ttk styling is needed here).
@@ -38,43 +38,6 @@ THEMES = {
     "System": {"bg": "#ffffff", "fg": "#000000", "inh": "#777777", "ovr": "#000000",
                "del": "#aaaaaa", "hdr": "#003399", "palette": _LIGHT_PALETTE},
 }
-
-
-# ─────────────────────────────────────────────────────────────────────
-# Model
-# ─────────────────────────────────────────────────────────────────────
-def make_project_v2(cfg):
-    data = json.load(open(cfg["json_path"], encoding="utf-8"))
-    real = base.reconstruct_lines(data.get("aligned_lyrics") or [])
-    words, line_specs = [], []
-    for l in real:
-        if cfg.get("skip_dashes", True) and base.is_dashes(l["text"]):
-            continue
-        flat = []
-        for e in l["_entries"]:
-            flat.extend(e.get("words") or [])
-        toks = []
-        for w in base.merge_subwords(flat):
-            words.append({"text": w["text"], "start": w["start_s"], "end": w["end_s"]})
-            toks.append({"ids": [len(words) - 1], "sep": "", "del": False})
-        if toks:
-            line_specs.append((l.get("section") or "Unknown", {"toks": toks}))
-    layout = []
-    for sec, line in line_specs:
-        if cfg.get("group_by") == "section" and layout and layout[-1]["label"] == sec:
-            layout[-1]["lines"].append(line)
-        else:
-            layout.append({"label": sec, "lines": [line], "accumulate": "words",
-                           "win_start": None, "win_end": None, "linger": None, "del": False})
-    return {"words": words, "layout": layout, "fin_tags": [], "fout_tags": [],
-            "globals": dict(BUILTIN), "palette": list(PALETTE)}
-
-
-def _tag_of(tags, wid):
-    for ti, t in enumerate(tags):
-        if wid in t["ids"]:
-            return ti, t
-    return None, None
 
 
 def project_to_render_v2(project):
