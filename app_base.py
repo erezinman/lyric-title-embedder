@@ -105,7 +105,7 @@ class App(ctk.CTk):
         self.status.pack(fill="x", padx=8, pady=(0, 8))
         self.status.configure(state="disabled")
         if not HAS_FFMPEG:
-            self.log("⚠ ffmpeg not found — exact preview/burn disabled; tkinter approximation only.")
+            self.log("Warning: ffmpeg not found — exact preview/burn disabled; tkinter approximation only.")
 
     def _build_left_rail(self, main):
         controls = ctk.CTkScrollableFrame(main, width=500, label_text="")
@@ -275,7 +275,7 @@ class App(ctk.CTk):
             self._box_from_margins()
             self._refresh_preview()
         except Exception as e:
-            self.log(f"✗ load: {e}")
+            self.log(f"Error: load: {e}")
 
     def _rebuild_render(self):
         """Recompute render-groups from the project and refresh everything."""
@@ -424,9 +424,9 @@ class App(ctk.CTk):
             if p.returncode == 0:
                 self._bg_photo = tk.PhotoImage(file=png); self._bg_key = key
             else:
-                self.log("✗ bg frame: " + p.stderr[-300:])
+                self.log("Error: bg frame: " + p.stderr[-300:])
         except Exception as e:
-            self.log(f"✗ bg frame: {e}")
+            self.log(f"Error: bg frame: {e}")
 
     def _refresh_preview(self):
         if not hasattr(self, "canvas"): return
@@ -568,16 +568,16 @@ class App(ctk.CTk):
                    "-vf", vf, "-frames:v", "1", out_png]
             p = subprocess.run(cmd, capture_output=True, text=True)
             if p.returncode != 0:
-                self.log("✗ preview: " + p.stderr[-400:]); return
+                self.log("Error: preview: " + p.stderr[-400:]); return
             self._exact_photo = tk.PhotoImage(file=out_png)
             # Replace the bg layer with the burned frame; drop approx text.
             self.canvas.delete("bg"); self.canvas.delete("tx")
             self.canvas.create_image(0, 0, anchor="nw", image=self._exact_photo, tags="bg")
             self.canvas.tag_lower("bg")
             self._draw_overlay()
-            self.log(f"✓ libass preview @ {ass_time(t)}")
+            self.log(f"OK: libass preview @ {ass_time(t)}")
         except Exception as e:
-            self.log(f"✗ preview: {e}")
+            self.log(f"Error: preview: {e}")
 
     # ── font picker ──
     def _choose_font(self):
@@ -682,7 +682,7 @@ class App(ctk.CTk):
         text, n = self._build_ass(cfg, self._groups)
         with open(self.ass_var.get(), "w", encoding="utf-8") as f:
             f.write(text)
-        self.log(f"✓ Wrote {self.ass_var.get()}  ({n} events)")
+        self.log(f"OK: Wrote {self.ass_var.get()}  ({n} events)")
         return n
 
     def on_generate(self):
@@ -730,26 +730,26 @@ class App(ctk.CTk):
 
     def on_save_preset(self):
         p = filedialog.asksaveasfilename(defaultextension=".json", initialfile="karaoke_project.json",
-                                         filetypes=[("Preset JSON", "*.json")])
+                                         filetypes=[("Project JSON", "*.json")])
         if not p: return
         try:
             with open(p, "w", encoding="utf-8") as f:
                 json.dump(self._preset_dict(), f, indent=2)
-            self.log(f"✓ Saved preset → {p}")
+            self.log(f"OK: Saved project → {p}")
         except Exception as e:
-            messagebox.showerror("Save preset failed", str(e))
+            messagebox.showerror("Save project failed", str(e))
 
     def on_load_preset(self):
-        p = filedialog.askopenfilename(filetypes=[("Preset JSON", "*.json")])
+        p = filedialog.askopenfilename(filetypes=[("Project JSON", "*.json")])
         if not p: return
         try:
             d = json.load(open(p, encoding="utf-8"))
         except Exception as e:
-            messagebox.showerror("Load preset failed", str(e)); return
+            messagebox.showerror("Load project failed", str(e)); return
         self._apply_style_preset(d)
         self._reload_groups()       # builds the default project from the source
         self._load_cues(d)          # subclass overlays its saved cue edits
-        self.log(f"✓ Loaded preset ← {p}")
+        self.log(f"OK: Loaded project ← {p}")
 
     def _resync_canvas(self):
         new_h = int(round(PREVIEW_W * self.ph_var.get() / self.pw_var.get()))
@@ -790,8 +790,8 @@ class App(ctk.CTk):
             self.after(120, self._poll_burn)
             return
         if st["err"] is None:
-            self._set_progress(1.0, "✓ done")
-            self.log(f"✓ Burned → {self.out_var.get()}")
+            self._set_progress(1.0, "done")
+            self.log(f"OK: Burned → {self.out_var.get()}")
         else:
             self._set_progress(0.0, "failed")
-            self.log("✗ ffmpeg:\n" + str(st["err"])[-1200:])
+            self.log("Error: ffmpeg:\n" + str(st["err"])[-1200:])

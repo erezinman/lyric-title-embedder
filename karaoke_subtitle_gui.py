@@ -185,13 +185,13 @@ class AppV2(base.App):
         return d
 
     def on_load_preset(self):
-        p = filedialog.askopenfilename(filetypes=[("Preset JSON", "*.json")])
+        p = filedialog.askopenfilename(filetypes=[("Project JSON", "*.json")])
         if not p:
             return
         try:
             d = json.load(open(p, encoding="utf-8"))
         except Exception as e:
-            messagebox.showerror("Load preset failed", str(e)); return
+            messagebox.showerror("Load project failed", str(e)); return
         self._apply_style_preset(d)
         if d.get("theme") in THEMES:
             self.set_theme(d["theme"])   # syncs both toolbars + ctk appearance
@@ -199,8 +199,8 @@ class AppV2(base.App):
         if d.get("cues_v2") and apply_cues_v2(self._project, d["cues_v2"]):
             self._rebuild_render()
         elif d.get("cues_v2"):
-            self.log("⚠ saved cues don't match this lyrics source — kept defaults")
-        self.log(f"✓ Loaded preset ← {p}")
+            self.log("Warning: saved cues don't match this lyrics source — kept defaults")
+        self.log(f"OK: Loaded project ← {p}")
 
     # _apply_style_preset is inherited from app_base.App (shared style loader).
 
