@@ -161,8 +161,16 @@ header misalignment).
   `foreground`; there is no Spinbox (use `ctk_spin`) or LabelFrame (use `ctk_labelframe`).
 
 ## Roadmap / open ideas
+- **Unify LAYOUT groups with the fade-group model (deferred).** Today the fade-in/out lanes use
+  dynamic *tags* (flat id-sets + color + derived props; drag-select words → Group), while the LAYOUT
+  lane is the original event→line→token tree (you merge/split *headers*, not word selections). They
+  now look alike (events are colour-banded) but are implemented very differently. Future unification:
+  (a) interaction — drag-select words in the LAYOUT lane → Group forms one event; or (b) full — make a
+  layout group a flat id-set with props (window/linger/accumulate) and line breaks per-word flags,
+  structurally identical to fade tags. Decision so far: grouping words into an event should
+  **require a contiguous run** (reject non-contiguous). Touches model/build/serialize + old/v1.
 - Convert the v2 editor's internals (toolbar/property panels/global panel) from themed-ttk to ctk for
-  full visual consistency.
+  full visual consistency. (Done for the main app; editor is ctk too — this is mostly closed.)
 - Layout-lane word **reordering / moving words between events** (drag).
 - Per-event `\pos` override (currently `\pos` is global from the placement box).
 - A proper packaged entry point (`ksstudio` console script) if/when it becomes a real package.
