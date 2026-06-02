@@ -17,8 +17,7 @@ Resolution (most specific wins): word → tag → global → built-in.
 Run:  python3 karaoke_subtitle_gui_v2.py
 """
 import os, json, copy, tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-import tkinter.font as tkfont
+from tkinter import filedialog, messagebox
 import customtkinter as ctk
 import karaoke_subtitle_gui as base
 
@@ -27,19 +26,17 @@ PALETTE = ["#7a4a4a", "#4a7a4a", "#4a5a7a", "#7a6a3a", "#6a4a7a",
            "#3a7a7a", "#7a3a5a", "#5a7a3a", "#3a5a7a", "#7a5a3a"]
 BUILTIN = {"fade_in_ms": 250, "fade_out_ms": 1000, "linger": 0.0}
 
-# Editor themes: pane chrome + group-color palette + ttk look.
+# Editor themes: tk.Text pane colors + group-color palette (chrome is driven by
+# ctk.set_appearance_mode, so no ttk styling is needed here).
+_LIGHT_PALETTE = ["#ffd2d2", "#d2f0d2", "#d2e0ff", "#fff0c2", "#ecd2ff",
+                  "#cdeeee", "#ffd2ea", "#e2f5cf", "#d2e8ff", "#ffe2cf"]
 THEMES = {
-    "Dark": {"bg": "#1e1e1e", "fg": "#e0e0e0", "inh": "#8a8a8a", "ovr": "#ffffff",
-             "del": "#666666", "hdr": "#88bbff", "ttk": "clam", "ttk_bg": "#2b2b2b", "ttk_fg": "#dddddd",
-             "palette": PALETTE},
-    "Light": {"bg": "#fbfbfb", "fg": "#202020", "inh": "#888888", "ovr": "#000000",
-              "del": "#b0b0b0", "hdr": "#0044aa", "ttk": "clam", "ttk_bg": "#ececec", "ttk_fg": "#000000",
-              "palette": ["#ffd2d2", "#d2f0d2", "#d2e0ff", "#fff0c2", "#ecd2ff",
-                          "#cdeeee", "#ffd2ea", "#e2f5cf", "#d2e8ff", "#ffe2cf"]},
+    "Dark":   {"bg": "#1e1e1e", "fg": "#e0e0e0", "inh": "#8a8a8a", "ovr": "#ffffff",
+               "del": "#666666", "hdr": "#88bbff", "palette": PALETTE},
+    "Light":  {"bg": "#fbfbfb", "fg": "#202020", "inh": "#888888", "ovr": "#000000",
+               "del": "#b0b0b0", "hdr": "#0044aa", "palette": _LIGHT_PALETTE},
     "System": {"bg": "#ffffff", "fg": "#000000", "inh": "#777777", "ovr": "#000000",
-               "del": "#aaaaaa", "hdr": "#003399", "ttk": None, "ttk_bg": None, "ttk_fg": None,
-               "palette": ["#ffd2d2", "#d2f0d2", "#d2e0ff", "#fff0c2", "#ecd2ff",
-                           "#cdeeee", "#ffd2ea", "#e2f5cf", "#d2e8ff", "#ffe2cf"]},
+               "del": "#aaaaaa", "hdr": "#003399", "palette": _LIGHT_PALETTE},
 }
 
 
