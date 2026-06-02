@@ -41,6 +41,16 @@ def t_serialize_roundtrip():
             and abs((p2["layout"][0].get("linger") or 0) - 3.14) < 1e-9)
     return same, f"applied={ok} linger={p2['layout'][0].get('linger')}"
 
+def t_style_roundtrip():
+    p = m.make_project_v2(CFG)
+    p["layout"][0]["style"] = {"font": "Arial", "fontsize": 80}
+    p["layout"][0]["lines"][0]["toks"][0]["style"] = {"primary": "#FF0000"}
+    d = m.serialize_cues_v2(p)
+    p2 = m.make_project_v2(CFG); m.apply_cues_v2(p2, d)
+    g_ok = p2["layout"][0]["style"] == {"font": "Arial", "fontsize": 80}
+    c_ok = p2["layout"][0]["lines"][0]["toks"][0]["style"] == {"primary": "#FF0000"}
+    return (g_ok and c_ok), f"group={g_ok} cue={c_ok}"
+
 for name, fn in list(globals().items()):
     if name.startswith("t_"): check(name, fn)
 npass = sum(1 for ok, *_ in results if ok)
