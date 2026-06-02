@@ -25,7 +25,31 @@ def t_build_server_lists_tools():
               "generate_ass", "render_frame", "burn", "burn_status", "undo", "redo", "load_lyrics"}
     return (needed <= tnames), f"missing={needed - tnames}"
 
-for n, f in [("build_server_lists_tools", t_build_server_lists_tools)]:
+def t_http_serve_and_connect():
+    if not HAVE: return True, "SKIP: mcp not installed"
+    import time, asyncio
+    from mcp_server.context import HeadlessContext
+    from mcp_server.server import serve_http
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    port = 8791
+    stop = serve_http(ctx, host="127.0.0.1", port=port, token=None, in_thread=True)
+    time.sleep(1.5)
+    try:
+        from mcp.client.sse import sse_client
+        from mcp.client.session import ClientSession
+        async def go():
+            async with sse_client(f"http://127.0.0.1:{port}/sse") as (r, w):
+                async with ClientSession(r, w) as s:
+                    await s.initialize()
+                    tl = await s.list_tools()
+                    return {t.name for t in tl.tools}
+        names = asyncio.new_event_loop().run_until_complete(go())
+        return ("get_state" in names and "set_group_style" in names), f"tools={len(names)}"
+    finally:
+        stop()
+
+for n, f in [("build_server_lists_tools", t_build_server_lists_tools),
+             ("http_serve_and_connect", t_http_serve_and_connect)]:
     check(n, f)
 npass = sum(1 for ok, *_ in results if ok)
 for ok, n, d in results: print(f"[{'PASS' if ok else 'FAIL'}] {n}" + ("" if ok else f"  -> {d}"))

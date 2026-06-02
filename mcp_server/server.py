@@ -95,3 +95,33 @@ def build_server(ctx, name="karaoke-subtitle-studio"):
 
 def serve_stdio(ctx):
     build_server(ctx).run(transport="stdio")
+
+
+def serve_http(ctx, host="127.0.0.1", port=8765, token=None, in_thread=False):
+    import uvicorn
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        raise ValueError("MCP HTTP endpoint is loopback-only")
+    mcp = build_server(ctx)
+    app = mcp.sse_app()  # Starlette ASGI app exposing /sse + /messages/
+    if token:
+        from starlette.middleware.base import BaseHTTPMiddleware
+        from starlette.responses import PlainTextResponse
+        class Auth(BaseHTTPMiddleware):
+            async def dispatch(self, request, call_next):
+                if request.headers.get("authorization") != f"Bearer {token}":
+                    return PlainTextResponse("unauthorized", status_code=401)
+                return await call_next(request)
+        app.add_middleware(Auth)
+    config = uvicorn.Config(app, host=host, port=port, log_level="warning")
+    server = uvicorn.Server(config)
+    server.install_signal_handlers = lambda: None  # safe to run off the main thread
+    if not in_thread:
+        server.run()
+        return lambda: None
+    import threading
+    th = threading.Thread(target=server.run, daemon=True)
+    th.start()
+    def stop():
+        server.should_exit = True
+        th.join(timeout=5)
+    return stop
