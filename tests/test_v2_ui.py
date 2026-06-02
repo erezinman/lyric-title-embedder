@@ -24,12 +24,14 @@ def click(pane, lane, line, x=30, ctrl=False):
     ed._click(e, pane, lane, add=ctrl); pump(2)
 
 def drag(pane, lane, lines):
-    """Press on lines[0] then drag (B1-Motion, no modifiers) across the rest."""
+    """Press on lines[0] then drag (B1-Motion, no modifiers) across the rest,
+    then release — mirrors the real event flow (light motion + heavy release)."""
     click(pane, lane, lines[0])
     for ln in lines[1:]:
         bb = pane.bbox(f"{ln}.0")
         e = Ev(); e.x = 20; e.y = bb[1] + 2; e.x_root = 0; e.y_root = 0
-        ed._range_click(e, pane, lane); pump(1)
+        ed._range_click(e, pane, lane, light=True); pump(1)
+    ed._drag_release(); pump(1)
 
 def reset():
     app._reload_groups(); pump(4); ed.collapsed.clear(); ed.reload(); pump(2)

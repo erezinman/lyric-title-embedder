@@ -501,6 +501,7 @@ class CueTableEditor(ctk.CTkToplevel):
         self.sel_groups = set()             # multiple layout headers (for merge)
         self._last_click = None             # (lane, wid) — for click-again drill-down
         self._anchor_ln = None              # row line where a drag/range started
+        self._dragging = False              # in a B1 drag-select (defer heavy refresh)
         self.couple = tk.BooleanVar(value=False)
         self._tip = _ToolTip(self)
         self.theme_name = getattr(app, "_theme", "Dark") or "Dark"
@@ -545,7 +546,8 @@ class CueTableEditor(ctk.CTkToplevel):
             pane.bind("<Button-1>", lambda e, p=pane, ln=lane: self._click(e, p, ln))
             pane.bind("<Control-Button-1>", lambda e, p=pane, ln=lane: self._click(e, p, ln, add=True))
             pane.bind("<Shift-Button-1>", lambda e, p=pane, ln=lane: self._range_click(e, p, ln))
-            pane.bind("<B1-Motion>", lambda e, p=pane, ln=lane: self._range_click(e, p, ln))
+            pane.bind("<B1-Motion>", lambda e, p=pane, ln=lane: self._range_click(e, p, ln, light=True))
+            pane.bind("<ButtonRelease-1>", lambda e: self._drag_release())
             pane.bind("<Motion>", lambda e, p=pane, ln=lane: self._hover(e, p, ln))
             pane.bind("<Leave>", lambda e: self._tip.hide())
 
@@ -619,6 +621,7 @@ class CueTableEditor(ctk.CTkToplevel):
         if p is None:
             return
         self._validate_selection()
+        yfrac = self.L.yview()[0] if self.rows else 0.0   # preserve scroll position
         words = p["words"]; G = p["globals"]
         for t in (self.L, self.I, self.O):
             t.config(state="normal"); t.delete("1.0", "end")
@@ -672,6 +675,8 @@ class CueTableEditor(ctk.CTkToplevel):
                     self.rows.append(("word", gi, li, ti, wid))
         for t in (self.L, self.I, self.O):
             t.config(state="disabled")
+            t.yview_moveto(yfrac)            # restore scroll position (no view reset)
+        self.vsb.set(*self.L.yview())
         self._apply_selection_highlight()
         self._refresh_props()
         # reflect globals
@@ -708,9 +713,11 @@ class CueTableEditor(ctk.CTkToplevel):
         ln = int(idx.split(".")[0]) - 1
         return ln if 0 <= ln < len(self.rows) else None
 
-    def _range_click(self, ev, pane, lane):
+    def _range_click(self, ev, pane, lane, light=False):
         """Shift-click or click-drag: select the range of rows from the press
-        anchor to here (no modifier needed for drag)."""
+        anchor to here (no modifier needed for drag). During a drag (`light`),
+        only the cheap highlight is updated; the property panel / preview-couple
+        refresh is deferred to <ButtonRelease> to avoid per-motion lag."""
         ln = self._row_at(pane, ev)
         if ln is None or self._anchor_ln is None:
             return
@@ -728,13 +735,25 @@ class CueTableEditor(ctk.CTkToplevel):
             self.sel_group = next((r[1] for r in rng if r[0] == "word"), None)
         else:
             return
-        self._after_select()
+        if light:
+            self._dragging = True
+            self._apply_selection_highlight()   # cheap; full refresh on release
+        else:
+            self._after_select()
+
+    def _drag_release(self):
+        if self._dragging:
+            self._dragging = False
+            self._refresh_props()               # heavy work once, after the drag
+            if self.couple.get():
+                self._scrub_to_selection()
 
     def _click(self, ev, pane, lane, add=False):
         ln = self._row_at(pane, ev)
         if ln is None:
             return
         self._anchor_ln = ln          # establish anchor for a subsequent drag/shift-click
+        self._dragging = False
         row = self.rows[ln]
         if row[0] == "hdr":
             gi = row[1]
