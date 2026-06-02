@@ -658,7 +658,9 @@ class CueTableEditor(ctk.CTkToplevel):
                 s = e = 0.0
             arrow = "▸" if gi in self.collapsed else "▾"
             dd = "  (deleted)" if g.get("del") else ""
-            self._row(self.L, f"{arrow} [{g['label']}] {s:.2f}-{e:.2f} {g.get('accumulate','words')}{dd}", "hdr")
+            gcol = gi % len(p["palette"])     # colour each event (layout group) like the fade lanes
+            self._row(self.L, f"{arrow} [{g['label']}] {s:.2f}-{e:.2f} {g.get('accumulate','words')}{dd}",
+                      "hdr", gcol)
             self._row(self.I, "", None); self._row(self.O, "", None)
             self.rows.append(("hdr", gi))
             if gi in self.collapsed:
@@ -670,7 +672,7 @@ class CueTableEditor(ctk.CTkToplevel):
                     txt = base.token_text(words, tok).strip() or "∅"
                     last_in_line = (ti == len(ln["toks"]) - 1)
                     lmark = " ⏎" if (last_in_line and li < len(g["lines"]) - 1) else ""
-                    self._row(self.L, "   " + txt + lmark, "del" if tok.get("del") else "ovr")
+                    self._row(self.L, "   " + txt + lmark, "del" if tok.get("del") else "ovr", gcol)
                     # pad fade cells to full column width so the group colour
                     # renders as a solid bar (a Text tag only paints behind text)
                     d, st, col = fin_disp(wid, ts); self._row(self.I, (" " + d).ljust(21), st, col)
