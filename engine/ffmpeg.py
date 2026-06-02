@@ -22,6 +22,18 @@ def probe_duration(path):
     except Exception:
         return None
 
+def frame_cmd(video_in, ass_path, time_s, w, h, out_png):
+    """Render one exact libass frame at time_s to out_png. If video_in is None,
+    use a solid dark canvas of w x h (so a preview works without footage)."""
+    af = _escape_ass(ass_path)
+    if video_in:
+        src = ["-ss", f"{time_s:.3f}", "-copyts", "-i", video_in]
+    else:
+        src = ["-ss", f"{time_s:.3f}", "-copyts", "-f", "lavfi",
+               "-i", f"color=c=#202024:s={int(w)}x{int(h)}:d={max(time_s + 1, 1):.1f}"]
+    return [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", *src,
+            "-vf", f"ass='{af}'", "-frames:v", "1", out_png]
+
 def run(cmd, total, progress_cb):
     """Run an ffmpeg -progress command; call progress_cb(frac in 0..0.999) as it
     advances. Returns (ok, err_text). No Tk — caller adapts to its event loop."""

@@ -557,17 +557,11 @@ class App(ctk.CTk):
                 f.write(ass_text)
             out_png = os.path.join(tempfile.gettempdir(), "_ks_preview.png")
             t = self.time_var.get()
-            ass_f = tmp_ass.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
-            pw, ph = cfg["play_w"], cfg["play_h"]
-            dur = total_duration(self._groups)
-            if os.path.isfile(self.vid_var.get()):
-                src = ["-ss", f"{t:.3f}", "-copyts", "-i", self.vid_var.get()]
-            else:
-                src = ["-ss", f"{t:.3f}", "-copyts", "-f", "lavfi",
-                       "-i", f"color=c=#202024:s={pw}x{ph}:d={dur:.1f}"]
-            vf = f"ass='{ass_f}',scale={PREVIEW_W}:{self.canvas_h}"
-            cmd = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", *src,
-                   "-vf", vf, "-frames:v", "1", out_png]
+            vid = self.vid_var.get() if os.path.isfile(self.vid_var.get()) else None
+            cmd = engine.ffmpeg.frame_cmd(vid, tmp_ass, t,
+                                          cfg["play_w"], cfg["play_h"], out_png)
+            vi = cmd.index("-vf")
+            cmd[vi + 1] = cmd[vi + 1] + f",scale={PREVIEW_W}:{self.canvas_h}"
             p = subprocess.run(cmd, capture_output=True, text=True)
             if p.returncode != 0:
                 self.log("Error: preview: " + p.stderr[-400:]); return

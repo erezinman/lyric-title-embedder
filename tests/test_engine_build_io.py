@@ -466,6 +466,16 @@ def t_serialize_apply_build_ass_equivalence():
         first_diff = None
     return ok, f"identical={ok} first_diff={first_diff}"
 
+def t_frame_cmd_shape():
+    import engine.ffmpeg as f, core
+    c = f.frame_cmd("/tmp/in.mp4", "/tmp/x.ass", 13.0, 1920, 1080, "/tmp/o.png")
+    assert c[0] == core.FFMPEG and c[-1] == "/tmp/o.png"
+    assert "-ss" in c and "13.000" in c and any("ass='" in a for a in c)
+    assert "/tmp/in.mp4" in c and "-frames:v" in c
+    c2 = f.frame_cmd(None, "/tmp/x.ass", 0.0, 640, 360, "/tmp/o2.png")
+    return (any("lavfi" in a for a in c2) and any("color=" in a for a in c2)
+            and any("640x360" in a for a in c2)), f"len={len(c)} len2={len(c2)}"
+
 def t_fin_tag_ids_preserved_in_roundtrip():
     """fin_tag word IDs survive serialize → apply (as a set)."""
     p, _ = fresh()
