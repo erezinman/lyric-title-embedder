@@ -23,6 +23,14 @@ def click(pane, lane, line, x=30, ctrl=False):
     e = Ev(); e.x = x; e.y = bb[1] + 2; e.x_root = 0; e.y_root = 0
     ed._click(e, pane, lane, add=ctrl); pump(2)
 
+def drag(pane, lane, lines):
+    """Press on lines[0] then drag (B1-Motion, no modifiers) across the rest."""
+    click(pane, lane, lines[0])
+    for ln in lines[1:]:
+        bb = pane.bbox(f"{ln}.0")
+        e = Ev(); e.x = 20; e.y = bb[1] + 2; e.x_root = 0; e.y_root = 0
+        ed._range_click(e, pane, lane); pump(1)
+
 def reset():
     app._reload_groups(); pump(4); ed.collapsed.clear(); ed.reload(); pump(2)
 
@@ -62,6 +70,16 @@ def t_group_fadein():
     ed._group(); pump(2)
     t = app._project["fin_tags"]
     return (len(t) == 1 and t[0]["ids"] == ids), f"tags={[sorted(x['ids']) for x in t]}"
+
+def t_drag_group_fadein():
+    wrows = [i + 1 for i, r in enumerate(ed.rows) if r[0] == "word"][:4]
+    ids = {ed.rows[l - 1][4] for l in wrows}
+    drag(ed.I, "fin_tags", wrows)          # plain click-drag, no modifiers
+    sel_ok = ed.sel_ids == ids
+    ed._group(); pump(2)
+    t = app._project["fin_tags"]
+    return (sel_ok and len(t) == 1 and t[0]["ids"] == ids), \
+        f"sel_ok={sel_ok} tags={[sorted(x['ids']) for x in t]}"
 
 def t_click_group_then_drill():
     wrows = [i + 1 for i, r in enumerate(ed.rows) if r[0] == "word"][:3]
@@ -232,6 +250,7 @@ tests = [
     ("click selects word (fade-in)", t_click_selects_word),
     ("ctrl-click multi-select", t_ctrl_multiselect),
     ("group fade-in tag", t_group_fadein),
+    ("drag-select fade-in group (no modifiers)", t_drag_group_fadein),
     ("click group then drill to word", t_click_group_then_drill),
     ("collapse/expand hides rows", t_collapse_hides_rows),
     ("layout merge adjacent", t_layout_merge_adjacent),

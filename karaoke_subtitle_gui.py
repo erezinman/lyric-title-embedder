@@ -500,6 +500,7 @@ class CueTableEditor(ctk.CTkToplevel):
         self.sel_group = None               # gi for layout props
         self.sel_groups = set()             # multiple layout headers (for merge)
         self._last_click = None             # (lane, wid) — for click-again drill-down
+        self._anchor_ln = None              # row line where a drag/range started
         self.couple = tk.BooleanVar(value=False)
         self._tip = _ToolTip(self)
         self.theme_name = getattr(app, "_theme", "Dark") or "Dark"
@@ -543,6 +544,8 @@ class CueTableEditor(ctk.CTkToplevel):
         for pane, lane in ((self.I, "fin_tags"), (self.O, "fout_tags"), (self.L, "layout")):
             pane.bind("<Button-1>", lambda e, p=pane, ln=lane: self._click(e, p, ln))
             pane.bind("<Control-Button-1>", lambda e, p=pane, ln=lane: self._click(e, p, ln, add=True))
+            pane.bind("<Shift-Button-1>", lambda e, p=pane, ln=lane: self._range_click(e, p, ln))
+            pane.bind("<B1-Motion>", lambda e, p=pane, ln=lane: self._range_click(e, p, ln))
             pane.bind("<Motion>", lambda e, p=pane, ln=lane: self._hover(e, p, ln))
             pane.bind("<Leave>", lambda e: self._tip.hide())
 
@@ -705,10 +708,33 @@ class CueTableEditor(ctk.CTkToplevel):
         ln = int(idx.split(".")[0]) - 1
         return ln if 0 <= ln < len(self.rows) else None
 
+    def _range_click(self, ev, pane, lane):
+        """Shift-click or click-drag: select the range of rows from the press
+        anchor to here (no modifier needed for drag)."""
+        ln = self._row_at(pane, ev)
+        if ln is None or self._anchor_ln is None:
+            return
+        lo, hi = sorted((self._anchor_ln, ln))
+        rng = [self.rows[i] for i in range(lo, hi + 1) if 0 <= i < len(self.rows)]
+        gids = {r[1] for r in rng if r[0] == "hdr"}
+        wids = {r[4] for r in rng if r[0] == "word"}
+        self._last_click = None; self.sel_word = None
+        if lane == "layout" and gids and not wids:        # range of event headers → merge target
+            self.sel_lane = "layout"; self.sel_groups = gids; self.sel_ids = set()
+            self.sel_group = min(gids)
+        elif wids:                                         # range of words → fade group / delete
+            self.sel_lane = "word" if lane == "layout" else lane
+            self.sel_ids = wids; self.sel_groups = set()
+            self.sel_group = next((r[1] for r in rng if r[0] == "word"), None)
+        else:
+            return
+        self._after_select()
+
     def _click(self, ev, pane, lane, add=False):
         ln = self._row_at(pane, ev)
         if ln is None:
             return
+        self._anchor_ln = ln          # establish anchor for a subsequent drag/shift-click
         row = self.rows[ln]
         if row[0] == "hdr":
             gi = row[1]
