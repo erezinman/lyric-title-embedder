@@ -133,10 +133,26 @@ header misalignment).
 - Default file paths resolve relative to the script dir (`HERE`); run batch scripts from the repo
   root so `aligned_lyrics.json` is found.
 
+## UI toolkit (customtkinter)
+- The **main window chrome is customtkinter** (`App(ctk.CTk)`): `CTkScrollableFrame` (left controls),
+  `CTkButton`/`CTkEntry`/`CTkOptionMenu`/`CTkComboBox`/`CTkCheckBox`/`CTkSlider`/`CTkProgressBar`/
+  `CTkTextbox`. API differences are wrapped in `ctk_labelframe()` and `ctk_spin()` helpers.
+  `tk.Canvas` (preview), `tk.Text` (editor lanes), `tk.Listbox` (font picker) stay — no ctk equivalent.
+- **Theme** (`Light/Dark/System`) drives both `ctk.set_appearance_mode(...)` and the editor's tk.Text
+  pane colors; chosen in the editor toolbar, saved in presets.
+- The **v2 Cue Table editor is still themed-ttk** inside its window (the `clam` style is recolored per
+  theme in `CueTableEditor._apply_theme`). Its dynamic property panels build ttk widgets read back via
+  `grid_slaves`; converting them to ctk is a clean follow-up but wasn't done to avoid churn.
+- **v1's `CueEditor` (tree)** remains ttk — v1 is the fallback app.
+- ctk gotchas hit during migration: progress bar uses `.set(0..1)` not `["value"]`; `CTkProgressBar`/
+  `CTkSlider` need `.bind("<ButtonRelease-1>")` for release; readonly combobox → `CTkOptionMenu`,
+  editable → `CTkComboBox` (both take `command=`, not `<<ComboboxSelected>>`); color swatches are
+  `CTkButton(fg_color=...)` updated via `.configure(fg_color=...)`; labels use `text_color`, not
+  `foreground`; there is no Spinbox (use `ctk_spin`) or LabelFrame (use `ctk_labelframe`).
+
 ## Roadmap / open ideas
-- **customtkinter** migration for a nicer look (would be a managed dep; uncomment in `pyproject.toml`).
-  Note: the editor's 3-pane `tk.Text` table relies on raw Text tag styling — customtkinter wraps tk
-  widgets, so the table likely stays `tk.Text` while chrome (buttons/frames/combos) becomes ctk.
+- Convert the v2 editor's internals (toolbar/property panels/global panel) from themed-ttk to ctk for
+  full visual consistency.
 - Layout-lane word **reordering / moving words between events** (drag).
 - Per-event `\pos` override (currently `\pos` is global from the placement box).
 - A proper packaged entry point (`ksstudio` console script) if/when it becomes a real package.

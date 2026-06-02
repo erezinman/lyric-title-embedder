@@ -19,6 +19,7 @@ Run:  python3 karaoke_subtitle_gui_v2.py
 import os, json, copy, tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import tkinter.font as tkfont
+import customtkinter as ctk
 import karaoke_subtitle_gui as base
 
 ESC = base.esc
@@ -380,8 +381,8 @@ class AppV2(base.App):
         for k, v in (d.get("colors") or {}).items():
             if k in self._color:
                 self._color[k] = v
-        self.b1.config(bg=self._color["primary"]); self.b2.config(bg=self._color["outline"])
-        self.b3.config(bg=self._color["back"]); self._resync_canvas()
+        self.b1.configure(fg_color=self._color["primary"]); self.b2.configure(fg_color=self._color["outline"])
+        self.b3.configure(fg_color=self._color["back"]); self._resync_canvas()
 
     # ── cue-model mutations (used by the editor) ──
     def words_in_layout(self):
@@ -644,7 +645,9 @@ class CueTableEditor(tk.Toplevel):
             t.tag_configure("inh", foreground=th["inh"], font=("monospace", 10, "italic"))
             t.tag_configure("ovr", foreground=th["ovr"], font=("monospace", 10))
             t.tag_configure("del", foreground=th["del"], overstrike=True, font=("monospace", 10, "italic"))
-        # ttk look (affects the whole app chrome; that's intended)
+        # customtkinter appearance for the (ctk) main window chrome
+        ctk.set_appearance_mode({"Light": "light", "Dark": "dark", "System": "system"}.get(name, "dark"))
+        # ttk look for this editor's themed-ttk widgets (affects app-wide ttk too)
         style = ttk.Style()
         if th["ttk"]:
             try:

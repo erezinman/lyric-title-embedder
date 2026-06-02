@@ -12,6 +12,10 @@ import json, os, re, shutil, subprocess, tempfile, threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, colorchooser
 import tkinter.font as tkfont
+import customtkinter as ctk
+
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FFMPEG = shutil.which("ffmpeg") or "/usr/bin/ffmpeg"
@@ -331,7 +335,38 @@ ANCHOR = {1: "sw", 2: "s", 3: "se", 4: "w", 5: "center", 6: "e", 7: "nw", 8: "n"
 PREVIEW_W = 720
 HANDLE = 7
 
-class App(tk.Tk):
+
+# ── customtkinter helpers (encapsulate the ctk vs ttk API differences) ──
+def ctk_labelframe(parent, title):
+    """A titled card. Returns (outer, body); pack `outer`, put children in `body`."""
+    outer = ctk.CTkFrame(parent)
+    ctk.CTkLabel(outer, text=title, anchor="w",
+                 font=ctk.CTkFont(size=13, weight="bold")).pack(fill="x", padx=10, pady=(6, 2))
+    body = ctk.CTkFrame(outer, fg_color="transparent")
+    body.pack(fill="both", expand=True, padx=6, pady=(0, 8))
+    return outer, body
+
+def ctk_spin(parent, var, lo, hi, command=None, width=64):
+    """Integer spinbox: entry + −/+ buttons (ctk has no Spinbox)."""
+    fr = ctk.CTkFrame(parent, fg_color="transparent")
+    e = ctk.CTkEntry(fr, textvariable=var, width=width); e.pack(side="left")
+    def bump(d):
+        try:
+            cur = int(float(var.get()))
+        except (ValueError, tk.TclError):
+            cur = lo
+        var.set(max(lo, min(hi, cur + d)))
+        if command:
+            command()
+    ctk.CTkButton(fr, text="−", width=26, command=lambda: bump(-1)).pack(side="left", padx=(4, 0))
+    ctk.CTkButton(fr, text="+", width=26, command=lambda: bump(1)).pack(side="left", padx=(2, 0))
+    if command:
+        e.bind("<Return>", lambda *_: command())
+        e.bind("<FocusOut>", lambda *_: command())
+    return fr
+
+
+class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Karaoke Subtitle Studio")
@@ -352,47 +387,39 @@ class App(tk.Tk):
 
     # ── layout: controls (left, scrollable) | preview (right) ──
     def _build(self):
-        main = ttk.Frame(self); main.pack(fill="both", expand=True)
-        paned = ttk.PanedWindow(main, orient="horizontal"); paned.pack(fill="both", expand=True, padx=6, pady=6)
-
-        # left: scrollable controls
-        left_wrap = ttk.Frame(paned, width=500); paned.add(left_wrap, weight=0)
-        lcan = tk.Canvas(left_wrap, borderwidth=0, highlightthickness=0, width=480)
-        vsb = ttk.Scrollbar(left_wrap, orient="vertical", command=lcan.yview)
-        controls = ttk.Frame(lcan)
-        controls.bind("<Configure>", lambda e: lcan.configure(scrollregion=lcan.bbox("all")))
-        lcan.create_window((0, 0), window=controls, anchor="nw")
-        lcan.configure(yscrollcommand=vsb.set)
-        lcan.pack(side="left", fill="both", expand=True); vsb.pack(side="right", fill="y")
-        lcan.bind_all("<MouseWheel>", lambda e: lcan.yview_scroll(int(-e.delta / 120), "units"))
-        lcan.bind_all("<Button-4>", lambda e: lcan.yview_scroll(-1, "units"))
-        lcan.bind_all("<Button-5>", lambda e: lcan.yview_scroll(1, "units"))
-
-        # right: preview
-        right = ttk.Frame(paned); paned.add(right, weight=1)
+        main = ctk.CTkFrame(self, fg_color="transparent"); main.pack(fill="both", expand=True, padx=6, pady=6)
+        main.grid_columnconfigure(0, weight=0)
+        main.grid_columnconfigure(1, weight=1)
+        main.grid_rowconfigure(0, weight=1)
+        controls = ctk.CTkScrollableFrame(main, width=500, label_text="")
+        controls.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        right = ctk.CTkFrame(main, fg_color="transparent")
+        right.grid(row=0, column=1, sticky="nsew")
 
         self._build_io(controls)
         self._build_style(controls)
         self._build_preview(right)
 
-        bar = ttk.Frame(self); bar.pack(fill="x", padx=8, pady=(0, 6))
-        ttk.Button(bar, text="Edit cues…", command=self.open_editor).pack(side="left")
-        ttk.Button(bar, text="Generate .ass", command=self.on_generate).pack(side="left", padx=6)
-        ttk.Button(bar, text="Generate + Burn video", command=self.on_burn).pack(side="left", padx=6)
-        ttk.Button(bar, text="Save preset", command=self.on_save_preset).pack(side="left", padx=6)
-        ttk.Button(bar, text="Load preset", command=self.on_load_preset).pack(side="left")
-        ttk.Button(bar, text="Quit", command=self.destroy).pack(side="right")
-        pf = ttk.Frame(self); pf.pack(fill="x", padx=8, pady=(0, 2))
-        self.prog = ttk.Progressbar(pf, maximum=100, mode="determinate")
-        self.prog.pack(side="left", fill="x", expand=True)
-        self.prog_lbl = ttk.Label(pf, text="", width=14); self.prog_lbl.pack(side="left", padx=6)
-        self.status = tk.Text(self, height=4, wrap="word", state="disabled", bg="#111", fg="#0f0")
+        bar = ctk.CTkFrame(self, fg_color="transparent"); bar.pack(fill="x", padx=8, pady=(0, 6))
+        ctk.CTkButton(bar, text="Edit cues…", command=self.open_editor).pack(side="left")
+        ctk.CTkButton(bar, text="Generate .ass", command=self.on_generate).pack(side="left", padx=6)
+        ctk.CTkButton(bar, text="Generate + Burn video", command=self.on_burn).pack(side="left", padx=6)
+        ctk.CTkButton(bar, text="Save preset", command=self.on_save_preset).pack(side="left", padx=6)
+        ctk.CTkButton(bar, text="Load preset", command=self.on_load_preset).pack(side="left")
+        ctk.CTkButton(bar, text="Quit", fg_color="#883333", hover_color="#aa4444",
+                      command=self.destroy).pack(side="right")
+        pf = ctk.CTkFrame(self, fg_color="transparent"); pf.pack(fill="x", padx=8, pady=(0, 2))
+        self.prog = ctk.CTkProgressBar(pf); self.prog.set(0)
+        self.prog.pack(side="left", fill="x", expand=True, pady=4)
+        self.prog_lbl = ctk.CTkLabel(pf, text="", width=110, anchor="w"); self.prog_lbl.pack(side="left", padx=6)
+        self.status = ctk.CTkTextbox(self, height=88, wrap="word", text_color="#3fdc3f")
         self.status.pack(fill="x", padx=8, pady=(0, 8))
+        self.status.configure(state="disabled")
         if not HAS_FFMPEG:
             self.log("⚠ ffmpeg not found — exact preview/burn disabled; tkinter approximation only.")
 
     def _build_io(self, parent):
-        f = ttk.LabelFrame(parent, text="Input / Output"); f.pack(fill="x", padx=8, pady=6)
+        outer, f = ctk_labelframe(parent, "Input / Output"); outer.pack(fill="x", padx=8, pady=6)
         self.json_var = tk.StringVar(value=os.path.join(HERE, "aligned_lyrics.json"))
         self.ass_var  = tk.StringVar(value=os.path.join(HERE, "karaoke.ass"))
         self.vid_var  = tk.StringVar(value="")
@@ -402,15 +429,15 @@ class App(tk.Tk):
                 ("Input video (optional)", self.vid_var, "open", [("Video", "*.mp4 *.mov *.mkv *.webm"), ("All", "*.*")]),
                 ("Output video", self.out_var, "save", ".mp4")]
         for r, (lab, var, kind, arg) in enumerate(rows):
-            ttk.Label(f, text=lab).grid(row=r, column=0, sticky="w", padx=6, pady=3)
-            ttk.Entry(f, textvariable=var, width=34).grid(row=r, column=1, padx=4)
+            ctk.CTkLabel(f, text=lab, anchor="w").grid(row=r, column=0, sticky="w", padx=6, pady=3)
+            ctk.CTkEntry(f, textvariable=var, width=250).grid(row=r, column=1, padx=4)
             cmd = (lambda v=var, a=arg: self._pick(v, a)) if kind == "open" else (lambda v=var, a=arg: self._save(v, a))
-            ttk.Button(f, text="…", width=3, command=cmd).grid(row=r, column=2)
+            ctk.CTkButton(f, text="…", width=30, command=cmd).grid(row=r, column=2)
         self.vid_var.trace_add("write", lambda *_: (self._update_bg(), self._refresh_preview()))
         self.json_var.trace_add("write", lambda *_: self._reload_groups())
 
     def _build_style(self, parent):
-        f = ttk.LabelFrame(parent, text="Style"); f.pack(fill="x", padx=8, pady=6)
+        outer, f = ctk_labelframe(parent, "Style"); outer.pack(fill="x", padx=8, pady=6)
         pad = {"padx": 6, "pady": 3}
         self.font_var   = tk.StringVar(value="DejaVu Sans")
         self.size_var   = tk.IntVar(value=64)
@@ -430,65 +457,63 @@ class App(tk.Tk):
         self.border_var = tk.IntVar(value=1)
         self.backa_var  = tk.StringVar(value="80")
 
-        def L(t, r): ttk.Label(f, text=t).grid(row=r, column=0, sticky="w", **pad)
-        def S(v, a, b, r): ttk.Spinbox(f, from_=a, to=b, textvariable=v, width=10,
-                                       command=self._refresh_preview).grid(row=r, column=1, sticky="w", **pad)
+        def L(t, r): ctk.CTkLabel(f, text=t, anchor="w").grid(row=r, column=0, sticky="w", **pad)
+        def S(v, a, b, r, cmd=None):
+            ctk_spin(f, v, a, b, command=(cmd or self._refresh_preview)).grid(row=r, column=1, sticky="w", **pad)
         r = 0
         L("Font family", r)
-        fr = ttk.Frame(f); fr.grid(row=r, column=1, columnspan=2, sticky="w", **pad)
-        self.font_combo = ttk.Combobox(fr, textvariable=self.font_var, width=22)
+        fr = ctk.CTkFrame(f, fg_color="transparent"); fr.grid(row=r, column=1, columnspan=2, sticky="w", **pad)
+        self.font_combo = ctk.CTkComboBox(fr, variable=self.font_var, width=170,
+                                          command=lambda *_: self._refresh_preview())
         self.font_combo.pack(side="left")
-        self.font_combo.bind("<<ComboboxSelected>>", lambda *_: self._refresh_preview())
-        ttk.Button(fr, text="Choose…", command=self._choose_font).pack(side="left", padx=4); r += 1
+        ctk.CTkButton(fr, text="Choose…", width=70, command=self._choose_font).pack(side="left", padx=4); r += 1
         L("Font size", r); S(self.size_var, 8, 300, r); r += 1
-        L("Bold", r); ttk.Checkbutton(f, variable=self.bold_var, command=self._refresh_preview).grid(row=r, column=1, sticky="w", **pad); r += 1
+        L("Bold", r); ctk.CTkCheckBox(f, text="", variable=self.bold_var, command=self._refresh_preview).grid(row=r, column=1, sticky="w", **pad); r += 1
         L("Alignment (anchor)", r)
-        cb = ttk.Combobox(f, textvariable=self.align_var, values=list(ALIGN_LABELS), width=18, state="readonly")
-        cb.grid(row=r, column=1, sticky="w", **pad); cb.bind("<<ComboboxSelected>>", lambda *_: self._on_align()); r += 1
-        L("Free placement (\\pos)", r); ttk.Checkbutton(f, variable=self.pos_var, command=self._refresh_preview).grid(row=r, column=1, sticky="w", **pad); r += 1
+        ctk.CTkOptionMenu(f, variable=self.align_var, values=list(ALIGN_LABELS), width=170,
+                          command=lambda *_: self._on_align()).grid(row=r, column=1, sticky="w", **pad); r += 1
+        L("Free placement (\\pos)", r); ctk.CTkCheckBox(f, text="", variable=self.pos_var, command=self._refresh_preview).grid(row=r, column=1, sticky="w", **pad); r += 1
         L("Fade-in (ms/word)", r); S(self.fade_var, 0, 3000, r); r += 1
         L("Group by", r)
-        gb = ttk.Combobox(f, textvariable=self.group_var, values=["section", "line"], width=10, state="readonly")
-        gb.grid(row=r, column=1, sticky="w", **pad); gb.bind("<<ComboboxSelected>>", lambda *_: self._reload_groups()); r += 1
-        L("Skip '---' lines", r); ttk.Checkbutton(f, variable=self.skip_var, command=self._reload_groups).grid(row=r, column=1, sticky="w", **pad); r += 1
-        ttk.Separator(f, orient="horizontal").grid(row=r, column=0, columnspan=3, sticky="ew", pady=6); r += 1
+        ctk.CTkOptionMenu(f, variable=self.group_var, values=["section", "line"], width=110,
+                          command=lambda *_: self._reload_groups()).grid(row=r, column=1, sticky="w", **pad); r += 1
+        L("Skip '---' lines", r); ctk.CTkCheckBox(f, text="", variable=self.skip_var, command=self._reload_groups).grid(row=r, column=1, sticky="w", **pad); r += 1
         L("Canvas W × H", r)
-        wh = ttk.Frame(f); wh.grid(row=r, column=1, columnspan=2, sticky="w", **pad)
-        ttk.Spinbox(wh, from_=320, to=7680, textvariable=self.pw_var, width=6, command=self._resync_canvas).pack(side="left")
-        ttk.Label(wh, text=" × ").pack(side="left")
-        ttk.Spinbox(wh, from_=240, to=4320, textvariable=self.ph_var, width=6, command=self._resync_canvas).pack(side="left"); r += 1
-        L("Margin L / R / V", r)
-        mg = ttk.Frame(f); mg.grid(row=r, column=1, columnspan=2, sticky="w", **pad)
-        for v in (self.ml_var, self.mr_var, self.mv_var):
-            ttk.Spinbox(mg, from_=0, to=2000, textvariable=v, width=5,
-                        command=lambda: (self._box_from_margins(), self._refresh_preview())).pack(side="left", padx=2); r += 1
-        ttk.Separator(f, orient="horizontal").grid(row=r, column=0, columnspan=3, sticky="ew", pady=6); r += 1
+        wh = ctk.CTkFrame(f, fg_color="transparent"); wh.grid(row=r, column=1, columnspan=2, sticky="w", **pad)
+        ctk_spin(wh, self.pw_var, 320, 7680, command=self._resync_canvas, width=60).pack(side="left")
+        ctk.CTkLabel(wh, text="×").pack(side="left", padx=4)
+        ctk_spin(wh, self.ph_var, 240, 4320, command=self._resync_canvas, width=60).pack(side="left"); r += 1
+        for lab, v in (("Margin L", self.ml_var), ("Margin R", self.mr_var), ("Margin V", self.mv_var)):
+            L(lab, r); S(v, 0, 2000, r, cmd=lambda: (self._box_from_margins(), self._refresh_preview())); r += 1
         L("Text color", r)
-        self.b1 = tk.Button(f, bg=self._color["primary"], width=4, command=lambda: self._pick_color("primary", self.b1))
+        self.b1 = ctk.CTkButton(f, text="", width=44, fg_color=self._color["primary"],
+                                command=lambda: self._pick_color("primary", self.b1))
         self.b1.grid(row=r, column=1, sticky="w", **pad); r += 1
         L("Outline color", r)
-        self.b2 = tk.Button(f, bg=self._color["outline"], width=4, command=lambda: self._pick_color("outline", self.b2))
+        self.b2 = ctk.CTkButton(f, text="", width=44, fg_color=self._color["outline"],
+                                command=lambda: self._pick_color("outline", self.b2))
         self.b2.grid(row=r, column=1, sticky="w", **pad); r += 1
         L("Box/shadow color", r)
-        self.b3 = tk.Button(f, bg=self._color["back"], width=4, command=lambda: self._pick_color("back", self.b3))
+        self.b3 = ctk.CTkButton(f, text="", width=44, fg_color=self._color["back"],
+                                command=lambda: self._pick_color("back", self.b3))
         self.b3.grid(row=r, column=1, sticky="w", **pad); r += 1
-        L("Box alpha (00=opaque…FF=clear)", r); ttk.Entry(f, textvariable=self.backa_var, width=6).grid(row=r, column=1, sticky="w", **pad); r += 1
-        L("Border style (1=outline,3=box)", r); S(self.border_var, 1, 3, r); r += 1
+        L("Box alpha (00…FF)", r); ctk.CTkEntry(f, textvariable=self.backa_var, width=64).grid(row=r, column=1, sticky="w", **pad); r += 1
+        L("Border (1=outline,3=box)", r); S(self.border_var, 1, 3, r); r += 1
         L("Outline width", r); S(self.outline_var, 0, 20, r); r += 1
         L("Shadow depth", r); S(self.shadow_var, 0, 20, r); r += 1
 
     def _build_preview(self, parent):
-        top = ttk.Frame(parent); top.pack(fill="x", padx=6, pady=4)
-        ttk.Label(top, text="Time").pack(side="left")
+        top = ctk.CTkFrame(parent, fg_color="transparent"); top.pack(fill="x", padx=6, pady=4)
+        ctk.CTkLabel(top, text="Time").pack(side="left")
         self.time_var = tk.DoubleVar(value=13.0)
-        self.time_scale = ttk.Scale(top, from_=0, to=60, variable=self.time_var,
-                                    command=lambda *_: self._on_time())
+        self.time_scale = ctk.CTkSlider(top, from_=0, to=60, variable=self.time_var,
+                                        command=lambda *_: self._on_time())
         self.time_scale.pack(side="left", fill="x", expand=True, padx=6)
         self.time_scale.bind("<ButtonRelease-1>", lambda e: self._on_release_time())
-        self.time_lbl = ttk.Label(top, text="0:13.0", width=8); self.time_lbl.pack(side="left")
+        self.time_lbl = ctk.CTkLabel(top, text="0:13.0", width=64); self.time_lbl.pack(side="left")
         self.auto_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(top, text="Auto (libass)", variable=self.auto_var).pack(side="left")
-        ttk.Button(top, text="Render now", command=self._render_exact).pack(side="left", padx=4)
+        ctk.CTkCheckBox(top, text="Auto (libass)", variable=self.auto_var).pack(side="left", padx=4)
+        ctk.CTkButton(top, text="Render now", width=90, command=self._render_exact).pack(side="left", padx=4)
 
         ph, pw = self.ph_var.get(), self.pw_var.get()
         self.canvas_h = int(round(PREVIEW_W * ph / pw))
@@ -498,9 +523,9 @@ class App(tk.Tk):
         self.canvas.bind("<ButtonPress-1>", self._press)
         self.canvas.bind("<B1-Motion>", self._motion)
         self.canvas.bind("<ButtonRelease-1>", self._release)
-        ttk.Label(parent, foreground="#888",
-                  text="Drag inside the box to MOVE • drag a corner/edge handle to RESIZE.\n"
-                       "Free placement (\\pos) gives full vertical control; the dashed box anchors the text.").pack()
+        ctk.CTkLabel(parent, text_color="#888", justify="left",
+                     text="Drag inside the box to MOVE • drag a corner/edge handle to RESIZE.\n"
+                          "Free placement (\\pos) gives full vertical control; the dashed box anchors the text.").pack()
         self.box = [PREVIEW_W * 0.1, self.canvas_h * 0.75, PREVIEW_W * 0.9, self.canvas_h * 0.92]
 
     # ── data ──
@@ -730,7 +755,7 @@ class App(tk.Tk):
 
     # ── preview ──
     def _on_time(self):
-        self.time_lbl.config(text=ass_time(self.time_var.get())[2:])
+        self.time_lbl.configure(text=ass_time(self.time_var.get())[2:])
         self._refresh_preview()
 
     def _set_background(self):
@@ -894,13 +919,14 @@ class App(tk.Tk):
         if self._fonts is None:
             self._fonts = list_font_families()
             self.font_combo.configure(values=self._fonts)
-        dlg = tk.Toplevel(self); dlg.title("Select font"); dlg.transient(self); dlg.grab_set()
-        dlg.geometry("360x460")
+        dlg = ctk.CTkToplevel(self); dlg.title("Select font"); dlg.transient(self)
+        dlg.geometry("360x480"); dlg.after(200, dlg.grab_set)
         flt = tk.StringVar()
-        ttk.Entry(dlg, textvariable=flt).pack(fill="x", padx=8, pady=6)
-        lb = tk.Listbox(dlg, activestyle="dotbox")
+        ctk.CTkEntry(dlg, textvariable=flt, placeholder_text="filter…").pack(fill="x", padx=8, pady=6)
+        lb = tk.Listbox(dlg, activestyle="dotbox", bg="#2b2b2b", fg="#e0e0e0",
+                        highlightthickness=0, selectbackground="#1f6aa5", borderwidth=0)
         lb.pack(fill="both", expand=True, padx=8)
-        prev = tk.Label(dlg, text="Aa Bb Cc 123 — preview", height=2)
+        prev = ctk.CTkLabel(dlg, text="Aa Bb Cc 123 — preview", height=40)
         prev.pack(fill="x", padx=8, pady=6)
 
         def repopulate(*_):
@@ -913,7 +939,7 @@ class App(tk.Tk):
             sel = lb.curselection()
             if sel:
                 fam = lb.get(sel[0])
-                try: prev.config(font=(fam, 18))
+                try: prev.configure(font=ctk.CTkFont(family=fam, size=18))
                 except Exception: pass
         def accept(*_):
             sel = lb.curselection()
@@ -924,9 +950,10 @@ class App(tk.Tk):
         flt.trace_add("write", repopulate)
         lb.bind("<<ListboxSelect>>", on_select)
         lb.bind("<Double-Button-1>", accept)
-        btns = ttk.Frame(dlg); btns.pack(fill="x", padx=8, pady=6)
-        ttk.Button(btns, text="OK", command=accept).pack(side="right")
-        ttk.Button(btns, text="Cancel", command=dlg.destroy).pack(side="right", padx=4)
+        btns = ctk.CTkFrame(dlg, fg_color="transparent"); btns.pack(fill="x", padx=8, pady=6)
+        ctk.CTkButton(btns, text="OK", width=70, command=accept).pack(side="right")
+        ctk.CTkButton(btns, text="Cancel", width=70, fg_color="gray40",
+                      command=dlg.destroy).pack(side="right", padx=4)
         repopulate()
         # preselect current
         cur = self.font_var.get()
@@ -949,15 +976,15 @@ class App(tk.Tk):
     def _pick_color(self, key, btn):
         c = colorchooser.askcolor(color=self._color[key])
         if c and c[1]:
-            self._color[key] = c[1]; btn.config(bg=c[1]); self._refresh_preview()
+            self._color[key] = c[1]; btn.configure(fg_color=c[1]); self._refresh_preview()
     def log(self, msg):
-        self.status.config(state="normal"); self.status.insert("end", msg + "\n")
-        self.status.see("end"); self.status.config(state="disabled"); self.update_idletasks()
+        self.status.configure(state="normal"); self.status.insert("end", msg + "\n")
+        self.status.see("end"); self.status.configure(state="disabled"); self.update_idletasks()
 
     def _set_progress(self, frac, text=None):
         pct = max(0.0, min(100.0, frac * 100))
-        self.prog["value"] = pct
-        self.prog_lbl.config(text=text if text is not None else f"{pct:0.0f}%")
+        self.prog.set(pct / 100.0)
+        self.prog_lbl.configure(text=text if text is not None else f"{pct:0.0f}%")
         self.update_idletasks()
 
     def _probe_duration(self, path):
@@ -1057,7 +1084,7 @@ class App(tk.Tk):
         self.backa_var.set(d.get("back_alpha", self.backa_var.get()))
         for k, v in (d.get("colors") or {}).items():
             if k in self._color: self._color[k] = v
-        self.b1.config(bg=self._color["primary"]); self.b2.config(bg=self._color["outline"]); self.b3.config(bg=self._color["back"])
+        self.b1.configure(fg_color=self._color["primary"]); self.b2.configure(fg_color=self._color["outline"]); self.b3.configure(fg_color=self._color["back"])
         self._resync_canvas()
         self._reload_groups()   # builds the default project from the source
         if d.get("cues"):       # overlay saved cue edits (if same source word count)

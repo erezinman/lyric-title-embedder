@@ -21,6 +21,7 @@ There are also three headless batch scripts (`ass_from_api.py`, `build_from_api.
 | Need | Why | Notes |
 |------|-----|-------|
 | Python 3.10+ with **tkinter** | the GUI | `sudo apt install python3-tk` if missing |
+| **customtkinter** (managed dep) | modern themed UI chrome | installed into the poetry venv |
 | **ffmpeg + libass** | exact libass preview & burning into video | `sudo apt install ffmpeg`; the build must report `--enable-libass` |
 | **ffprobe** | burn progress (input duration) | ships with ffmpeg |
 | **fontconfig** (`fc-list`, `fc-match`) | font picker + per-font sizing | standard on Linux |

@@ -14,8 +14,9 @@ python = "^3.10"
 # font size matches libass exactly. The app degrades gracefully without it
 # (falls back to a 0.82 scale factor).
 pillow = ">=9.0"
-# Optional future UI toolkit (see CLAUDE.md "Roadmap"). Uncomment to enable:
-# customtkinter = ">=5.2"
+# Modern Tk-based UI toolkit — the app chrome (windows, buttons, entries,
+# option-menus, sliders, progress bar) is built with customtkinter.
+customtkinter = "^5.2.2"
 
 [tool.poetry.group.dev.dependencies]
 # No hard dev deps: the UI test suite (tests/test_v2_ui.py) uses only stdlib
