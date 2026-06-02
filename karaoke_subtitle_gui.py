@@ -22,6 +22,8 @@ import customtkinter as ctk
 import app_base as base
 import engine
 from engine.model import make_project, _tag_of, BUILTIN, PALETTE
+from engine.render import project_to_render
+project_to_render_v2 = project_to_render
 make_project_v2 = make_project          # back-compat name used elsewhere/tests
 
 ESC = base.esc
@@ -39,81 +41,6 @@ THEMES = {
                "del": "#aaaaaa", "hdr": "#003399", "palette": _LIGHT_PALETTE},
 }
 
-
-def project_to_render_v2(project):
-    """Bake the model into v1-shaped render-groups. All fade behaviour is
-    resolved into per-word start_s (appearance) + fout_at, so the v1 preview
-    and a uniform build can consume it."""
-    words = project["words"]
-    G = project["globals"]
-    g_fin = G.get("fade_in_ms", BUILTIN["fade_in_ms"])
-    g_fout = G.get("fade_out_ms", BUILTIN["fade_out_ms"])
-    g_ling = G.get("linger", BUILTIN["linger"])
-    fin, fout = project["fin_tags"], project["fout_tags"]
-    out = []
-    for g in project["layout"]:
-        if g.get("del"):
-            continue
-        acc = g.get("accumulate", "words")
-        rlines, allspans, fade_ends = [], [], []
-        # window base needs to know all token starts first; collect per line
-        line_tokens = []
-        for line in g["lines"]:
-            toks = [t for t in line["toks"] if not t.get("del")]
-            line_tokens.append(toks)
-        # group/window base times
-        all_ids = [i for toks in line_tokens for t in toks for i in t["ids"]]
-        if not all_ids:
-            continue
-        base_s = min(words[i]["start"] for i in all_ids)
-        base_e = max(words[i]["end"] for i in all_ids)
-        win_s = g["win_start"] if g.get("win_start") is not None else base_s
-        ling = g["linger"] if g.get("linger") is not None else g_ling
-        win_e = g["win_end"] if g.get("win_end") is not None else base_e + ling
-        # line first-token start (for 'lines' accumulate)
-        for toks in line_tokens:
-            if not toks:
-                continue
-            line_first = min(words[i]["start"] for t in toks for i in t["ids"])
-            rws = []
-            for tok in toks:
-                tstart = min(words[i]["start"] for i in tok["ids"])
-                tend = max(words[i]["end"] for i in tok["ids"])
-                wid0 = tok["ids"][0]
-                # appearance time (fade-in)
-                if acc == "off":
-                    appear = win_s
-                elif acc == "lines":
-                    appear = line_first
-                else:
-                    appear = tstart
-                fin_ms = g_fin
-                ti, ftag = _tag_of(fin, wid0)
-                if ftag is not None:                       # appear-together override
-                    appear = ftag["trigger"] if ftag.get("trigger") is not None \
-                        else min(words[i]["start"] for i in ftag["ids"] if i < len(words))
-                    fin_ms = ftag["dur"] if ftag.get("dur") is not None else g_fin
-                # fade-out
-                fo_at, fo_ms = None, g_fout
-                oi, otag = _tag_of(fout, wid0)
-                if otag is not None:
-                    fo_at = otag["trigger"] if otag.get("trigger") is not None \
-                        else max(words[i]["end"] for i in otag["ids"] if i < len(words))
-                    fo_ms = otag["dur"] if otag.get("dur") is not None else g_fout
-                    fade_ends.append(fo_at + fo_ms / 1000.0)
-                rws.append({"text": base.token_text(words, tok), "start_s": appear, "end_s": tend,
-                            "fin_ms": fin_ms, "fout_at": fo_at, "fout_ms": fo_ms})
-                allspans.append((tstart, tend))
-            if rws:
-                rlines.append({"words": rws})
-        if not rlines:
-            continue
-        ev_e = win_e
-        if fade_ends:
-            ev_e = max(ev_e, max(fade_ends))
-        out.append({"start": win_s, "end": ev_e, "accumulate": "words", "lines": rlines})
-    out.sort(key=lambda r: r["start"])
-    return out
 
 
 def build_ass_v2(cfg, groups):
