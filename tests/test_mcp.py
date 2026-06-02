@@ -88,6 +88,27 @@ def t_delete_restore_words():
     tok_restored = ctx.session.project["layout"][d1[0]]["lines"][d1[1]]["toks"][d1[2]]["del"]
     return (tok_deleted is True and tok_restored is False), "delete/restore ok"
 
+def t_globals_tools():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.set_globals(ctx, {"font": "Arial", "fontsize": 50})
+    g = tools.get_globals(ctx)
+    return (g["font"] == "Arial" and g["fontsize"] == 50), f"g={g['font']}/{g['fontsize']}"
+
+def t_project_save_load_roundtrip():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.set_group_style(ctx, 0, {"font": "Arial"}); tools.set_globals(ctx, {"fontsize": 77})
+    path = "/tmp/_mcp_proj.json"; tools.save_project(ctx, path)
+    ctx2 = HeadlessContext(); ctx2.load_lyrics("aligned_lyrics.json")
+    tools.load_project(ctx2, path)
+    return (ctx2.session.project["layout"][0]["style"].get("font") == "Arial"
+            and tools.get_globals(ctx2)["fontsize"] == 77), "roundtrip ok"
+
+def t_generate_ass_to_file_and_text():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    txt = tools.generate_ass(ctx)
+    p = "/tmp/_mcp.ass"; tools.generate_ass(ctx, p)
+    return ("Dialogue:" in txt and os.path.isfile(p) and open(p).read().count("Dialogue:") > 0), "ass ok"
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)

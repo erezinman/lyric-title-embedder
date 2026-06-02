@@ -152,3 +152,45 @@ def set_fade_defaults(ctx, fade_in_ms=None, fade_out_ms=None, linger=None):
 def undo(ctx): ctx.run(lambda: ctx.session.undo()); return get_state(ctx)
 
 def redo(ctx): ctx.run(lambda: ctx.session.redo()); return get_state(ctx)
+
+
+def get_globals(ctx): return ctx.get_globals()
+def set_globals(ctx, partial): ctx.set_globals(partial); return ctx.get_globals()
+
+def _project_doc(ctx):
+    g = ctx.get_globals()
+    return {"globals_style": g, "cues_v2": engine.serialize_cues(ctx.session.project)}
+
+def save_project(ctx, path):
+    def f():
+        _require_project(ctx)
+        with open(path, "w", encoding="utf-8") as fh: json.dump(_project_doc(ctx), fh, indent=2)
+        return {"saved": path}
+    return ctx.run(f)
+
+def load_project(ctx, path):
+    def f():
+        _require_project(ctx)   # need a base project with matching nwords (load_lyrics first)
+        d = json.load(open(path, encoding="utf-8"))
+        cues = d.get("cues_v2") or {}
+        nw = cues.get("nwords")
+        cur = len(ctx.session.project["words"])
+        if nw is not None and nw != cur:
+            raise ValueError(f"project nwords mismatch: file has {nw}, current project has {cur} "
+                             f"— load the matching lyrics first")
+        ok = engine.apply_cues(ctx.session.project, cues)
+        if d.get("globals_style"):
+            ctx.set_globals(d["globals_style"])
+        ctx.session.set_project(ctx.session.project)   # fire on_change / reset undo
+        return {"loaded": path, "applied": bool(ok)}
+    return ctx.run(f)
+
+def generate_ass(ctx, path=None):
+    def f():
+        _require_project(ctx)
+        text, n = engine.build_ass(ctx.cfg(), engine.project_to_render(ctx.session.project))
+        if path:
+            with open(path, "w", encoding="utf-8") as fh: fh.write(text)
+            return {"wrote": path, "events": n}
+        return text
+    return ctx.run(f)
