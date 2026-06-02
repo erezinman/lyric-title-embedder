@@ -14,6 +14,7 @@ from tkinter import filedialog, messagebox, colorchooser
 import tkinter.font as tkfont
 import customtkinter as ctk
 from core import *   # HERE, FFMPEG…, helpers, constants (shared, UI-free)
+import engine.ffmpeg
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -611,15 +612,7 @@ class App(ctk.CTk):
         self.update_idletasks()
 
     def _probe_duration(self, path):
-        if not os.path.isfile(FFPROBE):
-            return None
-        try:
-            out = subprocess.run([FFPROBE, "-v", "error", "-show_entries", "format=duration",
-                                  "-of", "default=nokey=1:noprint_wrappers=1", path],
-                                 capture_output=True, text=True, timeout=10).stdout.strip()
-            return float(out)
-        except Exception:
-            return None
+        return engine.ffmpeg.probe_duration(path)
 
     def cfg(self):
         c = {
@@ -732,9 +725,7 @@ class App(ctk.CTk):
             messagebox.showerror("No ffmpeg", "ffmpeg with libass required."); return
         try: self._generate()
         except Exception as e: messagebox.showerror("Generate failed", str(e)); return
-        ass_f = self.ass_var.get().replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
-        cmd = [FFMPEG, "-y", "-hide_banner", "-i", self.vid_var.get(), "-vf", f"ass='{ass_f}'",
-               "-c:a", "copy", "-progress", "pipe:1", "-nostats", self.out_var.get()]
+        cmd = engine.ffmpeg.burn_cmd(self.vid_var.get(), self.ass_var.get(), self.out_var.get())
         total = self._probe_duration(self.vid_var.get()) or total_duration(self._groups) or 1.0
         self._set_progress(0.0, "burning…")
         self.log(f"Burning → {self.out_var.get()}")
@@ -743,20 +734,8 @@ class App(ctk.CTk):
         self._burn_state = {"frac": 0.0, "done": False, "err": None}
 
         def run():
-            try:
-                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            except Exception as e:
-                self._burn_state.update(done=True, err=str(e)); return
-            for line in proc.stdout:                       # ffmpeg -progress key=value stream
-                line = line.strip()
-                if line.startswith("out_time_us=") or line.startswith("out_time_ms="):
-                    try:
-                        secs = int(line.split("=")[1]) / 1_000_000  # both keys are microseconds
-                        self._burn_state["frac"] = min(secs / total, 0.999)
-                    except (ValueError, ZeroDivisionError):
-                        pass
-            err = proc.stderr.read(); rc = proc.wait()
-            self._burn_state.update(done=True, err=(None if rc == 0 else err))
+            ok, err = engine.ffmpeg.run(cmd, total, lambda f: self._burn_state.__setitem__("frac", f))
+            self._burn_state.update(done=True, err=(None if ok else err))
 
         threading.Thread(target=run, daemon=True).start()
         self.after(120, self._poll_burn)
