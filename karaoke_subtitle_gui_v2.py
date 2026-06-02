@@ -536,12 +536,12 @@ class _ToolTip:
 # ─────────────────────────────────────────────────────────────────────
 # Cue Table Editor — 3 synced panes (layout | fade-in | fade-out)
 # ─────────────────────────────────────────────────────────────────────
-class CueTableEditor(tk.Toplevel):
+class CueTableEditor(ctk.CTkToplevel):
     def __init__(self, app):
         super().__init__(app)
         self.app = app
         self.title("Cue Table — v2")
-        self.geometry("1000x680")
+        self.geometry("1040x700")
         self.transient(app)
         self.collapsed = set()              # collapsed layout-group indices
         self.rows = []                      # line-number -> row meta
@@ -553,7 +553,6 @@ class CueTableEditor(tk.Toplevel):
         self._last_click = None             # (lane, wid) — for click-again drill-down
         self.couple = tk.BooleanVar(value=False)
         self._tip = _ToolTip(self)
-        self._default_ttk = ttk.Style().theme_use()
         self.theme_name = getattr(app, "_theme", "Dark") or "Dark"
         self._build()
         self._apply_theme(self.theme_name)
@@ -563,29 +562,29 @@ class CueTableEditor(tk.Toplevel):
         return self.app._project["globals"]
 
     def _build(self):
-        bar = ttk.Frame(self); bar.pack(fill="x", padx=4, pady=3)
-        ttk.Button(bar, text="↶ Undo", command=self.app.undo).pack(side="left")
-        ttk.Button(bar, text="↷ Redo", command=self.app.redo).pack(side="left", padx=3)
-        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6)
-        ttk.Button(bar, text="Group", command=self._group).pack(side="left")
-        ttk.Button(bar, text="Ungroup", command=self._ungroup).pack(side="left", padx=3)
-        ttk.Button(bar, text="Split event", command=self._split_event).pack(side="left")
-        ttk.Button(bar, text="Delete/Restore", command=self._toggle_del).pack(side="left", padx=3)
-        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6)
-        ttk.Button(bar, text="Break before", command=lambda: self._break(False)).pack(side="left")
-        ttk.Button(bar, text="Break after", command=lambda: self._break(True)).pack(side="left", padx=3)
-        ttk.Button(bar, text="Merge prev •", command=lambda: self._merge("")).pack(side="left")
-        ttk.Button(bar, text="Merge prev ␣", command=lambda: self._merge(" ")).pack(side="left", padx=3)
-        ttk.Checkbutton(bar, text="Preview-couple", variable=self.couple).pack(side="right")
+        bar = ctk.CTkFrame(self, fg_color="transparent"); bar.pack(fill="x", padx=4, pady=4)
+        def sep():
+            ctk.CTkFrame(bar, width=2, height=24, fg_color="gray40").pack(side="left", padx=6)
+        ctk.CTkButton(bar, text="↶ Undo", width=64, command=self.app.undo).pack(side="left")
+        ctk.CTkButton(bar, text="↷ Redo", width=64, command=self.app.redo).pack(side="left", padx=3)
+        sep()
+        ctk.CTkButton(bar, text="Group", width=64, command=self._group).pack(side="left")
+        ctk.CTkButton(bar, text="Ungroup", width=70, command=self._ungroup).pack(side="left", padx=3)
+        ctk.CTkButton(bar, text="Split event", width=80, command=self._split_event).pack(side="left")
+        ctk.CTkButton(bar, text="Delete/Restore", width=100, command=self._toggle_del).pack(side="left", padx=3)
+        sep()
+        ctk.CTkButton(bar, text="Break ▏", width=64, command=lambda: self._break(False)).pack(side="left")
+        ctk.CTkButton(bar, text="▏Break", width=64, command=lambda: self._break(True)).pack(side="left", padx=3)
+        ctk.CTkButton(bar, text="Merge •", width=70, command=lambda: self._merge("")).pack(side="left")
+        ctk.CTkButton(bar, text="Merge ␣", width=70, command=lambda: self._merge(" ")).pack(side="left", padx=3)
+        ctk.CTkCheckBox(bar, text="Preview-couple", variable=self.couple).pack(side="right", padx=4)
         self.theme_var = tk.StringVar(value=self.theme_name)
-        tc = ttk.Combobox(bar, textvariable=self.theme_var, width=8, state="readonly",
-                          values=list(THEMES))
-        tc.pack(side="right", padx=4)
-        tc.bind("<<ComboboxSelected>>", lambda *_: self._apply_theme(self.theme_var.get()))
-        ttk.Label(bar, text="Theme:").pack(side="right")
+        ctk.CTkOptionMenu(bar, variable=self.theme_var, values=list(THEMES), width=92,
+                          command=lambda v: self._apply_theme(v)).pack(side="right", padx=4)
+        ctk.CTkLabel(bar, text="Theme:").pack(side="right")
 
-        mid = ttk.Frame(self); mid.pack(fill="both", expand=True, padx=4)
-        self.vsb = ttk.Scrollbar(mid, orient="vertical", command=self._yview)
+        mid = ctk.CTkFrame(self, fg_color="transparent"); mid.pack(fill="both", expand=True, padx=4)
+        self.vsb = ctk.CTkScrollbar(mid, command=self._yview)
         self.vsb.pack(side="right", fill="y")
         # Each lane = a column frame with its header directly above its pane, so
         # the header always tracks the pane width when the window resizes.
@@ -599,30 +598,31 @@ class CueTableEditor(tk.Toplevel):
             pane.bind("<Leave>", lambda e: self._tip.hide())
 
         # properties
-        self.prop = ttk.LabelFrame(self, text="Properties"); self.prop.pack(fill="x", padx=4, pady=3)
+        outer, self.prop = base.ctk_labelframe(self, "Properties"); outer.pack(fill="x", padx=4, pady=3)
         self._build_props()
 
-        g = ttk.LabelFrame(self, text="Global defaults (changing these updates every inherited value)")
-        g.pack(fill="x", padx=4, pady=3)
+        gouter, g = base.ctk_labelframe(self, "Global defaults (changing these updates every inherited value)")
+        gouter.pack(fill="x", padx=4, pady=3)
         self.g_fin = tk.StringVar(); self.g_fout = tk.StringVar(); self.g_ling = tk.StringVar()
         for c, (lab, var, key) in enumerate((("fade-in ms", self.g_fin, "fade_in_ms"),
                                              ("fade-out ms", self.g_fout, "fade_out_ms"),
                                              ("linger s", self.g_ling, "linger"))):
-            ttk.Label(g, text=lab).grid(row=0, column=c * 2, sticky="e", padx=4, pady=3)
-            e = ttk.Entry(g, textvariable=var, width=8); e.grid(row=0, column=c * 2 + 1, sticky="w")
+            ctk.CTkLabel(g, text=lab).grid(row=0, column=c * 2, sticky="e", padx=4, pady=3)
+            e = ctk.CTkEntry(g, textvariable=var, width=70); e.grid(row=0, column=c * 2 + 1, sticky="w")
             e.bind("<Return>", lambda ev, k=key, v=var: self._set_global(k, v))
             e.bind("<FocusOut>", lambda ev, k=key, v=var: self._set_global(k, v))
 
-        foot = ttk.Frame(self); foot.pack(fill="x", padx=4, pady=3)
-        ttk.Label(foot, foreground="#888",
-                  text="Click a FADE cell = select its group; Ctrl-click = add to selection, then Group. "
-                       "Grey italic = inherited default.").pack(side="left")
-        ttk.Button(foot, text="Close", command=self.destroy).pack(side="right")
+        foot = ctk.CTkFrame(self, fg_color="transparent"); foot.pack(fill="x", padx=4, pady=3)
+        ctk.CTkLabel(foot, text_color="#888", justify="left",
+                     text="Click a FADE cell = select its group; Ctrl-click = add to selection, then Group. "
+                          "Grey italic = inherited default.").pack(side="left")
+        ctk.CTkButton(foot, text="Close", width=70, command=self.destroy).pack(side="right")
 
     def _column(self, parent, title, width, expand):
-        col = ttk.Frame(parent)
+        col = ctk.CTkFrame(parent, fg_color="transparent")
         col.pack(side="left", fill="both", expand=expand)
-        ttk.Label(col, text=title, anchor="w", relief="groove").pack(fill="x")
+        ctk.CTkLabel(col, text=title, anchor="w",
+                     font=ctk.CTkFont(size=12, weight="bold")).pack(fill="x", padx=2)
         return self._mk_text(col, width, expand)
 
     def _mk_text(self, parent, width, expand=True):
@@ -645,24 +645,8 @@ class CueTableEditor(tk.Toplevel):
             t.tag_configure("inh", foreground=th["inh"], font=("monospace", 10, "italic"))
             t.tag_configure("ovr", foreground=th["ovr"], font=("monospace", 10))
             t.tag_configure("del", foreground=th["del"], overstrike=True, font=("monospace", 10, "italic"))
-        # customtkinter appearance for the (ctk) main window chrome
+        # customtkinter appearance drives all chrome (this window + the main app)
         ctk.set_appearance_mode({"Light": "light", "Dark": "dark", "System": "system"}.get(name, "dark"))
-        # ttk look for this editor's themed-ttk widgets (affects app-wide ttk too)
-        style = ttk.Style()
-        if th["ttk"]:
-            try:
-                style.theme_use(th["ttk"])
-                for el in ("TFrame", "TLabel", "TLabelframe", "TLabelframe.Label",
-                           "TCheckbutton", "TButton", "TCombobox", "TScrollbar", "TNotebook"):
-                    style.configure(el, background=th["ttk_bg"], foreground=th["ttk_fg"])
-                style.configure("TButton", foreground=th["ttk_fg"])
-            except tk.TclError:
-                pass
-        else:
-            try:
-                style.theme_use(self._default_ttk)
-            except tk.TclError:
-                pass
         if hasattr(self, "rows"):
             self.reload()
 
@@ -929,7 +913,7 @@ class CueTableEditor(tk.Toplevel):
 
     # ── property panels ──
     def _build_props(self):
-        self.pf = ttk.Frame(self.prop); self.pf.pack(fill="x", padx=4, pady=3)
+        self.pf = ctk.CTkFrame(self.prop, fg_color="transparent"); self.pf.pack(fill="x", padx=4, pady=3)
 
     def _refresh_props(self):
         for w in self.pf.winfo_children():
@@ -937,22 +921,22 @@ class CueTableEditor(tk.Toplevel):
         p = self.app._project
         if self.sel_lane == "layout" and self.sel_group is not None:
             g = p["layout"][self.sel_group]
-            ttk.Label(self.pf, text=f"Layout group [{g['label']}]").grid(row=0, column=0, columnspan=2, sticky="w")
+            ctk.CTkLabel(self.pf, text=f"Layout group [{g['label']}]").grid(row=0, column=0, columnspan=2, sticky="w")
             self._pe("win start (s)", g.get("win_start"), 1, "auto")
             self._pe("win end (s)", g.get("win_end"), 2, "auto")
             self._pe("linger (s)", g.get("linger"), 3, f"{self.G()['linger']:.2f} (global)")
-            ttk.Label(self.pf, text="accumulate").grid(row=4, column=0, sticky="e", padx=4)
+            ctk.CTkLabel(self.pf, text="accumulate").grid(row=4, column=0, sticky="e", padx=4)
             self.acc_v = tk.StringVar(value=g.get("accumulate", "words"))
-            cb = ttk.Combobox(self.pf, textvariable=self.acc_v, width=8, state="readonly",
-                              values=["words", "lines", "off"]); cb.grid(row=4, column=1, sticky="w")
-            ttk.Button(self.pf, text="Apply", command=self._apply_layout).grid(row=5, column=1, sticky="w", pady=3)
+            ctk.CTkOptionMenu(self.pf, variable=self.acc_v, width=90,
+                              values=["words", "lines", "off"]).grid(row=4, column=1, sticky="w")
+            ctk.CTkButton(self.pf, text="Apply", width=70, command=self._apply_layout).grid(row=5, column=1, sticky="w", pady=3)
             self._ws = self.pf.grid_slaves(row=1, column=1)[0]
             self._we = self.pf.grid_slaves(row=2, column=1)[0]
             self._wl = self.pf.grid_slaves(row=3, column=1)[0]
         elif self.sel_lane in ("fin_tags", "fout_tags") and self.sel_ids:
             ti, t = _tag_of(p[self.sel_lane], next(iter(self.sel_ids)))
             lane = "Fade-in" if self.sel_lane == "fin_tags" else "Fade-out"
-            ttk.Label(self.pf, text=f"{lane} group ({len(self.sel_ids)} words)").grid(row=0, column=0, columnspan=3, sticky="w")
+            ctk.CTkLabel(self.pf, text=f"{lane} group ({len(self.sel_ids)} words)").grid(row=0, column=0, columnspan=3, sticky="w")
             words = p["words"]
             if t:
                 if self.sel_lane == "fin_tags":
@@ -961,30 +945,28 @@ class CueTableEditor(tk.Toplevel):
                     deftrig = max(words[i]["end"] for i in t["ids"]); defdur = self.G()["fade_out_ms"]
                 self._pe("trigger (s)", t.get("trigger"), 1, f"{deftrig:.2f} (boundary word)")
                 self._pe("dur (ms)", t.get("dur"), 2, f"{int(defdur)} (global)")
-                ttk.Button(self.pf, text="Apply", command=lambda: self._apply_tag(ti)).grid(row=3, column=1, sticky="w", pady=3)
+                ctk.CTkButton(self.pf, text="Apply", width=70, command=lambda: self._apply_tag(ti)).grid(row=3, column=1, sticky="w", pady=3)
                 self._tg = self.pf.grid_slaves(row=1, column=1)[0]
                 self._td = self.pf.grid_slaves(row=2, column=1)[0]
             else:
-                ttk.Label(self.pf, text="(ungrouped — click Group to create a fade group)").grid(row=1, column=0, columnspan=3, sticky="w")
+                ctk.CTkLabel(self.pf, text="(ungrouped — click Group to create a fade group)").grid(row=1, column=0, columnspan=3, sticky="w")
         elif self.sel_word:
             gi, li, ti, wid = self.sel_word
             tok = p["layout"][gi]["lines"][li]["toks"][ti]
-            ttk.Label(self.pf, text=f"Word: {base.token_text(p['words'], tok).strip()!r}  "
-                                    f"(start {p['words'][wid]['start']:.2f}s)  "
-                                    f"{'[deleted]' if tok.get('del') else ''}").grid(row=0, column=0, sticky="w")
+            ctk.CTkLabel(self.pf, text=f"Word: {base.token_text(p['words'], tok).strip()!r}  "
+                                      f"(start {p['words'][wid]['start']:.2f}s)  "
+                                      f"{'[deleted]' if tok.get('del') else ''}").grid(row=0, column=0, sticky="w")
         else:
-            ttk.Label(self.pf, text="Select a layout header, a fade cell, or a word.").grid(row=0, column=0, sticky="w")
+            ctk.CTkLabel(self.pf, text="Select a layout header, a fade cell, or a word.").grid(row=0, column=0, sticky="w")
 
     def _pe(self, label, value, row, default_hint):
-        ttk.Label(self.pf, text=label).grid(row=row, column=0, sticky="e", padx=4)
-        e = ttk.Entry(self.pf, width=12)
+        ctk.CTkLabel(self.pf, text=label).grid(row=row, column=0, sticky="e", padx=4)
+        e = ctk.CTkEntry(self.pf, width=90)
         if value is not None:
             e.insert(0, f"{value:.2f}" if isinstance(value, float) else str(value))
-        else:
-            e.insert(0, "")
-        e.grid(row=row, column=1, sticky="w")
-        ttk.Label(self.pf, text=f"↳ {default_hint}", foreground="#888",
-                  font=("monospace", 9, "italic")).grid(row=row, column=2, sticky="w", padx=4)
+        e.grid(row=row, column=1, sticky="w", pady=2)
+        ctk.CTkLabel(self.pf, text=f"↳ {default_hint}", text_color="#888",
+                     font=ctk.CTkFont(size=11, slant="italic")).grid(row=row, column=2, sticky="w", padx=4)
 
     @staticmethod
     def _f(entry):

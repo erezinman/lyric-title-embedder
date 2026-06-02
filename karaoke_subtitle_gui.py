@@ -399,6 +399,7 @@ class App(ctk.CTk):
         self._build_io(controls)
         self._build_style(controls)
         self._build_preview(right)
+        self._bind_mousewheel(controls)  # CTkScrollableFrame wheel is flaky on Linux
 
         bar = ctk.CTkFrame(self, fg_color="transparent"); bar.pack(fill="x", padx=8, pady=(0, 6))
         ctk.CTkButton(bar, text="Edit cues…", command=self.open_editor).pack(side="left")
@@ -417,6 +418,24 @@ class App(ctk.CTk):
         self.status.configure(state="disabled")
         if not HAS_FFMPEG:
             self.log("⚠ ffmpeg not found — exact preview/burn disabled; tkinter approximation only.")
+
+    def _bind_mousewheel(self, scroll_frame):
+        """Bind wheel scrolling on a CTkScrollableFrame and all its descendants
+        (ctk's built-in binding misses child widgets on Linux)."""
+        canvas = getattr(scroll_frame, "_parent_canvas", None)
+        if canvas is None:
+            return
+        def on_wheel(e):
+            if getattr(e, "num", None) == 4 or getattr(e, "delta", 0) > 0:
+                canvas.yview_scroll(-1, "units")
+            elif getattr(e, "num", None) == 5 or getattr(e, "delta", 0) < 0:
+                canvas.yview_scroll(1, "units")
+        def bind_tree(w):
+            for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+                w.bind(seq, on_wheel, add="+")
+            for c in w.winfo_children():
+                bind_tree(c)
+        bind_tree(scroll_frame)
 
     def _build_io(self, parent):
         outer, f = ctk_labelframe(parent, "Input / Output"); outer.pack(fill="x", padx=8, pady=6)
