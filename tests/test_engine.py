@@ -65,6 +65,18 @@ def t_set_cue_style_border_ignored():
     st = p["layout"][0]["lines"][0]["toks"][0]["style"]
     return (st == {"primary": "#00FF00"}), f"{st}"   # border_style dropped (C1)
 
+def t_engine_no_tk():
+    import importlib, engine, controller
+    importlib.reload(engine)
+    # engine/controller themselves must not pull tkinter into their namespace:
+    src_ok = True
+    for modname in ("engine.model", "engine.render", "engine.ass", "engine.io",
+                    "engine.mutations", "engine.ffmpeg", "controller"):
+        mod = sys.modules.get(modname)
+        if mod and "tkinter" in getattr(mod, "__dict__", {}):
+            src_ok = False
+    return (src_ok), f"tkinter_in_engine_ns={not src_ok} (loaded elsewhere ok)"
+
 for name, fn in list(globals().items()):
     if name.startswith("t_"): check(name, fn)
 npass = sum(1 for ok, *_ in results if ok)
