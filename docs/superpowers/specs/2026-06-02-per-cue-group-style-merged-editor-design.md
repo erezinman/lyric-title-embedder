@@ -2,31 +2,32 @@
 
 **Date:** 2026-06-02
 **Status:** Approved for planning
-**Repo:** lyric-title-embedder (karaoke-subtitle-studio), branch from `main`
+**Repo:** lyric-title-embedder (karaoke-subtitle-studio), branch `feat/per-cue-group-style` from `main`
 
 ## Context
 
 The app turns Suno word-timed lyrics into styled karaoke `.ass`/`.srt` and burns
-them into video. Today **style is global only** (one font/size/colors/box for the
-whole subtitle), and the cue editor is a **separate pop-out window** (`CueTableEditor`
-Toplevel). The model already resolves *timing* through a `word → tag → global`
-waterfall; styling has no such tiers.
+them into video. Today **style is global only**, the cue editor is a **separate
+pop-out window** (`CueTableEditor`), and the business logic is **interleaved with
+CustomTkinter** in `app_base.App` and as methods on `AppV2`.
 
-This change does three things the user asked for:
+This change delivers three user-requested features and one architectural goal:
 
-1. **Per-cue and per-group style overrides**, resolved through a three-tier
-   waterfall `global < group < cue` (most specific wins) — mirroring the timing
-   model and the v3 design-system Inspector concept.
-2. **Merge the main window and the cue dialog into one window**, adopting the
-   design system's *Timeline-Dock* layout adapted to CustomTkinter (no waveform —
-   that is a deliberate v3-only piece CTk can't render well).
-3. **Unified save/load** that persists global defaults, per-group/per-cue
-   overrides, and all existing cue decisions in one project file.
+1. **Per-cue and per-group style overrides** via a three-tier waterfall
+   `global < group < cue` (most specific wins) — mirroring the existing timing
+   model and the v3 design-system Inspector.
+2. **Merge the main window and the cue dialog into one window** — the design
+   system's *Timeline-Dock* layout adapted to CustomTkinter (no waveform; that is a
+   v3-only piece CTk renders poorly).
+3. **Unified, portable save/load** for global defaults, per-group/per-cue
+   overrides, and all existing cue decisions.
+4. **Full engine extraction** — move ALL business logic into a UI-free engine with
+   a plain-dict contract, so a future Tauri/React v3 (`design-system/HANDOFF_v3.md`)
+   is a **view-only rewrite** that reuses the engine unchanged.
 
-**Road:** extend the existing Python/CustomTkinter app now ("middle way"), but keep
-the model a **forward-compatible superset** so a future Tauri/React v3 (per
-`design-system/HANDOFF_v3.md`) can consume the same shape. Nothing in the current
-model is removed; `old/` (v1) stays runnable and untouched.
+**Road:** extend the CTk app now ("middle way"), model kept as a forward-compatible
+superset. Nothing in the current model is removed; `old/` (v1) stays runnable and
+untouched.
 
 ## Decisions (locked)
 
@@ -34,106 +35,161 @@ model is removed; `old/` (v1) stays runnable and untouched.
 |---|---|
 | Resolution | `global < group < cue`; `None`/absent = inherit |
 | Per-**group** props | font, size, bold, primary/outline/box colors, box alpha, outline width, shadow depth, **box-mode (BorderStyle)** |
-| Per-**cue** props | same set **except box-mode** (see constraint C1) |
-| Placement (align/pos/margins/canvas) | **global only** — no per-group/per-cue |
-| Live preview | **full per-cue** rendering (word-by-word mixed fonts/sizes/colors) |
-| Inspector location | **left-rail tab** (`Style | Inspector`) |
-| Project file paths | **omit** source lyrics/video paths (portable) |
+| Per-**cue** props | same set **except box-mode** (constraint C1) |
+| Placement (align/pos/margins/canvas) | **global only** |
+| Live preview | **full per-cue** (word-by-word mixed fonts/sizes/colors) |
+| Inspector location | **left-rail tab** (`Style \| Inspector`) |
+| Project file paths | **omit** source paths (portable) |
+| **Engine seam** | **full extraction** — UI-free engine + pure mutations + thin controller; view is the only front-end-specific layer |
+| Bottom cue dock | **adjustable height + detachable** to a Toplevel (recovers two-window workflow) |
+| Copy/voice | adopt design-system conventions where free (sentence-case labels, drop log emoji, mono timecodes) |
 
 ### Hard constraints (technical, not preferences)
 
-- **C1 — Box-mode is group-level only.** A `Dialogue` event references exactly one
-  `[V4+ Styles]`, and `BorderStyle` (1=outline vs 3=opaque box) has **no inline
-  override tag**. All cues in one event share its box-mode. Outline width
-  (`\bord`), shadow depth (`\shad`), colors, font, size, bold *are* inline and can
-  be per-cue.
-- **C2 — tk live preview ≠ libass exactly.** Existing caveat; unchanged. The
-  per-cue tk preview is faithful in layout/size/color but glyph metrics still
-  differ from libass; the exact "Render now" path remains ground truth.
+- **C1 — Box-mode is group-level only.** A `Dialogue` references exactly one
+  `[V4+ Styles]`, and `BorderStyle` (1=outline / 3=box) has **no inline override
+  tag**. All cues in one event share box-mode. Outline width (`\bord`), shadow
+  (`\shad`), colors, font, size, bold *are* inline → per-cue OK.
+- **C2 — tk preview ≠ libass exactly.** Existing caveat. The per-cue tk preview is
+  faithful in layout/size/color, but glyph metrics differ; exact "Render now"
+  (libass) stays ground truth.
 
-## Architecture
+## Architecture — full engine extraction
 
-Files: `karaoke_subtitle_gui.py` (model/build/editor), `app_base.py` (shared UI
-engine + preview), `core.py` (helpers — minor). `old/` and the v1 model untouched.
+Layered, with a plain-dict contract. The **view** is the only layer a future v3
+replaces; everything below the line is reused as-is (sidecar / IPC).
 
-### 1. Model (superset — `karaoke_subtitle_gui.py`)
+```
+┌─ engine/  (pure Python, UI-free, JSON-serializable dicts) ─────────────┐
+│  model.py      STYLE_KEYS, BUILTIN, make_project, resolve_style, …      │
+│  render.py     project_to_render  (derive render-groups)                │
+│  ass.py        build_ass  (Styles-by-box-mode + inline running deltas)  │
+│  mutations.py  PURE (project, args) -> project  — every cue/style edit  │
+│  io.py         serialize_project / load_project  (portable file)        │
+│  ffmpeg.py     burn_cmd / frame_cmd + run(cmd, progress_cb), probe       │
+│  (builds on core.py: ass_time, esc, rgb_to_ass, merge_subwords, …)      │
+└─────────────────────────────────────────────────────────────────────────┘
+        ▲ project dict + cfg dict  ← THE contract (file = its serialization)
+┌─ controller.py  (UI-free) ───────────────────────────────────────────┐
+│  Session: holds project + undo/redo (deep-copy); methods snapshot then  │
+│  call engine.mutations; emits an on_change() callback. No tkinter.      │
+└─────────────────────────────────────────────────────────────────────────┘
+        ▲
+┌─ view  (front-end-specific — NOT reused by v3) ──────────────────────┐
+│  app_base.py  CTk widgets, preview canvas (per-cue), drag, dock,        │
+│               after()-polling adapting engine.ffmpeg.run                │
+│  karaoke_subtitle_gui.py  AppV2 = binding only: tk-vars↔cfg, toolbar/   │
+│               rail/dock layout, lanes + inspector, wires a Session      │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
-Add an optional `style` dict at **two levels**. Empty/missing = inherit.
+**Contract (the durable part):**
+- **`project`** dict — `words`, `layout` (events → `lines` → `toks`, each token now
+  with `style`), each event with `style`, `fin_tags`, `fout_tags`, `globals`,
+  `palette`. JSON-serializable.
+- **`cfg`** dict — the global style/placement baseline + resolution context (what
+  tk-vars bind to today; what JSON/IPC carries in v3).
+- The **project file** is `serialize_project(project, cfg-globals, theme, placement)`.
+
+**API stability:** `AppV2` keeps its existing method names (`make_tag`,
+`set_global`, `layout_merge`, …) as **thin pass-throughs** to the controller, so the
+editor code and `tests/test_v2_ui.py` keep working. New methods `set_group_style`,
+`set_cue_style` follow the same pattern.
+
+`old/` (v1) imports only `core.py` and its own UI — **not** the engine — so it stays
+runnable and isolated.
+
+### 1. Model & resolution — `engine/model.py`
 
 ```python
 STYLE_KEYS = ["font","fontsize","bold","primary","outline","back",
               "back_alpha","outline_w","shadow","border_style"]
-# group:  layout[gi]["style"] = {}            # all 10 keys allowed
-# cue:    token["style"]       = {}            # all keys EXCEPT "border_style" (C1)
+CUE_STYLE_KEYS = [k for k in STYLE_KEYS if k != "border_style"]   # C1
+# layout[gi]["style"] = {}   (all keys)        token["style"] = {}   (no border_style)
 ```
+- `make_project`: init `g["style"] = {}` and `tok["style"] = {}`.
+- `resolve_style(token, group, gctx)` → per key: `token.style → group.style → gctx`;
+  `border_style`: `group.style → gctx` only.
 
-- `make_project_v2`: initialize `g["style"] = {}` per event and `tok["style"] = {}`
-  per token.
-- Global tier = existing app controls (`font_var`, `size_var`, `bold_var`,
-  `_color`, `backa_var`, `outline_var`, `shadow_var`, `border_var`).
-- Resolution helper: `resolve_style(token, group, gctx)` → for each key returns
-  `token.style → group.style → gctx[key]`; `border_style` resolves
-  `group.style → gctx` only.
+### 2. Render derivation — `engine/render.py`
 
-### 2. Render-groups (shared contract)
+`project_to_render` (was `project_to_render_v2`) copies through, per render-group, a
+raw `group_style` dict and, per word, a raw cue `style` dict (no resolution here —
+the global context lives in `cfg`, kept lazy). v1 render-groups lack these → `{}`.
 
-Extend the existing render-group shape so both the build and the preview can
-resolve style without new coupling:
+### 3. ASS build — `engine/ass.py`
 
-- each render-group gains `group_style` (raw group override dict),
-- each word gains `style` (raw cue override dict).
+- **Styles-by-box-mode (C1):** emit one `[V4+ Styles]` per distinct *resolved group*
+  `border_style` (e.g. `Default`=outline, `Box`=opaque); each `Dialogue` references
+  the matching one. All other props inline.
+- **Per-word inline running-state deltas:** inline tags persist within an event, so
+  track a `cur` resolved-style state (init = global/Style baseline) and emit a tag
+  for a property only when a word's resolved value (cue→group→global) **differs from
+  the previous word's**. Correct reset + minimal output. Inline tags:
+  `\fn \fs \b \1c \3c \4c \4a \bord \shad`, emitted alongside the unchanged fade
+  tags (`\alpha`, `\t(...)`).
 
-`project_to_render_v2` copies these through (no resolution here — kept lazy so the
-global context lives only in the app's `cfg()`). v1 render-groups simply lack these
-keys → treated as `{}` (old/ stays runnable).
+### 4. Mutations — `engine/mutations.py` (pure)
 
-### 3. ASS build (`build_ass_v2`)
+Every edit becomes `(project, args) -> project` (mutates the passed project; the
+controller deep-copies first for undo). Migrate the current `AppV2` mutations:
+`make_tag, clear_tag, set_tag_props, set_global, set_layout_props, toggle_word_del,
+add_break, merge_prev_word, layout_merge, layout_ungroup, layout_split_event` — plus
+new **`set_group_style(project, gi, partial)`** and **`set_cue_style(project,
+token_ref|ids, partial)`** (drop keys reset to inherit; multi-select applies to every
+token covered by `sel_ids`).
 
-- **Style selection (C1):** compute the set of distinct *resolved group*
-  `border_style` values across events; emit one `[V4+ Styles]` entry per distinct
-  value (e.g. `Default`=outline, `Box`=opaque). Each `Dialogue` references the
-  style matching its group's resolved box-mode. All other style props are inline.
-- **Per-word inline style via running-state deltas (correctness):** inline tags
-  persist within an event, so emit a property tag only when a word's *resolved*
-  value differs from the **previous word's** resolved value (state initialized to
-  the global/Style baseline at event start). This both resets correctly (word B
-  with no override after word A's override re-emits the baseline) and minimizes
-  output. Inline-able tags: `\fn \fs \b \1c \3c \4c \4a \bord \shad`. Existing fade
-  tags (`\alpha`, `\t(...)`) are emitted alongside, unchanged.
-- `cfg` carries the global style baseline (already does) plus is the resolution
-  context for group/cue overrides.
+### 5. Project I/O — `engine/io.py`
 
-### 4. Live preview (`app_base.py` — `_draw_text_approx`)
+- `serialize_project` / `load_project`: today's preset superset + each group's
+  `style` + each token's `style`. **Backward compatible** (missing `style` ⇒ all
+  inherit; keep the `nwords` guard). **Source paths omitted**; loader keeps current
+  paths.
+- Actions renamed **Save project / Load project**.
 
-Rewrite line drawing from "one string per line" to **word-by-word**:
+### 6. ffmpeg — `engine/ffmpeg.py`
 
-- For each line, iterate **all** tokens (appeared and pending) to compute stable x
-  positions (reserve space for not-yet-appeared words, as today).
-- Per word, resolve effective `font/size/bold/primary/outline` (cue→group→global)
-  and build/cache a `tkfont.Font` keyed by `(family, px, bold)`; px uses the
-  existing per-font factor (`_font_px_factor`) and `self.sy()`.
-- Measure each word in its own font; line width = Σ word widths; left edge from the
-  global anchor/alignment. Line height = max `linespace` across the line's fonts.
-- Draw appeared words only: 4-offset outline in the word's outline color + fill in
-  its primary color.
-- Box color/alpha and box-mode are **not** drawn in the tk approx (only visible in
-  the exact libass render) — same as today.
+Extract `burn_cmd(cfg, ass, out)`, `frame_cmd(cfg, ass, t, …)`,
+`probe_duration(path)`, and a headless `run(cmd, progress_cb)` that parses
+`-progress` and calls `progress_cb(frac)` — **no tkinter**. The CTk view keeps its
+`after()`-poll loop but drives it through `run` + a thread, so v3 can reuse `run`
+with a different transport.
 
-### 5. Merged window (`app_base.py` `_build` + dissolve `CueTableEditor`)
+### 7. Controller — `controller.py` (UI-free)
 
-Single window, Timeline-Dock layout (CTk-adapted, no waveform):
+`Session` holds `project` + undo/redo stacks (deep-copy snapshots, the current
+approach) and exposes `do(mutation, *args)` / `undo()` / `redo()` that call
+`engine.mutations` and fire `on_change()`. The CTk App owns a `Session` and
+subscribes `_rebuild_render` to `on_change`.
+
+### 8. View — live preview rewrite (`app_base.py`)
+
+`_draw_text_approx` goes **word-by-word**:
+- Iterate **all** tokens per line (appeared + pending) to compute stable x positions
+  (reserve space for pending words, as today).
+- Per word resolve effective `font/size/bold/primary/outline` (cue→group→global);
+  build/cache a `tkfont.Font` keyed `(family, px, bold)`; px via `_font_px_factor` +
+  `self.sy()`.
+- Line width = Σ word widths; left edge from the global anchor/alignment; line height
+  = max `linespace` across the line's fonts.
+- Draw appeared words only: 4-offset outline (word's outline color) + fill (word's
+  primary). Box color/alpha/box-mode not drawn in tk (exact render only) — as today.
+
+### 9. View — merged window + dock ergonomics (`app_base.py`)
+
+Single window, Timeline-Dock (CTk-adapted, no waveform):
 
 ```
-Toolbar:  brand .......... undo/redo   Theme ▾
+Toolbar:  brand .......... Undo Redo   Theme ▾
 ┌ left rail (CTkTabview: Style | Inspector) ┬ center: time slider + preview ┐
 │  Style:    IO + global font/size/bold/    │   draggable placement box      │
 │            align/colors/outline/shadow/    │                               │
 │            box + global fade defaults      │                               │
 │  Inspector: selection waterfall            │                               │
 │            WORD(cue) / GROUP / GLOBAL      │                               │
-├───────────────────────────────────────────┴───────────────────────────────┤
-│ Cue toolbar: Group · Ungroup · Split · Delete · Break · Merge · Undo · Redo │
-│  LAYOUT · cue/words │ FADE-IN │ FADE-OUT      (the existing 3 synced lanes)  │
+├═══════════ adjustable separator ══════════╧═══════════════════════════════┤
+│ Cue toolbar: Group · Ungroup · Split · Delete · Break · Merge   [Detach ⧉] │
+│  LAYOUT · cue/words │ FADE-IN │ FADE-OUT      (the 3 synced lanes)          │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │ Generate .ass · Burn · Save project · Load project · Quit                    │
 │ [progress]   status log                                                      │
@@ -141,73 +197,62 @@ Toolbar:  brand .......... undo/redo   Theme ▾
 ```
 
 - `CueTableEditor` (Toplevel) is **dissolved** into the main window: its 3 lanes +
-  cue toolbar become the **bottom dock**; its property/inspector + global-fade
-  defaults move into the left rail **Inspector** / **Style** tabs. Preserve:
-  selection model, drag/shift/ctrl multiselect, click-again drill-down,
-  scroll-preservation, tooltips, themes, undo/redo, `_validate_selection`.
-- `open_editor` / the separate window go away; `_editor` references are replaced by
-  in-window panel state. (v1 in `old/` keeps its own Toplevel editor.)
+  cue toolbar → bottom dock; its property/inspector + global-fade defaults → left
+  rail.
+- **Dock height adjustable** (draggable separator, or collapse + a couple of presets)
+  so lanes-vs-preview isn't a fixed compromise.
+- **Detach dock** toggle pops the dock back into a Toplevel for the old two-window /
+  multi-monitor workflow — making the merge purely additive.
+- **Preserve explicitly:** selection model, drag/shift/ctrl multiselect, click-again
+  drill-down, **collapsible layout groups (▸/▾)**, **preview-couple (scrub-to-
+  selection)**, scroll-preservation, tooltips, themes, undo/redo,
+  `_validate_selection`.
 
-### 6. Inspector — per-cue / per-group style editing (left rail)
+### 10. View — Inspector (left rail), tiered style editing
 
-The Inspector tab shows tiers by selection (matches the design system):
+Tiers by selection (matches the design system Inspector):
+- **WORD (cue)** — selected token: per-cue overrides; each field shows the resolved
+  group/global value as the grey-italic inherited hint; blank/"inherit" clears.
+- **GROUP** — selected header (or the parent of the selected word): per-group
+  overrides incl. box-mode + existing `win_start/win_end/linger/accumulate`;
+  inherited hint = global.
+- **GLOBAL** — read-only reflection of the global defaults (edited in the Style tab).
 
-- **WORD (cue)** tier — when a token row is selected: editable overrides for all
-  per-cue props; each field shows the **resolved group/global value** as the
-  grey-italic inherited hint; blank/"inherit" clears the override.
-- **GROUP** tier — when a layout header is selected (or always shown as the parent
-  of the selected word): the per-group overrides incl. box-mode; inherited hint =
-  global. Plus existing `win_start/win_end/linger/accumulate`.
-- **GLOBAL** tier — read-only reflection of the global defaults (edited in the
-  Style tab).
+Controls: numeric entries with grey global hint (reuse `_pe`); font = combo +
+Choose…; bold/border_style = tri-state option menu (`inherit / …`); colors = swatch
+with an **inherit** state + clear-to-inherit. Grey-italic = inherited, solid =
+overridden. Edits call `AppV2.set_group_style` / `set_cue_style` → controller.
 
-Controls: numeric entries (size/outline_w/shadow) with grey global hint (reuse
-`_pe`); font = combo + Choose…; bold/border_style = tri-state option menu
-(`inherit / …`); colors = swatch button with an **inherit** state (faint global
-color) + a clear-to-inherit affordance. Grey-italic = inherited, solid = overridden
-(existing convention).
+### 11. Copy / voice (minor, in-scope)
 
-New undo-tracked mutations on `AppV2`:
-`set_group_style(gi, partial)` and `set_cue_style(token_ref, partial)` →
-update the relevant `style` dict (drop keys set back to inherit) → `_rebuild_render()`.
-Multi-select word style apply: set the override on every token covered by `sel_ids`.
+Adopt the cheap design-system conventions: **sentence-case** UI labels, **no emoji**
+in the status log (replace `✓ ✗ ⚠` with text + semantic color), **timecodes/values
+in monospace**. No restructuring beyond labels/log strings.
 
-### 7. Save / load → unified project file
+## Out of scope (v3 / Tauri)
 
-- Rename actions **Save project / Load project** (was Save/Load preset).
-- File = today's preset superset: global style + global fade defaults + placement
-  (align/pos/margins/canvas) + theme + `cues_v2` extended with each group's `style`
-  and each token's `style`.
-- **Backward compatible:** old presets load (missing `style` ⇒ all inherit).
-- Source lyrics/video paths **not stored**; loader keeps current paths.
-- `serialize_cues_v2` / `apply_cues_v2`: add `style` round-trip for groups and
-  tokens; preserve the existing `nwords` guard.
-
-## Out of scope
-
-- Animation presets (Bounce/Pop/Glow/Typewriter), waveform/word-block timeline,
-  Project Library, synthwave look — all v3 (Tauri) per HANDOFF; not in CTk.
-- Per-group/per-cue **placement** (position/alignment/margins) — global only.
-- Per-cue **box-mode** — impossible inline (C1).
+Animation presets, waveform/word-block timeline, Project Library, synthwave skin;
+per-group/per-cue **placement**; per-cue **box-mode** (C1).
 
 ## Verification
 
-1. **Run:** `python3 karaoke_subtitle_gui.py` (with `.venv`/poetry). Load
-   `aligned_lyrics.json`. Confirm single merged window; left-rail Style|Inspector;
-   bottom 3-lane dock; preview + drag still work.
-2. **Per-group:** select an event header → set group font/size/color/box-mode →
-   live preview + "Render now" reflect it for that event only; other events
-   unchanged.
-3. **Per-cue:** select a word row → set a different font/size/color → live preview
-   shows that single word differing within its line; "Render now" matches; a
-   sibling word with no override keeps the group/global style (delta-reset works).
-4. **Waterfall:** changing a global default updates every inherited (non-overridden)
-   value live; clearing an override reverts that field to the inherited grey value.
-5. **Build:** generated `.ass` has the right number of `[V4+ Styles]` (one per
-   distinct group box-mode) and correct inline tags; libass burn renders without
-   error.
-6. **Project file:** Save project → Load project round-trips global + group + cue
-   style and all cue decisions; an old preset (no `style`) still loads as all-inherit.
-7. **Tests:** `python3 tests/test_v2_ui.py` passes, including new cases:
-   group/cue style set/clear/inherit, multi-select style apply, project round-trip
-   with style, build emits correct Styles + inline deltas. `old/` v1 still launches.
+1. **Run:** `python3 karaoke_subtitle_gui.py`. Load `aligned_lyrics.json`. Single
+   merged window; left-rail Style|Inspector; bottom 3-lane dock; adjustable + Detach;
+   preview + drag work.
+2. **Per-group:** select a header → set font/size/color/box-mode → live preview +
+   "Render now" reflect it for that event only.
+3. **Per-cue:** select a word → different font/size/color → live preview shows that
+   one word differing within its line; "Render now" matches; a sibling with no
+   override keeps group/global (delta-reset works).
+4. **Waterfall:** changing a global default updates every inherited value live;
+   clearing an override reverts to the grey inherited value.
+5. **Build:** `.ass` has one `[V4+ Styles]` per distinct group box-mode + correct
+   inline deltas; libass burn runs clean.
+6. **Project file:** Save → Load round-trips global + group + cue style and all cue
+   decisions; an old preset (no `style`) loads as all-inherit; no paths stored.
+7. **Engine isolation:** `import engine` and `controller` succeed with tkinter
+   absent (e.g. a headless smoke test that builds a project, mutates, derives,
+   `build_ass`, serialize/load — no DISPLAY needed).
+8. **Tests:** `python3 tests/test_v2_ui.py` passes incl. new cases (group/cue style
+   set/clear/inherit, multi-select apply, project round-trip with style, build Styles
+   + inline deltas, detachable dock selection paths). `old/` v1 still launches.
