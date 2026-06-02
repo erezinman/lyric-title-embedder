@@ -232,6 +232,27 @@ class AppV2(base.App):
         if not self._session.do("layout_merge", set(gidxs)):
             self.log("Merge events: select adjacent layout groups")
 
+    def start_mcp(self, port=8765, token=None):
+        try:
+            from mcp_server.context import UIContext
+            from mcp_server.server import serve_http
+        except Exception as e:
+            self.log(f"Error: MCP server unavailable (install the 'mcp' extra): {e}"); return
+        self._mcp_ctx = UIContext(self)
+        self._mcp_stop = serve_http(self._mcp_ctx, host="127.0.0.1", port=port, token=token, in_thread=True)
+        self.log(f"OK: MCP endpoint on http://127.0.0.1:{port}/sse")
+
+    def destroy(self):
+        stop = getattr(self, "_mcp_stop", None)
+        if stop:
+            try: stop()
+            except Exception: pass
+        ctx = getattr(self, "_mcp_ctx", None)
+        if ctx is not None:
+            try: ctx.close()
+            except Exception: pass
+        super().destroy()
+
 
 class _ToolTip:
     """Delayed hover tooltip shared across the editor's panes."""
@@ -913,4 +934,12 @@ class CueDock(ctk.CTkFrame):
 
 
 if __name__ == "__main__":
-    AppV2().mainloop()
+    import argparse, os
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--mcp", action="store_true", help="serve a live MCP endpoint")
+    ap.add_argument("--mcp-port", type=int, default=8765)
+    args, _ = ap.parse_known_args()
+    app = AppV2()
+    if args.mcp:
+        app.after(400, lambda: app.start_mcp(args.mcp_port, os.environ.get("KSS_MCP_TOKEN")))
+    app.mainloop()

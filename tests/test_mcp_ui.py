@@ -34,8 +34,33 @@ def t_ui_globals_write_tkvars():
     pump(3)
     return (app.size_var.get() == 72 and ctx.cfg()["fontsize"] == 72), f"size={app.size_var.get()}"
 
+def t_ui_http_live_update():
+    import time, asyncio, threading
+    from mcp_server.context import UIContext
+    from mcp_server.server import serve_http
+    uctx = UIContext(app)
+    port = 8792
+    stop = serve_http(uctx, host="127.0.0.1", port=port, in_thread=True)
+    out = {}
+    def client():
+        from mcp.client.sse import sse_client
+        from mcp.client.session import ClientSession
+        async def go():
+            async with sse_client(f"http://127.0.0.1:{port}/sse") as (r, w):
+                async with ClientSession(r, w) as s:
+                    await s.initialize()
+                    await s.call_tool("set_group_style", {"gi": 0, "partial": {"fontsize": 123}})
+        asyncio.new_event_loop().run_until_complete(go()); out["done"] = True
+    th = threading.Thread(target=client); th.start()
+    for _ in range(200):                       # pump main loop so the marshaled op runs
+        app.update(); time.sleep(0.02)
+        if out.get("done"): break
+    th.join(3); stop()
+    return (app._project["layout"][0]["style"].get("fontsize") == 123), f"style={app._project['layout'][0]['style']}"
+
 for n, f in [("ui_run_marshals_and_updates", t_ui_run_marshals_and_updates),
-             ("ui_globals_write_tkvars", t_ui_globals_write_tkvars)]:
+             ("ui_globals_write_tkvars", t_ui_globals_write_tkvars),
+             ("ui_http_live_update", t_ui_http_live_update)]:
     check(n, f); pump(3)
 npass = sum(1 for ok, *_ in results if ok)
 for ok, n, d in results: print(f"[{'PASS' if ok else 'FAIL'}] {n}" + ("" if ok else f"  -> {d}"))
