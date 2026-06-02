@@ -550,6 +550,9 @@ class CueTableEditor(ctk.CTkToplevel):
             pane.bind("<ButtonRelease-1>", lambda e: self._drag_release())
             pane.bind("<Motion>", lambda e, p=pane, ln=lane: self._hover(e, p, ln))
             pane.bind("<Leave>", lambda e: self._tip.hide())
+        # Delete key = delete/restore the current selection (unless typing in a field)
+        for seq in ("<Delete>", "<KP_Delete>", "<BackSpace>"):
+            self.bind(seq, self._key_delete)
 
         # properties
         outer, self.prop = base.ctk_labelframe(self, "Properties"); outer.pack(fill="x", padx=4, pady=3)
@@ -747,6 +750,12 @@ class CueTableEditor(ctk.CTkToplevel):
             self._refresh_props()               # heavy work once, after the drag
             if self.couple.get():
                 self._scrub_to_selection()
+
+    def _key_delete(self, ev):
+        # let the Delete key edit text normally when a field has focus
+        if isinstance(self.focus_get(), tk.Entry):
+            return
+        self._toggle_del()
 
     def _click(self, ev, pane, lane, add=False):
         ln = self._row_at(pane, ev)
