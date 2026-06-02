@@ -1,7 +1,7 @@
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # so aligned_lyrics.json default resolves
-import karaoke_subtitle_gui_v2 as v2
+import karaoke_subtitle_gui as v2
 import time
 
 app = v2.AppV2()

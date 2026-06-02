@@ -56,23 +56,33 @@ Suno API  ──►  aligned_lyrics.json  ──►  reconstruct_lines + merge_s
 
 Flat modules (no package; `package-mode = false` in poetry). Run scripts directly.
 
-- **`karaoke_subtitle_gui.py` (v1, ~1400 lines)** — the engine + a tree-based cue editor:
-  - Pure helpers: `ass_time`, `esc`, `rgb_to_ass`, `reconstruct_lines`, `merge_subwords`,
-    `token_text/token_span`, `is_dashes`, `list_font_families`, `total_duration`.
-  - `App` (tk.Tk): scrollable style controls, the **preview canvas with the draggable placement
-    box**, libass exact-render, **ffmpeg burn with progress** (worker thread + main-thread poller),
-    preset save/load, the **per-font preview sizing factor** (`_font_px_factor`, uses Pillow).
-  - v1 model: `make_project`/`project_to_render`/`build_ass`, `CueEditor` (Treeview, line=dict with
-    `toks`+`fout_at`, per-line fade-out, group fade_out, linger).
-- **`karaoke_subtitle_gui_v2.py` (v2, ~1000 lines)** — **subclasses `base.App`** and reuses all of
-  its engine. It overrides only the model/build/editor:
-  - `make_project_v2` / `project_to_render_v2` / `build_ass_v2`, `serialize_cues_v2` / `apply_cues_v2`.
-  - `AppV2`: swaps in the v2 model, v2 build, undo/redo stack, v2 preset (`cues_v2` + `theme`).
-  - `CueTableEditor`: the 3-lane `tk.Text` table, themes, tooltips.
-  - Key trick: **v2's render-groups keep v1's shape** `{start,end,accumulate,lines:[{words:[{text,
-    start_s,end_s,fin_ms,fout_at,fout_ms}]}]}`, so v1's preview/approximation/burn just work. All
-    fade behavior is **baked into per-word `start_s`/`fout_at`** in `project_to_render_v2`, so
-    `build_ass_v2` is uniform (no per-mode branching).
+Split into shared layers + two front-ends:
+
+- **`core.py`** — UI-free shared logic (no tkinter): `ass_time`, `esc`, `rgb_to_ass`,
+  `reconstruct_lines`, `merge_subwords`, `token_text/token_span`, `is_dashes`, `full_text_at`,
+  `total_duration`, `list_font_families`, and constants (`HERE`, `FFMPEG/FFPROBE/HAS_FFMPEG`,
+  `FC_LIST/FC_MATCH`, `LIBASS_INK_AT_100`, `ALIGN_LABELS`, `ANCHOR`, `PREVIEW_W`, `HANDLE`).
+- **`app_base.py`** — shared **UI engine**: `class App(ctk.CTk)` (scrollable style controls,
+  draggable preview canvas, libass exact-render, **ffmpeg burn with progress** via worker-thread +
+  main-thread poller, preset save/load, per-font sizing `_font_px_factor`), plus the ctk helpers
+  `ctk_labelframe`/`ctk_spin`. `from core import *` re-exports core, so subclasses can `import
+  app_base as base` and use `base.<anything>`. The engine is model-agnostic via **hooks**:
+  `_make_project`, `_project_to_render`, `_build_ass`, `_load_cues`, `_on_project_loaded`,
+  `open_editor` (each front-end supplies them); `_reload_groups`/`_rebuild_render`/`_generate`/
+  `_render_exact`/`on_load_preset`/`_apply_style_preset` are generic.
+- **`karaoke_subtitle_gui.py`** (THE app) — `import app_base as base`; `class AppV2(base.App)` provides
+  the v2 model hooks (`make_project_v2`/`project_to_render_v2`/`build_ass_v2`,
+  `serialize_cues_v2`/`apply_cues_v2`), the **tag-based v2 model**, `CueTableEditor` (3-lane `tk.Text`
+  table), themes (`set_theme`), undo/redo, the top toolbar.
+- **`old/karaoke_subtitle_gui.py`** — archived v1: `class App(app_base.App)` providing the v1 model
+  hooks (`make_project`/`project_to_render`/`build_ass`) + `CueEditor` (Treeview, line=dict with
+  `toks`+`fout_at`, per-line fade-out, group fade_out, linger). Adds the project root to `sys.path`
+  so it can `import core`/`app_base` when run as `python old/karaoke_subtitle_gui.py`.
+
+**Render-group shape (the contract both apps emit for the engine):**
+`{start, end, accumulate, lines:[{words:[{text, start_s, end_s, [fin_ms, fout_at, fout_ms]}]}]}`.
+The v2 model **bakes all fade behavior into per-word `start_s`/`fout_at`** in `project_to_render_v2`,
+so `build_ass_v2` is uniform (no per-mode branching).
 
 ### v2 model (the source of truth)
 ```python

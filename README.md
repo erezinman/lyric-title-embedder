@@ -4,15 +4,20 @@ Turn word-timed lyrics (Suno `aligned_lyrics.json`) into **styled, per-word fade
 subtitles** as `.ass` (libass) or `.srt`, with a **live draggable preview** over your video and
 a **3-lane cue editor** for fine control of layout, fade-in, and fade-out.
 
-Two GUIs ship in this repo:
+### Project layout
 
-- **`karaoke_subtitle_gui_v2.py`** — the current app. Everything in v1 **plus** the tag-based
-  3-lane cue table editor, themes, undo/redo, and per-word fade-out groups. **Start here.**
-- **`karaoke_subtitle_gui.py`** — v1 (kept as a stable fallback). Same style/preview/burn engine
-  with a simpler tree-based cue editor. v2 subclasses it and reuses its engine.
+```
+core.py                      # shared UI-free logic: parsing, helpers, constants
+app_base.py                  # shared UI engine: App(ctk.CTk) — controls, preview, burn, themes
+karaoke_subtitle_gui.py      # THE app — 3-lane tag-based cue editor, themes, undo  ← run this
+old/karaoke_subtitle_gui.py  # archived v1 (tree-based editor), kept runnable
+ass_from_api.py / build_from_api.py / build_srts.py   # headless batch generators
+tests/test_v2_ui.py          # 22-check UI regression suite
+```
 
-There are also three headless batch scripts (`ass_from_api.py`, `build_from_api.py`,
-`build_srts.py`) for generating subtitles without the GUI — see [Batch scripts](#batch-scripts).
+Both apps subclass `app_base.App` and import `core`; nothing imports `old/`. The current app's
+extra value over v1: the tag-based 3-lane editor (independent layout / fade-in / fade-out groups),
+per-word fade-out groups, themes, and undo/redo.
 
 ---
 
@@ -33,8 +38,9 @@ Everything except Pillow is a system tool. Pillow is installed into the poetry v
 
 ```bash
 cd karaoke-subtitle-studio
-poetry install            # creates the venv, installs Pillow
-poetry run python karaoke_subtitle_gui_v2.py
+poetry install            # creates the venv, installs deps
+poetry run python karaoke_subtitle_gui.py          # the app
+poetry run python old/karaoke_subtitle_gui.py      # archived v1 (optional)
 ```
 
 (If you don't use poetry, the app also runs under any Python 3.10+ with tkinter; Pillow is optional.)
