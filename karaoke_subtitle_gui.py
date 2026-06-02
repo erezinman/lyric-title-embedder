@@ -125,7 +125,7 @@ class AppV2(base.App):
             self.log("Load a lyrics JSON first."); return
         if self._editor is not None and self._editor.winfo_exists():
             self._editor.lift(); return
-        self._editor = CueTableEditor(self)
+        self._editor = CueDock(self)
 
     # presets carry v2 cues
     def _preset_dict(self):
@@ -217,7 +217,7 @@ class _ToolTip:
 # ─────────────────────────────────────────────────────────────────────
 # Cue Table Editor — 3 synced panes (layout | fade-in | fade-out)
 # ─────────────────────────────────────────────────────────────────────
-class CueTableEditor(ctk.CTkToplevel):
+class CueDock(ctk.CTkToplevel):
     def __init__(self, app):
         super().__init__(app)
         self.app = app
