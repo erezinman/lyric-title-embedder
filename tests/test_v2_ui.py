@@ -269,6 +269,14 @@ def t_project_style_roundtrip():
     ok = v2.apply_cues_v2(app._project, d["cues_v2"]); app._rebuild_render(); pump(1)
     return (ok and app._project["layout"][0]["style"].get("font") == "Arial"), "roundtrip lost style"
 
+def t_cue_preview_recolors():
+    wid = app._project["layout"][0]["lines"][0]["toks"][0]["ids"][0]
+    app.set_cue_style({wid}, {"primary": "#00FF00"}); pump(2)
+    g0 = app._groups[0]
+    app.time_var.set((g0["start"] + g0["end"]) / 2); app._refresh_preview(); pump(2)
+    fills = {app.canvas.itemcget(i, "fill").lower() for i in app.canvas.find_withtag("tx")}
+    return ("#00ff00" in fills), f"fills={sorted(fills)}"
+
 tests = [
     ("click selects word (fade-in)", t_click_selects_word),
     ("ctrl-click multi-select", t_ctrl_multiselect),
@@ -296,6 +304,7 @@ tests = [
     ("group style apply -> render+build", t_group_style_apply),
     ("cue style apply -> inline color", t_cue_style_apply),
     ("project style roundtrip", t_project_style_roundtrip),
+    ("cue style recolors live preview", t_cue_preview_recolors),
 ]
 for name, fn in tests:
     check(name, fn)

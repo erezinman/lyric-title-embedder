@@ -1,5 +1,6 @@
 # engine/ass.py — render-groups -> ASS text with global<group<cue style. UI-free.
 import core
+from engine.model import resolve_style
 ESC = core.esc
 
 _STYLE_FOR_BORDER = {1: "Default", 3: "Box"}   # box-mode -> style name (C1)
@@ -12,15 +13,7 @@ def _gctx(cfg):
             "border_style": cfg["border_style"]}
 
 def _resolve(word_style, group_style, gctx):
-    out = {}
-    for k in gctx:
-        if k != "border_style" and (word_style or {}).get(k) is not None:
-            out[k] = word_style[k]
-        elif (group_style or {}).get(k) is not None:
-            out[k] = group_style[k]
-        else:
-            out[k] = gctx[k]
-    return out
+    return resolve_style({"style": word_style}, {"style": group_style}, gctx)
 
 def _inline_color(hex_color):
     """Return &HBBGGRR& format for inline ASS color override tags."""

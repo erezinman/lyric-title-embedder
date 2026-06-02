@@ -512,6 +512,8 @@ class App(ctk.CTk):
         self._ffac[family] = fac
         return fac
 
+    # Live preview reflects only text-visible style (font/size/bold/primary/outline);
+    # box fill/alpha, outline width and shadow appear only in the exact libass render.
     def _pv_gctx(self):
         return {"font": self.font_var.get(), "fontsize": self.size_var.get(),
                 "bold": self.bold_var.get(), "primary": self._color["primary"],
