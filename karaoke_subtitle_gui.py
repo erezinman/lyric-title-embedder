@@ -22,7 +22,7 @@ import customtkinter as ctk
 import app_base as base
 import engine
 import controller
-from engine.model import make_project, _tag_of, BUILTIN, PALETTE
+from engine.model import make_project, _tag_of, BUILTIN, PALETTE, resolve_style
 from engine.render import project_to_render
 project_to_render_v2 = project_to_render
 make_project_v2 = make_project          # back-compat name used elsewhere/tests
@@ -739,12 +739,23 @@ class CueDock(ctk.CTkFrame):
                 self._td = self.pf.grid_slaves(row=2, column=1)[0]
             else:
                 ctk.CTkLabel(self.pf, text="(ungrouped — click Group to create a fade group)").grid(row=1, column=0, columnspan=3, sticky="w")
-        elif self.sel_word:
-            gi, li, ti, wid = self.sel_word
-            tok = p["layout"][gi]["lines"][li]["toks"][ti]
-            ctk.CTkLabel(self.pf, text=f"Word: {base.token_text(p['words'], tok).strip()!r}  "
-                                      f"(start {p['words'][wid]['start']:.2f}s)  "
-                                      f"{'[deleted]' if tok.get('del') else ''}").grid(row=0, column=0, sticky="w")
+        elif self.sel_lane == "word" and (self.sel_word or self.sel_ids):
+            if self.sel_word:
+                gi, li, ti, wid = self.sel_word
+                tok = p["layout"][gi]["lines"][li]["toks"][ti]
+                cur = tok.get("style") or {}
+                ctk.CTkLabel(self.pf, text=f"Cue: {base.token_text(p['words'], tok).strip()!r}  "
+                                          f"(start {p['words'][wid]['start']:.2f}s)  "
+                                          f"{'[deleted]' if tok.get('del') else ''}").grid(row=0, column=0, columnspan=3, sticky="w")
+            else:
+                gi = self.sel_group
+                cur = {}
+                ctk.CTkLabel(self.pf, text=f"Cue selection ({len(self.sel_ids)} words)").grid(
+                    row=0, column=0, columnspan=3, sticky="w")
+            if gi is not None:
+                gd = resolve_style({}, p["layout"][gi], self._glob_style())   # effective parent = group over global
+                self._build_style_section(2, "Style — cue overrides (blank = inherit)",
+                                          cur, gd, "cs", False, self._apply_cue_style)
         else:
             ctk.CTkLabel(self.pf, text="Select a layout header, a fade cell, or a word.").grid(row=0, column=0, sticky="w")
 
@@ -888,6 +899,15 @@ class CueDock(ctk.CTkFrame):
             return
         try:
             self.app.set_group_style(self.sel_group, self._build_group_partial("gs", True))
+        except ValueError:
+            self.app.log("Style values must be numbers or blank.")
+
+    def _apply_cue_style(self):
+        ids = set(self.sel_ids) if self.sel_ids else ({self.sel_word[3]} if self.sel_word else set())
+        if not ids:
+            return
+        try:
+            self.app.set_cue_style(ids, self._build_group_partial("cs", False))
         except ValueError:
             self.app.log("Style values must be numbers or blank.")
 
