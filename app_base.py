@@ -96,6 +96,11 @@ class App(ctk.CTk):
         ctk.CTkButton(bar, text="Load preset", command=self.on_load_preset).pack(side="left")
         ctk.CTkButton(bar, text="Quit", fg_color="#883333", hover_color="#aa4444",
                       command=self.destroy).pack(side="right")
+        self._action_bar = bar
+        self._dock_sep = ctk.CTkFrame(self, height=6, fg_color="gray30", cursor="sb_v_double_arrow")
+        self.dock_holder = ctk.CTkFrame(self, height=240)
+        self.dock_holder.pack_propagate(False)
+        self._dock_sep.bind("<B1-Motion>", self._drag_dock_sep)
         pf = ctk.CTkFrame(self, fg_color="transparent"); pf.pack(fill="x", padx=8, pady=(0, 2))
         self.prog = ctk.CTkProgressBar(pf); self.prog.set(0)
         self.prog.pack(side="left", fill="x", expand=True, pady=4)
@@ -251,6 +256,11 @@ class App(ctk.CTk):
     def _on_project_loaded(self):
         """Hook after a fresh project is built (e.g. reset undo). Optional."""
         pass
+
+    def _drag_dock_sep(self, ev):
+        # raise the dock by dragging the separator up; clamp to a sane range
+        new_h = max(140, min(self.winfo_height() - 220, self.dock_holder.winfo_height() - ev.y))
+        self.dock_holder.configure(height=new_h)
 
     def _reload_groups(self):
         if not os.path.isfile(self.json_var.get()):

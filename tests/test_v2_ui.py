@@ -18,6 +18,7 @@ def line_of(pred):
         if pred(r): return i + 1   # 1-based text line
     return None
 def click(pane, lane, line, x=30, ctrl=False):
+    pane.see(f"{line}.0"); pane.update_idletasks()
     bb = pane.bbox(f"{line}.0")
     if not bb: raise RuntimeError(f"line {line} not visible")
     e = Ev(); e.x = x; e.y = bb[1] + 2; e.x_root = 0; e.y_root = 0
@@ -28,6 +29,7 @@ def drag(pane, lane, lines):
     then release — mirrors the real event flow (light motion + heavy release)."""
     click(pane, lane, lines[0])
     for ln in lines[1:]:
+        pane.see(f"{ln}.0"); pane.update_idletasks()
         bb = pane.bbox(f"{ln}.0")
         e = Ev(); e.x = 20; e.y = bb[1] + 2; e.x_root = 0; e.y_root = 0
         ed._range_click(e, pane, lane, light=True); pump(1)

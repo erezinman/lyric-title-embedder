@@ -62,6 +62,10 @@ class AppV2(base.App):
             self._session.set_project(self._pending_project)
         self.title("Karaoke Subtitle Studio v2")
         self._theme = getattr(self, "_theme", "Dark")
+        # v2 embeds the cue dock in the bottom area, so it needs a taller window
+        # than the v1 base default (v1 never mounts the dock).
+        self.geometry("1280x960")
+        self.dock_holder.configure(height=340)
         self._build_toolbar()
 
     @property
@@ -120,12 +124,45 @@ class AppV2(base.App):
     # _generate / _render_exact are inherited from app_base.App (they call the
     # _build_ass hook above), so no override is needed here.
 
+    def _ensure_dock(self):
+        if getattr(self, "_editor", None) is not None and self._editor.winfo_exists():
+            return
+        self._dock_win = None
+        self._dock_detached = False
+        self._editor = CueDock(self.dock_holder, self)
+        self._editor.pack(fill="both", expand=True)
+        self._dock_sep.pack(fill="x", before=self._action_bar)
+        self.dock_holder.pack(fill="x", before=self._action_bar)
+
+    def toggle_dock_detached(self):
+        detached = not getattr(self, "_dock_detached", False)
+        if getattr(self, "_editor", None) is not None and self._editor.winfo_exists():
+            self._editor.destroy()
+        if getattr(self, "_dock_win", None) is not None and self._dock_win.winfo_exists():
+            self._dock_win.destroy()
+        self._dock_win = None
+        if detached:
+            self._dock_sep.pack_forget(); self.dock_holder.pack_forget()
+            self._dock_win = ctk.CTkToplevel(self)
+            self._dock_win.title("Cue dock"); self._dock_win.geometry("1040x700")
+            self._editor = CueDock(self._dock_win, self)
+            self._editor.pack(fill="both", expand=True)
+        else:
+            self._editor = CueDock(self.dock_holder, self)
+            self._editor.pack(fill="both", expand=True)
+            self._dock_sep.pack(fill="x", before=self._action_bar)
+            self.dock_holder.pack(fill="x", before=self._action_bar)
+        self._dock_detached = detached
+        self._editor.reload()
+
+    def _on_project_loaded(self):
+        self._ensure_dock()
+
     def open_editor(self):
-        if self._project is None:
-            self.log("Load a lyrics JSON first."); return
-        if self._editor is not None and self._editor.winfo_exists():
-            self._editor.lift(); return
-        self._editor = CueDock(self)
+        self._ensure_dock()
+        if getattr(self, "_dock_win", None) is not None and self._dock_win.winfo_exists():
+            self._dock_win.lift()
+        return self._editor
 
     # presets carry v2 cues
     def _preset_dict(self):
@@ -217,13 +254,10 @@ class _ToolTip:
 # ─────────────────────────────────────────────────────────────────────
 # Cue Table Editor — 3 synced panes (layout | fade-in | fade-out)
 # ─────────────────────────────────────────────────────────────────────
-class CueDock(ctk.CTkToplevel):
-    def __init__(self, app):
-        super().__init__(app)
+class CueDock(ctk.CTkFrame):
+    def __init__(self, parent, app):
+        super().__init__(parent)
         self.app = app
-        self.title("Cue Table — v2")
-        self.geometry("1040x700")
-        self.transient(app)
         self.collapsed = set()              # collapsed layout-group indices
         self.rows = []                      # line-number -> row meta
         self.sel_lane = None                # 'fin_tags' | 'fout_tags' | 'layout' | 'word'
@@ -305,7 +339,7 @@ class CueDock(ctk.CTkToplevel):
         ctk.CTkLabel(foot, text_color="#888", justify="left",
                      text="Click a FADE cell = select its group; Ctrl-click = add to selection, then Group. "
                           "Grey italic = inherited default.").pack(side="left")
-        ctk.CTkButton(foot, text="Close", width=70, command=self.destroy).pack(side="right")
+        ctk.CTkButton(foot, text="Detach ⧉", width=84, command=self.app.toggle_dock_detached).pack(side="right", padx=4)
 
     def _column(self, parent, title, width, expand):
         col = ctk.CTkFrame(parent, fg_color="transparent")
