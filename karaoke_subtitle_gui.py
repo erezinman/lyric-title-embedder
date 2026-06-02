@@ -719,6 +719,9 @@ class CueDock(ctk.CTkFrame):
             self._ws = self.pf.grid_slaves(row=1, column=1)[0]
             self._we = self.pf.grid_slaves(row=2, column=1)[0]
             self._wl = self.pf.grid_slaves(row=3, column=1)[0]
+            g_style = g.get("style") or {}
+            self._build_style_section(6, "Style — group overrides (blank = inherit)",
+                                      g_style, self._glob_style(), "gs", True, self._apply_group_style)
         elif self.sel_lane in ("fin_tags", "fout_tags") and self.sel_ids:
             ti, t = _tag_of(p[self.sel_lane], next(iter(self.sel_ids)))
             lane = "Fade-in" if self.sel_lane == "fin_tags" else "Fade-out"
@@ -771,6 +774,122 @@ class CueDock(ctk.CTkFrame):
             self.app.set_tag_props(self.sel_lane, ti, self._f(self._tg), self._f(self._td))
         except ValueError:
             self.app.log("Tag props must be numbers or blank.")
+
+    # ── style helpers ──────────────────────────────────────────────────
+    def _opt_int(self, var):
+        s = var.get().strip()
+        return None if s == "" else int(float(s))
+
+    def _opt_bool(self, var):
+        v = var.get()
+        return None if v == "(inherit)" else (v == "on")
+
+    def _opt_border(self, var):
+        v = var.get()
+        return None if v == "(inherit)" else (3 if v == "box" else 1)
+
+    def _glob_style(self):
+        a = self.app
+        return {"font": a.font_var.get(), "fontsize": a.size_var.get(), "bold": a.bold_var.get(),
+                "primary": a._color["primary"], "outline": a._color["outline"], "back": a._color["back"],
+                "back_alpha": a.backa_var.get(), "outline_w": a.outline_var.get(),
+                "shadow": a.shadow_var.get(), "border_style": a.border_var.get()}
+
+    def _build_style_section(self, row0, title, cur_style, gd, prefix, allow_border, apply_cmd):
+        import customtkinter as ctk
+        from tkinter import colorchooser
+        r = row0
+        ctk.CTkLabel(self.pf, text=title, font=ctk.CTkFont(size=12, weight="bold")).grid(
+            row=r, column=0, columnspan=3, sticky="w", pady=(8, 2)); r += 1
+        colors = {}                                   # key -> override hex or None
+        def hint(row, text):
+            ctk.CTkLabel(self.pf, text=f"↳ {text}", text_color="#888",
+                         font=ctk.CTkFont(size=11, slant="italic")).grid(row=row, column=2, sticky="w", padx=4)
+        def lab(row, text):
+            ctk.CTkLabel(self.pf, text=text).grid(row=row, column=0, sticky="e", padx=4)
+        # font (combo with (inherit))
+        font_var = ctk.StringVar(value=cur_style.get("font") or "(inherit)")
+        lab(r, "font"); cb = ctk.CTkComboBox(self.pf, variable=font_var, width=150,
+            values=["(inherit)"] + [f for f in (self.app._fonts or [])]); cb.grid(row=r, column=1, sticky="w")
+        hint(r, str(gd["font"])); r += 1
+        # fontsize
+        size_var = ctk.StringVar(value=("" if cur_style.get("fontsize") is None else str(cur_style["fontsize"])))
+        lab(r, "size"); ctk.CTkEntry(self.pf, textvariable=size_var, width=80).grid(row=r, column=1, sticky="w")
+        hint(r, f"{gd['fontsize']}"); r += 1
+        # bold
+        bold_var = ctk.StringVar(value=("(inherit)" if cur_style.get("bold") is None else ("on" if cur_style["bold"] else "off")))
+        lab(r, "bold"); ctk.CTkOptionMenu(self.pf, variable=bold_var, width=100,
+            values=["(inherit)", "on", "off"]).grid(row=r, column=1, sticky="w")
+        hint(r, "on" if gd["bold"] else "off"); r += 1
+        # colors: primary / outline / box
+        def color_row(row, key, label):
+            colors[key] = cur_style.get(key)   # None or hex
+            lab(row, label)
+            holder = ctk.CTkFrame(self.pf, fg_color="transparent"); holder.grid(row=row, column=1, sticky="w")
+            sw = ctk.CTkButton(holder, text="", width=40,
+                               fg_color=(colors[key] or gd[key]))
+            def pick(_key=key, _sw=sw):
+                c = colorchooser.askcolor(color=(colors[_key] or gd[_key]))
+                if c and c[1]:
+                    colors[_key] = c[1]; _sw.configure(fg_color=c[1])
+            def clear(_key=key, _sw=sw):
+                colors[_key] = None; _sw.configure(fg_color=gd[_key])
+            sw.configure(command=pick); sw.pack(side="left")
+            ctk.CTkButton(holder, text="↺", width=26, command=clear).pack(side="left", padx=3)
+            hint(row, "inherit" if colors[key] is None else "set")
+        color_row(r, "primary", "text color"); r += 1
+        color_row(r, "outline", "outline color"); r += 1
+        color_row(r, "back", "box color"); r += 1
+        # box alpha
+        balpha_var = ctk.StringVar(value=(cur_style.get("back_alpha") or ""))
+        lab(r, "box alpha"); ctk.CTkEntry(self.pf, textvariable=balpha_var, width=80).grid(row=r, column=1, sticky="w")
+        hint(r, str(gd["back_alpha"])); r += 1
+        # outline width
+        obord_var = ctk.StringVar(value=("" if cur_style.get("outline_w") is None else str(cur_style["outline_w"])))
+        lab(r, "outline width"); ctk.CTkEntry(self.pf, textvariable=obord_var, width=80).grid(row=r, column=1, sticky="w")
+        hint(r, f"{gd['outline_w']}"); r += 1
+        # shadow
+        oshad_var = ctk.StringVar(value=("" if cur_style.get("shadow") is None else str(cur_style["shadow"])))
+        lab(r, "shadow"); ctk.CTkEntry(self.pf, textvariable=oshad_var, width=80).grid(row=r, column=1, sticky="w")
+        hint(r, f"{gd['shadow']}"); r += 1
+        # border style (group only)
+        border_var = None
+        if allow_border:
+            cbs = cur_style.get("border_style")
+            border_var = ctk.StringVar(value=("(inherit)" if cbs is None else ("box" if cbs == 3 else "outline")))
+            lab(r, "box mode"); ctk.CTkOptionMenu(self.pf, variable=border_var, width=100,
+                values=["(inherit)", "outline", "box"]).grid(row=r, column=1, sticky="w")
+            hint(r, "box" if gd["border_style"] == 3 else "outline"); r += 1
+        ctk.CTkButton(self.pf, text="Apply style", width=90, command=apply_cmd).grid(row=r, column=1, sticky="w", pady=4); r += 1
+        # stash controls under the prefix for the apply method
+        setattr(self, f"_{prefix}_font", font_var); setattr(self, f"_{prefix}_size", size_var)
+        setattr(self, f"_{prefix}_bold", bold_var); setattr(self, f"_{prefix}_balpha", balpha_var)
+        setattr(self, f"_{prefix}_obord", obord_var); setattr(self, f"_{prefix}_oshad", oshad_var)
+        setattr(self, f"_{prefix}_border", border_var); setattr(self, f"_{prefix}_colors", colors)
+        return r
+
+    def _build_group_partial(self, prefix, allow_border):
+        partial = {}
+        fv = getattr(self, f"_{prefix}_font").get()
+        partial["font"] = None if fv in ("", "(inherit)") else fv
+        partial["fontsize"] = self._opt_int(getattr(self, f"_{prefix}_size"))
+        partial["bold"] = self._opt_bool(getattr(self, f"_{prefix}_bold"))
+        ba = getattr(self, f"_{prefix}_balpha").get().strip()
+        partial["back_alpha"] = None if ba == "" else ba.upper()[:2]
+        partial["outline_w"] = self._opt_int(getattr(self, f"_{prefix}_obord"))
+        partial["shadow"] = self._opt_int(getattr(self, f"_{prefix}_oshad"))
+        if allow_border and getattr(self, f"_{prefix}_border") is not None:
+            partial["border_style"] = self._opt_border(getattr(self, f"_{prefix}_border"))
+        partial.update(getattr(self, f"_{prefix}_colors"))   # {primary/outline/back: hex or None}
+        return partial
+
+    def _apply_group_style(self):
+        if self.sel_group is None:
+            return
+        try:
+            self.app.set_group_style(self.sel_group, self._build_group_partial("gs", True))
+        except ValueError:
+            self.app.log("Style values must be numbers or blank.")
 
 
 if __name__ == "__main__":
