@@ -18,6 +18,7 @@ def check(name, fn):
 
 # Import the CURRENT location for the baseline; later tasks repoint these imports.
 import karaoke_subtitle_gui as m
+from engine import mutations as mut
 
 def t_make_project():
     p = m.make_project_v2(CFG)
@@ -50,6 +51,19 @@ def t_style_roundtrip():
     g_ok = p2["layout"][0]["style"] == {"font": "Arial", "fontsize": 80}
     c_ok = p2["layout"][0]["lines"][0]["toks"][0]["style"] == {"primary": "#FF0000"}
     return (g_ok and c_ok), f"group={g_ok} cue={c_ok}"
+
+def t_set_group_style():
+    p = m.make_project_v2(CFG)
+    mut.set_group_style(p, 0, {"font": "Arial", "fontsize": 90})
+    mut.set_group_style(p, 0, {"font": None})            # clear -> inherit
+    return (p["layout"][0]["style"] == {"fontsize": 90}), f"{p['layout'][0]['style']}"
+
+def t_set_cue_style_border_ignored():
+    p = m.make_project_v2(CFG)
+    wid = p["layout"][0]["lines"][0]["toks"][0]["ids"][0]
+    mut.set_cue_style(p, {wid}, {"primary": "#00FF00", "border_style": 3})
+    st = p["layout"][0]["lines"][0]["toks"][0]["style"]
+    return (st == {"primary": "#00FF00"}), f"{st}"   # border_style dropped (C1)
 
 for name, fn in list(globals().items()):
     if name.startswith("t_"): check(name, fn)
