@@ -1,0 +1,24 @@
+{
+  "font": "Noto Serif CJK SC",
+  "fontsize": 59,
+  "bold": true,
+  "align": "Top-Left (7)",
+  "fade_ms": 250,
+  "group_by": "section",
+  "skip_dashes": true,
+  "use_pos": true,
+  "play_w": 1920,
+  "play_h": 1080,
+  "margin_l": 336,
+  "margin_r": 336,
+  "margin_v": 428,
+  "outline_w": 3,
+  "shadow": 0,
+  "border_style": 1,
+  "back_alpha": "80",
+  "colors": {
+    "primary": "#FFFFFF",
+    "outline": "#000000",
+    "back": "#000000"
+  }
+}

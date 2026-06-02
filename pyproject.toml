@@ -1,0 +1,22 @@
+[tool.poetry]
+# Dependency/venv management only — the app runs as flat scripts, not an
+# installed package, so we don't build a wheel.
+name = "karaoke-subtitle-studio"
+version = "2.0.0"
+description = "Word-timed karaoke subtitle studio: turn Suno aligned-lyrics JSON into styled, per-word fade ASS/SRT subtitles, with a live draggable preview and a 3-lane cue editor."
+authors = ["erez <erez@razor-labs.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.10"
+# Pillow is used only to measure FreeType glyph metrics so the on-canvas preview
+# font size matches libass exactly. The app degrades gracefully without it
+# (falls back to a 0.82 scale factor).
+pillow = ">=9.0"
+# Optional future UI toolkit (see CLAUDE.md "Roadmap"). Uncomment to enable:
+# customtkinter = ">=5.2"
+
+[tool.poetry.group.dev.dependencies]
+# No hard dev deps: the UI test suite (tests/test_v2_ui.py) uses only stdlib
+# tkinter and runs headlessly against a live/Xvfb display.

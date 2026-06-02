@@ -1,0 +1,503 @@
+1
+00:00:00,000 --> 00:00:00,180
+Song Title: Bleating Obsession
+
+2
+00:00:00,180 --> 00:00:00,360
+(Dark Rock Ballad – Style: Think Type O Negative meets Alice in Chains, slow heavy riffs, brooding minor chords, distant distorted guitars, and layered sheep bleats fading in and out like haunting backing vocals)
+
+3
+00:00:00,360 --> 00:00:00,540
+---
+
+4
+00:00:00,540 --> 00:00:00,560
+[Intro – Low, clean guitar arpeggio with faint sheep sounds]
+
+5
+00:00:00,540 --> 00:00:12,367
+*Baa... baa...*
+
+6
+00:00:12,367 --> 00:00:12,387
+In the desert night, under crescent
+
+7
+00:00:12,367 --> 00:00:12,547
+Abdallah walks alone...
+
+8
+00:00:12,547 --> 00:00:12,727
+[Verse 1]
+
+9
+00:00:12,727 --> 00:00:12,912
+Abdallah, son of the burning sand
+
+10
+00:00:12,912 --> 00:00:13,137
+Four wives in his tent, gold rings on their hands
+
+11
+00:00:13,137 --> 00:00:13,345
+Layla cooks the rice, Fatima warms the bed
+
+12
+00:00:13,345 --> 00:00:13,569
+Aisha sings sweet songs, and Zara turns her head
+
+13
+00:00:13,569 --> 00:00:13,787
+They move like shadows, they whisper his name
+
+14
+00:00:13,787 --> 00:00:13,994
+But his eyes are distant, lost in the flame
+
+15
+00:00:13,994 --> 00:00:14,189
+He feeds them dates and honeyed lies
+
+16
+00:00:14,189 --> 00:00:14,413
+But his heart is beating where the pasture lies
+
+17
+00:00:14,413 --> 00:00:14,593
+[Chorus – Heavy guitars crash in, vocals raw and tormented]
+
+18
+00:00:14,593 --> 00:00:14,775
+Oh, my four wives, what have I done?
+
+19
+00:00:14,775 --> 00:00:14,987
+Silk and perfume, but I crave the wool of one
+
+20
+00:00:14,987 --> 00:00:15,185
+Her eyes are black, her fleece so white
+
+21
+00:00:15,185 --> 00:00:15,368
+Under the stars, I hold her tight
+
+22
+00:00:15,368 --> 00:00:15,548
+*Baa-aa-aa...* (sheep bleat echoes)
+
+23
+00:00:15,548 --> 00:00:15,772
+I'm torn between heaven and this cursed delight
+
+24
+00:00:15,772 --> 00:00:15,970
+Abdallah's lost to the bleating night!
+
+25
+00:00:15,970 --> 00:00:16,149
+[Verse 2]
+
+26
+00:00:16,149 --> 00:00:16,375
+They call him in the dark, their bodies like fire
+
+27
+00:00:16,375 --> 00:00:16,596
+But his blood runs cold with forbidden desire
+
+28
+00:00:16,596 --> 00:00:21,064
+moon...
+
+29
+00:00:21,064 --> 00:00:52,021
+Abdallah walks alone...
+
+30
+00:00:52,021 --> 00:00:52,040
+---
+
+31
+00:00:52,021 --> 00:00:55,292
+Abdallah, son of the burning sand
+
+32
+00:00:55,292 --> 00:01:03,191
+Four wives in his tent, gold rings on
+
+33
+00:01:03,191 --> 00:01:05,266
+their hands
+
+34
+00:01:05,266 --> 00:01:08,777
+Layla cooks the rice, Fatima warms the
+
+35
+00:01:08,777 --> 00:01:11,489
+bed
+
+36
+00:01:11,489 --> 00:01:16,834
+Aisha sings sweet songs, and Zara turns
+
+37
+00:01:16,834 --> 00:01:18,750
+her head
+
+38
+00:01:18,750 --> 00:01:21,621
+They move like shadows, they whisper his
+
+39
+00:01:21,621 --> 00:01:22,021
+name
+
+40
+00:01:22,021 --> 00:01:25,052
+But his eyes are distant, lost in the
+
+41
+00:01:25,052 --> 00:01:25,611
+flame
+
+42
+00:01:25,611 --> 00:01:29,043
+He feeds them dates and honeyed lies
+
+43
+00:01:29,043 --> 00:01:31,915
+But his heart is beating where the past
+
+44
+00:01:31,915 --> 00:01:36,222
+ure lies
+
+45
+00:01:36,222 --> 00:01:36,242
+---
+
+46
+00:01:36,222 --> 00:01:43,483
+Oh, my four wives, what have I done?
+
+47
+00:01:43,483 --> 00:01:47,552
+Silk and perfume, but I crave the wool
+
+48
+00:01:47,552 --> 00:01:50,346
+of one
+
+49
+00:01:50,346 --> 00:01:55,691
+Her eyes are black, her fleece so white
+
+50
+00:01:55,691 --> 00:01:57,605
+Under the stars, I hold her tight
+
+51
+00:01:57,605 --> 00:02:03,191
+*Baa-aa-aa...* (sheep bleat echoes)
+
+52
+00:02:03,191 --> 00:02:08,776
+I'm torn between heaven and this cursed
+
+53
+00:02:08,776 --> 00:02:10,850
+delight
+
+54
+00:02:10,850 --> 00:02:16,596
+Abdallah's lost to the bleating night!
+
+55
+00:02:16,596 --> 00:02:16,616
+---
+
+56
+00:02:16,596 --> 00:02:31,596
+They call him in the dark, their bodies
+
+57
+00:02:31,596 --> 00:02:32,394
+like fire
+
+58
+00:02:32,394 --> 00:02:35,346
+But his blood runs cold with forbidden
+
+59
+00:02:35,346 --> 00:02:35,824
+desire
+
+60
+00:02:35,824 --> 00:02:38,298
+He slips from their arms when the moon
+
+61
+00:02:38,298 --> 00:02:39,175
+is high
+
+62
+00:02:39,175 --> 00:02:39,195
+To the quiet corral where his true love
+
+63
+00:02:39,175 --> 00:02:39,355
+Soft and trembling, innocent and pure
+
+64
+00:02:39,355 --> 00:02:39,536
+One gentle creature makes his spirit stir
+
+65
+00:02:39,536 --> 00:02:39,716
+The wives, they suspect, they see the shame
+
+66
+00:02:39,716 --> 00:02:39,895
+But passion's a desert no man can tame
+
+67
+00:02:39,895 --> 00:02:40,075
+[Chorus – Louder, more unhinged]
+
+68
+00:02:40,075 --> 00:02:40,256
+Oh, my four wives, forgive this sin
+
+69
+00:02:40,256 --> 00:02:40,436
+Your beauty's wasted on a heart of tin
+
+70
+00:02:40,436 --> 00:02:40,616
+She doesn't speak, she doesn't demand
+
+71
+00:02:40,616 --> 00:02:40,795
+Just one soft *baa* and I’m in her hands
+
+72
+00:02:40,795 --> 00:02:40,975
+*Baa-aa-aa... baa-aa-aa...* (distorted, layered bleats)
+
+73
+00:02:40,975 --> 00:02:41,156
+A man of the faith, a slave to the beast
+
+74
+00:02:41,156 --> 00:02:41,336
+This love is my curse, this love is my release!
+
+75
+00:02:41,336 --> 00:02:41,515
+[Bridge – Spoken/screamed over slow, crushing riff, almost spoken-word]
+
+76
+00:02:41,515 --> 00:02:41,695
+Allah forgive me... I tried to be strong
+
+77
+00:02:41,695 --> 00:02:41,876
+But her wool calls louder than any love song
+
+78
+00:02:41,876 --> 00:02:42,056
+The wives plot in whispers, knives in their eyes
+
+79
+00:02:42,056 --> 00:02:42,235
+They know the truth behind my alibis
+
+80
+00:02:42,235 --> 00:02:42,415
+One day they'll find us, tangled in sin
+
+81
+00:02:42,415 --> 00:02:42,596
+Man and his sheep where the madness begins...
+
+82
+00:02:42,596 --> 00:02:42,776
+*(Guitar solo – wailing, chaotic, with sheep bleats pitched and distorted like tortured howls)*
+
+83
+00:02:42,776 --> 00:02:42,955
+[Final Chorus – Slow, heavy, fading into despair]
+
+84
+00:02:42,955 --> 00:02:42,975
+Four wives in mourning, black veils in the wind
+
+85
+00:02:42,955 --> 00:02:43,085
+lies
+
+86
+00:02:43,085 --> 00:02:46,116
+Soft and trembling, innocent and pure
+
+87
+00:02:46,116 --> 00:02:48,989
+One gentle creature makes his spirit
+
+88
+00:02:48,989 --> 00:02:49,627
+stir
+
+89
+00:02:49,627 --> 00:02:52,419
+The wives, they suspect, they see the
+
+90
+00:02:52,419 --> 00:02:53,058
+shame
+
+91
+00:02:53,058 --> 00:02:56,010
+But passion's a desert no man can tame
+
+92
+00:02:56,010 --> 00:02:56,031
+---
+
+93
+00:02:56,010 --> 00:03:05,745
+Oh, my four wives, forgive this sin
+
+94
+00:03:05,745 --> 00:03:12,605
+Your beauty's wasted on a heart of tin
+
+95
+00:03:12,605 --> 00:03:13,406
+She doesn't speak, she doesn't demand
+
+96
+00:03:13,406 --> 00:03:16,703
+Kissing her forehead, whispering low
+
+97
+00:03:16,703 --> 00:03:19,467
+"My only true love, never let me go..."
+
+98
+00:03:19,467 --> 00:03:25,611
+Just one soft *baa* and I’m in her hands
+
+99
+00:03:25,611 --> 00:03:32,473
+A man of the faith, a slave to the beast
+
+100
+00:03:32,473 --> 00:03:37,899
+This love is my curse, this love is my
+
+101
+00:03:37,899 --> 00:03:41,729
+release!
+
+102
+00:03:41,729 --> 00:03:41,748
+---
+
+103
+00:03:41,729 --> 00:03:48,590
+Allah forgive me... I tried to be strong
+
+104
+00:03:48,590 --> 00:03:52,181
+But her wool calls louder than any love
+
+105
+00:03:52,181 --> 00:03:55,212
+song
+
+106
+00:03:55,212 --> 00:03:57,765
+The wives plot in whispers, knives in
+
+107
+00:03:57,765 --> 00:03:58,085
+their eyes
+
+108
+00:03:58,085 --> 00:04:05,745
+They know the truth behind my alibis
+
+109
+00:04:05,745 --> 00:04:12,287
+One day they'll find us, tangled in sin
+
+110
+00:04:12,287 --> 00:04:17,632
+Man and his sheep where the madness
+
+111
+00:04:17,632 --> 00:04:58,963
+begins...
+
+112
+00:04:58,963 --> 00:05:03,750
+Four wives in mourning, black veils in
+
+113
+00:05:03,750 --> 00:05:06,064
+the wind
+
+114
+00:05:06,064 --> 00:05:11,011
+While Abdallah lies where the pastures
+
+115
+00:05:11,011 --> 00:05:12,766
+end
+
+116
+00:05:12,766 --> 00:05:19,228
+Kissing her forehead, whispering low
+
+117
+00:05:19,228 --> 00:05:25,451
+"My only true love, never let me go..."
+
+118
+00:05:25,451 --> 00:05:26,089
+*Baa...*
+
+119
+00:05:26,089 --> 00:05:31,516
+I'm damned, I'm free, in this twisted ro
+
+120
+00:05:31,516 --> 00:05:33,031
+mance
+
+121
+00:05:33,031 --> 00:05:40,293
+Abdallah and his sheep... in eternal
+
+122
+00:05:40,293 --> 00:05:47,153
+trance...
+
+123
+00:05:47,153 --> 00:05:47,173
+---
+
+124
+00:05:47,153 --> 00:05:47,173
+[Outro – Guitar fades, only distant bleats and wind]
+
+125
+00:05:47,153 --> 00:05:57,048
+*Baa... baa...*
+
+126
+00:05:57,048 --> 00:05:58,564
+In the desert... forever...

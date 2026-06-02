@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Poetry (commit poetry.lock; ignore in-project venv)
+/.venv
+
+# Generated subtitle / video artifacts
+out.mp4
+*.burned.mp4
+karaoke.ass
+/_ks*.png
+/_ks*.ass
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

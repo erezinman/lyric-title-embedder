@@ -1,0 +1,39 @@
+Song Title: Bleating Obsession
+
+(Dark Rock Ballad – Style: Think Type O Negative meets Alice in Chains, slow heavy riffs,
+brooding minor chords, distant distorted guitars, and layered sheep bleats fading in and out
+like haunting backing vocals)
+
+---
+
+[Intro – Low, clean guitar arpeggio with faint sheep sounds]
+*Baa... baa...*
+In the desert night, under crescent moon...
+Abdallah walks alone...
+
+---
+
+[Verse 1]
+Abdallah, son of the burning sand
+Four wives in his tent, gold rings on their hands
+Layla cooks the rice, Fatima warms the bed
+Aisha sings sweet songs, and Zara turns her head
+They move like shadows, they whisper his name
+But his eyes are distant, lost in the flame
+
+He feeds them dates and honeyed lies
+But his heart is beating where the pasture lies
+
+---
+
+[Chorus]
+Oh, my four wives, what have I done?
+Silk and perfume, but I crave the wool of one
+Her eyes are black, her fleece so white
+Under the stars, I hold her tight
+*Baa-aa-aa...* (sheep bleat echoes)
+I'm torn between heaven and this cursed delight
+Abdallah's lost to the bleating night!
+
+(Reference lyrics for the example song. The word-level timings used by the tools come from
+aligned_lyrics.json, exported from Suno; see CLAUDE.md for provenance.)
