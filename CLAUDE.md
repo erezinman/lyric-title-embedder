@@ -8,7 +8,7 @@ ASS techniques, the code architecture, and conventions/gotchas**.
 
 A toolkit to turn **word-level-timed lyrics** into **karaoke-style subtitles** with per-word
 fade-in/out, precise placement, and grouping — as `.ass` (libass) or `.srt`. Primary deliverable is
-the GUI (`karaoke_subtitle_gui_v2.py`); batch scripts exist for headless generation.
+the GUI (`karaoke_subtitle_gui.py`); batch scripts exist for headless generation.
 
 ## Background & data provenance (important)
 
@@ -42,62 +42,108 @@ Suno API  ──►  aligned_lyrics.json  ──►  reconstruct_lines + merge_s
                                                                                       │
                           ┌───────────────────────────────────────────────────────────┤
                           ▼                                                             ▼
-                 build_from_api.py / ass_from_api.py                        editable cue project (v2)
+                 build_from_api.py / ass_from_api.py                        editable cue project
                  (headless SRT/ASS variants)                                 layout + fade tags + globals
+                                                                             + per-group/cue style
                                                                                       │
-                                                                          project_to_render_v2  (bake fades)
+                                                                          engine/render.py  (bake fades + style)
                                                                                       │
-                                                                          render-groups  ──►  build_ass_v2  ──►  .ass
+                                                                          render-groups  ──►  engine/ass.py  ──►  .ass
                                                                                       │
                                                                           tkinter preview / libass render / ffmpeg burn
 ```
 
 ## Code architecture
 
-Flat modules (no package; `package-mode = false` in poetry). Run scripts directly.
+Flat modules (no package for the view layer; `package-mode = false` in poetry). Run scripts
+directly.
 
-Split into shared layers + two front-ends:
+### engine/ — UI-free portable core
 
-- **`core.py`** — UI-free shared logic (no tkinter): `ass_time`, `esc`, `rgb_to_ass`,
-  `reconstruct_lines`, `merge_subwords`, `token_text/token_span`, `is_dashes`, `full_text_at`,
-  `total_duration`, `list_font_families`, and constants (`HERE`, `FFMPEG/FFPROBE/HAS_FFMPEG`,
-  `FC_LIST/FC_MATCH`, `LIBASS_INK_AT_100`, `ALIGN_LABELS`, `ANCHOR`, `PREVIEW_W`, `HANDLE`).
-- **`app_base.py`** — shared **UI engine**: `class App(ctk.CTk)` (scrollable style controls,
-  draggable preview canvas, libass exact-render, **ffmpeg burn with progress** via worker-thread +
-  main-thread poller, preset save/load, per-font sizing `_font_px_factor`), plus the ctk helpers
-  `ctk_labelframe`/`ctk_spin`. `from core import *` re-exports core, so subclasses can `import
-  app_base as base` and use `base.<anything>`. The engine is model-agnostic via **hooks**:
-  `_make_project`, `_project_to_render`, `_build_ass`, `_load_cues`, `_on_project_loaded`,
-  `open_editor` (each front-end supplies them); `_reload_groups`/`_rebuild_render`/`_generate`/
-  `_render_exact`/`on_load_preset`/`_apply_style_preset` are generic.
-- **`karaoke_subtitle_gui.py`** (THE app) — `import app_base as base`; `class AppV2(base.App)` provides
-  the v2 model hooks (`make_project_v2`/`project_to_render_v2`/`build_ass_v2`,
-  `serialize_cues_v2`/`apply_cues_v2`), the **tag-based v2 model**, `CueTableEditor` (3-lane `tk.Text`
-  table), themes (`set_theme`), undo/redo, the top toolbar.
-- **`old/karaoke_subtitle_gui.py`** — archived v1: `class App(app_base.App)` providing the v1 model
-  hooks (`make_project`/`project_to_render`/`build_ass`) + `CueEditor` (Treeview, line=dict with
-  `toks`+`fout_at`, per-line fade-out, group fade_out, linger). Adds the project root to `sys.path`
-  so it can `import core`/`app_base` when run as `python old/karaoke_subtitle_gui.py`.
+`engine/` is the **UI-free, v3-portable core** per `design-system/HANDOFF_v3.md`. A future
+Tauri/React v3 is a view-only rewrite that reuses the engine unchanged (sidecar or IPC). It has no
+tkinter dependency and can be imported in headless environments.
 
-**Render-group shape (the contract both apps emit for the engine):**
-`{start, end, accumulate, lines:[{words:[{text, start_s, end_s, [fin_ms, fout_at, fout_ms]}]}]}`.
-The v2 model **bakes all fade behavior into per-word `start_s`/`fout_at`** in `project_to_render_v2`,
-so `build_ass_v2` is uniform (no per-mode branching).
+- **`engine/model.py`** — project shape, `make_project`, `STYLE_KEYS` (all style props),
+  `CUE_STYLE_KEYS` (same minus `border_style` — constraint C1), `resolve_style`, `BUILTIN`
+  defaults, `PALETTE`. `resolve_style(token, group, gctx)` implements the
+  `global < group < cue` waterfall per key: `None`/absent = inherit.
+- **`engine/render.py`** — `project_to_render` (was `project_to_render_v2`): copies through a
+  raw `group_style` dict per render-group and a raw cue `style` dict per word — resolution
+  against `cfg` stays lazy in the view.
+- **`engine/ass.py`** — `build_ass`: emits one `[V4+ Styles]` per **distinct group
+  `border_style`** value (e.g. `Default` for outline, `Box` for opaque) because `BorderStyle`
+  has no inline override tag; each `Dialogue` references the matching Style name. Per-word style
+  is applied as **running-delta inline tags** — the builder tracks a `cur` resolved-style state
+  (init = global/Style baseline) and emits a tag only when a word's resolved value differs from
+  the previous word's. Inline tags: `\fn \fs \b \1c \3c \4c \4a \bord \shad`, emitted alongside
+  the unchanged fade tags (`\alpha`, `\t(...)`). **Inline color format is 6-digit BGR + trailing
+  `&`** (e.g. `\1c&H0000FF&`) — distinct from the 8-digit form used in `[V4+ Styles]` lines and
+  from `core.rgb_to_ass` which produces the 8-digit form.
+- **`engine/io.py`** — `serialize_project` / `load_project`: portable project file (global style +
+  fade defaults + placement + theme + full cue model incl. per-group and per-cue `style`). Source
+  paths are **not stored**. Backward-compatible: older files without `style` load as all-inherit.
+  Actions renamed **Save project / Load project** in the UI.
+- **`engine/mutations.py`** — every cue/style edit as a pure `(project, …) -> project` function
+  (mutates in place; the controller deep-copies first). Includes the full v2 mutation set
+  (`make_tag`, `clear_tag`, `set_tag_props`, `set_global`, `set_layout_props`, `toggle_word_del`,
+  `add_break`, `merge_prev_word`, `layout_merge`, `layout_ungroup`, `layout_split_event`) plus
+  new **`set_group_style(project, gi, partial)`** and **`set_cue_style(project, ids, partial)`**.
+- **`engine/ffmpeg.py`** — `burn_cmd`, `frame_cmd`, `probe_duration`, and a headless
+  `run(cmd, progress_cb)` that parses `-progress` and calls `progress_cb(frac)` — no tkinter.
 
-### v2 model (the source of truth)
+### controller.py — UI-free undo/redo
+
+`controller.Session` holds `project` + undo/redo stacks (deep-copy snapshots). Every mutation
+goes through `do(name, *args)`: snapshot → call `engine.mutations.<name>` → fire `on_change()`.
+No-op / rejected edits don't add a snapshot. `undo()` / `redo()` restore the deep copy and fire
+`on_change()`. No tkinter.
+
+### View layer (CTk + tk)
+
+- **`core.py`** — UI-free shared helpers (used by engine and view): `ass_time`, `esc`,
+  `rgb_to_ass` (8-digit BGR for Style lines), `reconstruct_lines`, `merge_subwords`,
+  `token_text/token_span`, `is_dashes`, `full_text_at`, `total_duration`,
+  `list_font_families`, constants (`HERE`, `FFMPEG/FFPROBE/HAS_FFMPEG`, `FC_LIST/FC_MATCH`,
+  `LIBASS_INK_AT_100`, `ALIGN_LABELS`, `ANCHOR`, `PREVIEW_W`, `HANDLE`).
+- **`app_base.py`** — `class App(ctk.CTk)`: merged single-window layout (toolbar + Style/Inspector
+  left rail + center preview + bottom cue dock), draggable placement box, per-cue tkinter preview
+  (word-by-word font/size/color), libass exact-render, ffmpeg burn via worker-thread + main-thread
+  `after()`-poll driven through `engine.ffmpeg.run`, project save/load, per-font sizing
+  `_font_px_factor`. Model-agnostic via hooks (`_make_project`, `_project_to_render`,
+  `_build_ass`, `_load_cues`, etc.).
+- **`karaoke_subtitle_gui.py`** (THE app) — `class AppV2(base.App)` wires a `controller.Session`
+  and provides the model hooks; `CueDock` implements the 3-lane bottom dock (LAYOUT · FADE-IN ·
+  FADE-OUT) with adjustable height and a Detach toggle.
+- **`old/karaoke_subtitle_gui.py`** — archived v1: `class App(app_base.App)` with v1 model hooks +
+  `CueEditor` (Treeview). Imports only `core.py` and its own UI — not `engine/` — so it stays
+  runnable and isolated. `nothing imports old/`.
+
+### v2 project dict (the source of truth)
 ```python
 project = {
-  "words":  [{text,start,end}],                       # immutable canonical atoms
+  "words":  [{text, start, end}],                       # immutable canonical atoms
   "layout": [{label, win_start, win_end, linger, accumulate, del,
-              "lines":[{"toks":[{ids,sep,del}]}]}],    # events → lines(\N) → tokens
-  "fin_tags":  [{ids:set, color:int, trigger, dur}],   # appear-together
-  "fout_tags": [{ids:set, color:int, trigger, dur}],   # fade-together
+              "style": {},                                # per-group style overrides (all STYLE_KEYS)
+              "lines": [{"toks": [{ids, sep, del,
+                                   "style": {}}]}]}],   # per-cue overrides (CUE_STYLE_KEYS, no border_style)
+  "fin_tags":  [{ids: set, color: int, trigger, dur}],   # appear-together
+  "fout_tags": [{ids: set, color: int, trigger, dur}],   # fade-together
   "globals": {fade_in_ms, fade_out_ms, linger},
   "palette": [10 colors],
 }
 ```
-Resolution (reactive, most-specific wins): **word → tag → global → built-in**. `None`/blank = inherit.
-Fade-in trigger default = first member word start; fade-out trigger default = last member word end.
+Resolution (reactive, most-specific wins): **cue → group → global → built-in**. `None`/absent =
+inherit. Fade-in trigger default = first member word start; fade-out trigger default = last member
+word end. `border_style` is group-level only (constraint C1 — no inline ASS tag exists for it).
+
+### Render-group contract
+`project_to_render` emits:
+`{start, end, accumulate, group_style: {}, lines: [{words: [{text, start_s, end_s, style: {},
+[fin_ms, fout_at, fout_ms]}]}]}`
+
+The view resolves `group_style` + per-word `style` against `cfg` when drawing or calling
+`build_ass`. v1 render-groups lack these keys → treated as `{}`.
 
 ## ASS / libass techniques (the rendering core)
 
@@ -106,16 +152,20 @@ Fade-in trigger default = first member word start; fade-out trigger default = la
   is explicit (`\N`), so we never rely on margin wrapping.
 - **`WrapStyle: 2`** — no automatic wrapping; break only on `\N`. So resizing the box never re-wraps.
 - **Per-word fade-in:** each word starts `\alpha&HFF&` (transparent) then `\t(in, in+dur,\alpha&H00&)`.
-  All words present from event start (alpha-hidden), so the **layout is fixed** — words fade in
-  *in their final place* (no re-centering).
+  All words present from event start (alpha-hidden), so the layout is fixed — words fade in *in
+  their final place* (no re-centering).
 - **Fade-out:** append `\t(out, out+dur, \alpha&HFF&)`. Per-word/line/group via the tags; faded
   lines keep their `\N` row so others don't move.
 - **Accumulate modes** collapse to per-word `start_s`: `words` = own time, `lines` = line's first
   word, `off` = window start. Fade-in groups override to a shared trigger.
+- **Per-group / per-cue style:** one `[V4+ Styles]` per distinct group `border_style` value; all
+  other properties inline as running-delta tags per word. Inline color is 6-digit BGR + trailing
+  `&` (e.g. `\1c&H0000FF&`), unlike the 8-digit `&H00RRGGBB` form in Style lines.
 - **Preview font sizing:** libass renders ~`0.78 × Fontsize` of ink height regardless of font;
   FreeType's ink/pixel ratio varies per font. So the tkinter preview uses pixel size
   `0.78 × Fontsize / FreeType_ink_ratio`, measured per font via Pillow + `fc-match`
   (`LIBASS_INK_AT_100 = 78`, fallback factor 0.82). Tk font sizes are **negative** = pixels.
+  The per-cue preview resolves each word's effective font/size independently.
 - **Burn:** `ffmpeg -i video -vf "ass='file.ass'" -c:a copy out.mp4`; preview frames use
   `-ss t -copyts` so libass renders the event active at the true timestamp.
 
@@ -124,36 +174,39 @@ Fade-in trigger default = first member word start; fade-out trigger default = la
 (`python3-tk`). Pillow is the only managed pip dep (optional; graceful fallback).
 
 ## Testing
-`tests/test_v2_ui.py` — 22 headless UI checks driving the editor via synthesized `<Button-1>`
-events at real coordinates. Asserts state/render correctness (not pixels). Run:
-`poetry run python tests/test_v2_ui.py` (needs a display or `xvfb-run`). Re-run after any editor
-change; it has already caught real bugs (drill-on-first-click, stale-selection crash,
-header misalignment).
+- `tests/test_v2_ui.py` — 26 headless UI checks driving the editor via synthesized `<Button-1>`
+  events at real coordinates. Asserts state/render correctness (not pixels). Run:
+  `poetry run python tests/test_v2_ui.py` (needs a display or `xvfb-run`). Re-run after any
+  editor change; it has already caught real bugs.
+- `tests/test_engine.py` — headless engine/controller units (no display needed). Run:
+  `.venv/bin/python tests/test_engine.py`.
 
 ## Conventions & gotchas
 - **Tk threading:** never touch widgets / call `after()` from a worker thread. The burn uses a
   shared state dict + a main-thread `_poll_burn`. Keep this pattern.
 - **`tk.Text` colors per *row*, not per cell** — that's why the editor uses three side-by-side Text
   panes (one per lane), and pads fade cells to full width so group colors render as solid bars.
-- **Structural edits invalidate selection indices** — `CueTableEditor._validate_selection()` clears
+- **Structural edits invalidate selection indices** — `CueDock._validate_selection()` clears
   stale `sel_word`/`sel_group` on reload; call paths must go through `reload()`.
 - **Canonical word indices are stable** (words are immutable); tags/tokens reference them, which is
-  what makes presets reload-safe. Keyed by `nwords`.
-- **v2 reuses v1 by shape, not by copying** — if you change v1's render-group shape, v2 breaks.
+  what makes project files reload-safe. Keyed by `nwords`.
+- **Inline color vs Style-line color:** `core.rgb_to_ass` produces the 8-digit `&H00RRGGBB` form
+  used in `[V4+ Styles]` lines. `engine/ass.py` inline tags use the 6-digit BGR + `&` form
+  (`\1c&HBBGGRR&`). Do not mix them.
 - Default file paths resolve relative to the script dir (`HERE`); run batch scripts from the repo
   root so `aligned_lyrics.json` is found.
+- `engine/` mutations mutate the passed project dict in place; **`controller.Session.do()`
+  deep-copies first** — never call mutation functions directly from the view without going through
+  the controller, or undo/redo will be corrupted.
 
 ## UI toolkit (customtkinter)
-- The **main window chrome is customtkinter** (`App(ctk.CTk)`): `CTkScrollableFrame` (left controls),
+- The **main window chrome is customtkinter** (`App(ctk.CTk)`): `CTkScrollableFrame` (left rail),
   `CTkButton`/`CTkEntry`/`CTkOptionMenu`/`CTkComboBox`/`CTkCheckBox`/`CTkSlider`/`CTkProgressBar`/
-  `CTkTextbox`. API differences are wrapped in `ctk_labelframe()` and `ctk_spin()` helpers.
-  `tk.Canvas` (preview), `tk.Text` (editor lanes), `tk.Listbox` (font picker) stay — no ctk equivalent.
-- **Theme** (`Light/Dark/System`) drives both `ctk.set_appearance_mode(...)` and the editor's tk.Text
-  pane colors; chosen in the editor toolbar, saved in presets.
-- The **v2 Cue Table editor is still themed-ttk** inside its window (the `clam` style is recolored per
-  theme in `CueTableEditor._apply_theme`). Its dynamic property panels build ttk widgets read back via
-  `grid_slaves`; converting them to ctk is a clean follow-up but wasn't done to avoid churn.
-- **v1's `CueEditor` (tree)** remains ttk — v1 is the fallback app.
+  `CTkTextbox`, `CTkTabview` (Style | Inspector tabs). API differences are wrapped in
+  `ctk_labelframe()` and `ctk_spin()` helpers. `tk.Canvas` (preview), `tk.Text` (dock lanes),
+  `tk.Listbox` (font picker) stay — no ctk equivalent.
+- **Theme** (`Light/Dark/System`) drives both `ctk.set_appearance_mode(...)` and the dock's
+  `tk.Text` pane colors; chosen in the toolbar, saved in the project file.
 - ctk gotchas hit during migration: progress bar uses `.set(0..1)` not `["value"]`; `CTkProgressBar`/
   `CTkSlider` need `.bind("<ButtonRelease-1>")` for release; readonly combobox → `CTkOptionMenu`,
   editable → `CTkComboBox` (both take `command=`, not `<<ComboboxSelected>>`); color swatches are
@@ -161,16 +214,16 @@ header misalignment).
   `foreground`; there is no Spinbox (use `ctk_spin`) or LabelFrame (use `ctk_labelframe`).
 
 ## Roadmap / open ideas
-- **Unify LAYOUT groups with the fade-group model (deferred).** Today the fade-in/out lanes use
-  dynamic *tags* (flat id-sets + color + derived props; drag-select words → Group), while the LAYOUT
-  lane is the original event→line→token tree (you merge/split *headers*, not word selections). They
-  now look alike (events are colour-banded) but are implemented very differently. Future unification:
-  (a) interaction — drag-select words in the LAYOUT lane → Group forms one event; or (b) full — make a
-  layout group a flat id-set with props (window/linger/accumulate) and line breaks per-word flags,
-  structurally identical to fade tags. Decision so far: grouping words into an event should
-  **require a contiguous run** (reject non-contiguous). Touches model/build/serialize + old/v1.
-- Convert the v2 editor's internals (toolbar/property panels/global panel) from themed-ttk to ctk for
-  full visual consistency. (Done for the main app; editor is ctk too — this is mostly closed.)
+- **Style waterfall (global < group < cue): SHIPPED.** Per-group: font, size, bold, colors, box
+  alpha, outline width, shadow depth, box-mode. Per-cue: same except box-mode (constraint C1).
+  Placement (align/pos/margins/canvas) stays global.
 - Layout-lane word **reordering / moving words between events** (drag).
 - Per-event `\pos` override (currently `\pos` is global from the placement box).
+- **Unify LAYOUT groups with the fade-group model (deferred).** Today the fade-in/out lanes use
+  dynamic tags (flat id-sets + color + derived props), while the LAYOUT lane is the original
+  event→line→token tree. Future: (a) drag-select words in LAYOUT → Group forms one event; or
+  (b) full — make a layout group a flat id-set with props structurally identical to fade tags.
+  Grouping words into an event should require a contiguous run. Touches model/mutations/serialize.
 - A proper packaged entry point (`ksstudio` console script) if/when it becomes a real package.
+- v3 / Tauri: animation presets, waveform/word-block timeline, Project Library, per-cue placement,
+  synthwave skin — all deferred to the view-only rewrite (`design-system/HANDOFF_v3.md`).
