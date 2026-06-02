@@ -203,7 +203,7 @@ def render_frame(ctx, time_s):
     def build():
         _require_project(ctx)
         cfg = ctx.cfg()
-        ass = os.path.join(tempfile.gettempdir(), "_mcp_frame.ass")
+        ass = os.path.join(tempfile.gettempdir(), f"_mcp_frame_{uuid.uuid4().hex}.ass")
         text, _ = engine.build_ass(cfg, engine.project_to_render(ctx.session.project))
         with open(ass, "w", encoding="utf-8") as fh: fh.write(text)
         return cfg, ass

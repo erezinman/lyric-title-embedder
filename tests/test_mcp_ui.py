@@ -58,9 +58,26 @@ def t_ui_http_live_update():
     th.join(3); stop()
     return (app._project["layout"][0]["style"].get("fontsize") == 123), f"style={app._project['layout'][0]['style']}"
 
+def t_ui_render_frame_marshaled():
+    import threading, time
+    from mcp_server import tools
+    uctx = UIContext(app)
+    out = {}
+    def worker():
+        try: out["png"] = tools.render_frame(uctx, 13.0)
+        except BaseException as e: out["err"] = f"{type(e).__name__}: {e}"
+    th = threading.Thread(target=worker); th.start()
+    for _ in range(150):
+        app.update(); time.sleep(0.02)
+        if not th.is_alive(): break
+    th.join(3)
+    png = out.get("png")
+    return (isinstance(png, (bytes, bytearray)) and bytes(png[:4]) == b"\x89PNG"), f"err={out.get('err')} got={type(png).__name__}"
+
 for n, f in [("ui_run_marshals_and_updates", t_ui_run_marshals_and_updates),
              ("ui_globals_write_tkvars", t_ui_globals_write_tkvars),
-             ("ui_http_live_update", t_ui_http_live_update)]:
+             ("ui_http_live_update", t_ui_http_live_update),
+             ("ui_render_frame_marshaled", t_ui_render_frame_marshaled)]:
     check(n, f); pump(3)
 npass = sum(1 for ok, *_ in results if ok)
 for ok, n, d in results: print(f"[{'PASS' if ok else 'FAIL'}] {n}" + ("" if ok else f"  -> {d}"))

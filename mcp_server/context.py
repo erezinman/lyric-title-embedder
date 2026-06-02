@@ -110,7 +110,7 @@ class UIContext(EngineContext):
             raise TimeoutError("MCP op timed out waiting for the UI main loop")
         if "e" in box: raise box["e"]
         return box.get("r")
-    def video_path(self): return self.app.vid_var.get() or None
+    def video_path(self): return self.run(lambda: self.app.vid_var.get() or None)
     def cfg(self): return self.run(lambda: self.app.cfg())
     def fonts(self):
         return core.list_font_families()
