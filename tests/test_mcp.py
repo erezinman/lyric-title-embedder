@@ -28,6 +28,26 @@ def t_headless_run_is_direct():
     ctx = HeadlessContext()
     return (ctx.run(lambda: 41 + 1) == 42), "run direct"
 
+from mcp_server import tools
+
+def t_get_state():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    s = tools.get_state(ctx)
+    return (s["n_events"] == len(ctx.session.project["layout"]) and "globals" in s
+            and isinstance(s["events"], list) and "win" in s["events"][0]), f"n={s['n_events']}"
+
+def t_get_group_and_word():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    g = tools.get_group(ctx, 0)
+    wid = g["lines"][0]["words"][0]["wid"]
+    w = tools.get_word(ctx, wid)
+    return (g["gi"] == 0 and "resolved_style" in g and w["wid"] == wid and "start" in w), f"wid={wid}"
+
+def t_get_render_and_ass():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    r = tools.get_render(ctx); a = tools.get_ass(ctx)
+    return (len(r) > 0 and "start" in r[0] and "[V4+ Styles]" in a and "Dialogue:" in a), f"groups={len(r)}"
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)
