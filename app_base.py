@@ -427,50 +427,54 @@ class App(ctk.CTk):
         self._auto_render()
 
     def _draw_text_approx(self):
-        """Mirror libass: only the words appeared by time t are visible, but each
-        line is laid out at its FULL width so appeared words sit in their final
-        place (unappeared words reserve space). Matches the post-mouse-up render."""
         self.canvas.delete("tx")
-        if not self._groups: return
+        if not self._groups:
+            return
         t = self.time_var.get()
         ev = next((g for g in self._groups if g["start"] <= t <= g["end"]), None)
-        if ev is None: return
+        if ev is None:
+            return
         al = ALIGN_LABELS[self.align_var.get()]
         l, top, r, b = self.box
         ax = l if al in (1, 4, 7) else r if al in (3, 6, 9) else (l + r) / 2
         ay = b if al in (1, 2, 3) else top if al in (7, 8, 9) else (top + b) / 2
-        # Negative size = pixels (Tk convention). Scale by the per-font factor so
-        # Tk uses the same FreeType pixel size as libass → matching glyph size.
-        fac = self._font_px_factor(self.font_var.get())
-        fsize = max(8, round(self.size_var.get() * fac / self.sy()))
-        f = tkfont.Font(family=self.font_var.get(), size=-fsize,
-                        weight="bold" if self.bold_var.get() else "normal")
-        lh = f.metrics("linespace")
+        gstyle = ev.get("group_style") or {}
         mode = ev.get("accumulate", "words")
         rows = []
         for line in ev["lines"]:
             ws = line["words"]
-            full = "".join(w["text"] for w in ws).strip()
-            if mode == "words":
-                pref = "".join(w["text"] for w in ws if w["start_s"] <= t).strip()
-            elif mode == "lines":
-                pref = full if (ws and ws[0]["start_s"] <= t) else ""
-            else:  # off — visible for the whole window
-                pref = full
-            rows.append((full, pref))
+            items, widths, fonts = [], [], []
+            for w in ws:
+                res = self._pv_resolve(w.get("style"), gstyle)
+                f = self._pv_font(res["font"], res["fontsize"], res["bold"])
+                wtxt = w["text"]
+                widths.append(f.measure(wtxt)); fonts.append(f)
+                if mode == "words":
+                    appeared = w["start_s"] <= t
+                elif mode == "lines":
+                    appeared = bool(ws) and ws[0]["start_s"] <= t
+                else:
+                    appeared = True
+                items.append((wtxt, res, appeared))
+            rows.append((items, widths, fonts))
         n = len(rows)
-        block_top = ay - n * lh if al in (1, 2, 3) else ay if al in (7, 8, 9) else ay - n * lh / 2
-        for i, (full, pref) in enumerate(rows):
-            if not pref:
-                continue
-            y = block_top + i * lh
-            fw = f.measure(full)                       # FULL line width → fixed left edge
-            lx = ax if al in (1, 4, 7) else ax - fw if al in (3, 6, 9) else ax - fw / 2
-            for ox, oy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-                self.canvas.create_text(lx + ox, y + oy, text=pref, fill=self._color["outline"],
-                                        font=f, anchor="nw", tags="tx")
-            self.canvas.create_text(lx, y, text=pref, fill=self._color["primary"],
-                                    font=f, anchor="nw", tags="tx")
+        lhs = [max((fnt.metrics("linespace") for fnt in fonts), default=0) or 1 for _, _, fonts in rows]
+        total_h = sum(lhs)
+        block_top = ay - total_h if al in (1, 2, 3) else ay if al in (7, 8, 9) else ay - total_h / 2
+        y = block_top
+        for (items, widths, fonts), lh in zip(rows, lhs):
+            full_w = sum(widths)
+            lx = ax if al in (1, 4, 7) else ax - full_w if al in (3, 6, 9) else ax - full_w / 2
+            x = lx
+            for (wtxt, res, appeared), wbw, fnt in zip(items, widths, fonts):
+                if appeared and wtxt.strip():
+                    for ox, oy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                        self.canvas.create_text(x + ox, y + oy, text=wtxt, fill=res["outline"],
+                                                font=fnt, anchor="nw", tags="tx")
+                    self.canvas.create_text(x, y, text=wtxt, fill=res["primary"],
+                                            font=fnt, anchor="nw", tags="tx")
+                x += wbw
+            y += lh
 
     def _font_px_factor(self, family):
         """Factor f such that Tk pixel size = f × Fontsize matches libass's
@@ -494,6 +498,30 @@ class App(ctk.CTk):
             pass
         self._ffac[family] = fac
         return fac
+
+    def _pv_gctx(self):
+        return {"font": self.font_var.get(), "fontsize": self.size_var.get(),
+                "bold": self.bold_var.get(), "primary": self._color["primary"],
+                "outline": self._color["outline"]}
+
+    def _pv_resolve(self, word_style, group_style):
+        g = self._pv_gctx(); out = {}
+        for k in g:
+            if (word_style or {}).get(k) is not None:    out[k] = word_style[k]
+            elif (group_style or {}).get(k) is not None: out[k] = group_style[k]
+            else:                                        out[k] = g[k]
+        return out
+
+    def _pv_font(self, family, size, bold):
+        import tkinter.font as tkfont
+        px = max(8, round(size * self._font_px_factor(family) / self.sy()))
+        key = (family, px, bool(bold))
+        f = getattr(self, "_pv_fonts", None)
+        if f is None:
+            f = self._pv_fonts = {}
+        if key not in f:
+            f[key] = tkfont.Font(family=family, size=-px, weight="bold" if bold else "normal")
+        return f[key]
 
     def _draw_overlay(self):
         self.canvas.delete("ov")
