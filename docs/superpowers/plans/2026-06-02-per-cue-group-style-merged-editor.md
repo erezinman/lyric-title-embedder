@@ -1257,7 +1257,13 @@ def t_project_style_roundtrip():
     return (ok and app._project["layout"][0]["style"].get("font") == "Arial"), "roundtrip lost style"
 ```
 
-Register them by adding their names to the existing `check(...)` invocation list at the bottom of the file (match the file's current registration style).
+Register them by appending three tuples to the existing `tests = [...]` list (around line 251, before the `for name, fn in tests:` loop):
+
+```python
+    ("group style apply -> render+build", t_group_style_apply),
+    ("cue style apply -> inline color", t_cue_style_apply),
+    ("project style roundtrip", t_project_style_roundtrip),
+```
 
 - [ ] **Step 4: Run full suites** — `python3 tests/test_engine.py` → all pass; `xvfb-run -a python3 tests/test_v2_ui.py` → `26/26`.
 
