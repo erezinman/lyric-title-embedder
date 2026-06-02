@@ -99,6 +99,28 @@ goes through `do(name, *args)`: snapshot → call `engine.mutations.<name>` → 
 No-op / rejected edits don't add a snapshot. `undo()` / `redo()` restore the deep copy and fire
 `on_change()`. No tkinter.
 
+### mcp_server/ — optional MCP interface
+
+See `docs/superpowers/specs/2026-06-02-engine-mcp-server-design.md` for the full design.
+
+`mcp_server/` layers on top of `engine/` + `controller.py` through an **`EngineContext`** bridge
+(`mcp_server/context.py`):
+
+- **`HeadlessContext`** — owns its own `controller.Session` and a plain `dict` for globals.
+  All operations run synchronously in the caller's thread. Used by the stdio transport (headless;
+  no Tk dependency at all).
+- **`UIContext`** — wraps a live `AppV2` instance, shares `app._session`, reads/writes tk-vars,
+  and marshals every operation onto the Tk main loop via a queue + main-loop poll. Used by the
+  `--mcp` GUI mode. Undo/redo is a **shared single timeline** between the GUI user and the AI.
+
+`mcp_server/tools.py` — all tool implementations (both contexts share the same tool layer).
+`mcp_server/server.py` — registers tools on a `FastMCP` server; serves stdio or loopback HTTP/SSE.
+`mcp_server/__main__.py` — CLI entry point (`python -m mcp_server`).
+
+**Only `server.py` and `__main__.py` import the `mcp` SDK.** `engine/`, `controller.py`,
+`tools.py`, and `context.py` are SDK-free, so the headless test suite (`tests/test_mcp.py`,
+16 tests) calls tool functions directly without any MCP transport or SDK installed.
+
 ### View layer (CTk + tk)
 
 - **`core.py`** — UI-free shared helpers (used by engine and view): `ass_time`, `esc`,

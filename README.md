@@ -240,6 +240,73 @@ The suites assert **behavior and render-model correctness**, not pixel appearanc
 
 ---
 
+## MCP server
+
+Karaoke Subtitle Studio exposes an **MCP (Model Context Protocol) server** so AI assistants and
+automation tools can read and edit the karaoke project programmatically.
+
+### Install the optional dependency
+
+```bash
+poetry install --with mcp   # adds the `mcp` SDK + uvicorn
+```
+
+The core app and all existing test suites run without this group.
+
+### Run modes
+
+**Headless / stdio** — the MCP client spawns a subprocess with no GUI:
+
+```bash
+.venv/bin/python -m mcp_server --json aligned_lyrics.json
+# optional: --project my.kss  --video clip.mp4
+```
+
+**Live / HTTP+SSE** — launch the GUI with `--mcp`; an MCP endpoint is served alongside the live
+editing session:
+
+```bash
+.venv/bin/python karaoke_subtitle_gui.py --mcp [--mcp-port 8765]
+# endpoint: http://127.0.0.1:8765/sse  (loopback only)
+```
+
+In live mode every MCP edit is applied through the shared `controller.Session` — **undo/redo is a
+single timeline shared between the human at the GUI and the AI client**. GUI changes (dock edits,
+inspector changes, toolbar undo) are immediately visible to the MCP client, and vice-versa.
+
+The server binds to loopback only (`127.0.0.1`). Set `KSS_MCP_TOKEN` to require a bearer token.
+
+### MCP client config (stdio mode)
+
+```json
+{
+  "mcpServers": {
+    "karaoke": {
+      "command": "python",
+      "args": ["-m", "mcp_server", "--json", "aligned_lyrics.json"],
+      "cwd": "/path/to/karaoke-subtitle-studio"
+    }
+  }
+}
+```
+
+### Tool catalog
+
+| Category | Tools |
+|----------|-------|
+| **Inspect** | `get_state`, `list_groups`, `get_group`, `list_words`, `get_word`, `get_render`, `get_ass` |
+| **Style / edit** | `set_group_style`, `set_cue_style`, `make_fade_tag` / `clear_fade_tag` / `set_fade_tag_props`, `set_layout_props`, `merge_events` / `ungroup_event` / `split_event`, `break_line` / `merge_words`, `delete_words` / `restore_words`, `set_fade_defaults` |
+| **Undo / redo** | `undo`, `redo` |
+| **Globals** | `get_globals`, `set_globals` |
+| **Project / build** | `load_lyrics`, `load_project` / `save_project`, `generate_ass`, `render_frame` (→ PNG), `burn` / `burn_status` |
+| **Resources** | `karaoke://project`, `karaoke://ass` |
+
+### Planned (Spec 2, not yet built)
+
+Word-level timing/text edits, add/remove words, and a generic validated patch tool.
+
+---
+
 ## Known limitations / gotchas
 
 - The on-canvas preview text is a **per-cue approximation** (word-by-word fonts/colors); trust

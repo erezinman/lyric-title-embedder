@@ -21,3 +21,13 @@ customtkinter = "^5.2.2"
 [tool.poetry.group.dev.dependencies]
 # No hard dev deps: the UI test suite (tests/test_v2_ui.py) uses only stdlib
 # tkinter and runs headlessly against a live/Xvfb display.
+
+[tool.poetry.group.mcp]
+optional = true
+
+[tool.poetry.group.mcp.dependencies]
+# MCP server support — only needed when running mcp_server/.
+# Install with:  poetry install --with mcp
+# The core app and test suites do NOT require this group.
+mcp = ">=1.2"
+uvicorn = ">=0.27"
