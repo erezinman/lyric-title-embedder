@@ -387,7 +387,9 @@ class App(ctk.CTk):
 
     # ── layout: controls (left, scrollable) | preview (right) ──
     def _build(self):
+        self.toolbar = ctk.CTkFrame(self)   # top toolbar; subclasses may populate it
         main = ctk.CTkFrame(self, fg_color="transparent"); main.pack(fill="both", expand=True, padx=6, pady=6)
+        self._main = main
         main.grid_columnconfigure(0, weight=0)
         main.grid_columnconfigure(1, weight=1)
         main.grid_rowconfigure(0, weight=1)

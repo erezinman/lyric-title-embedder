@@ -238,6 +238,32 @@ class AppV2(base.App):
         super().__init__()
         self.title("Karaoke Subtitle Studio v2")
         self._undo, self._redo = [], []
+        self._theme = getattr(self, "_theme", "Dark")
+        self._build_toolbar()
+
+    def _build_toolbar(self):
+        """Top toolbar (common with the editor) — currently the theme selector."""
+        tb = self.toolbar
+        tb.pack(side="top", fill="x", padx=6, pady=(6, 0), before=self._main)
+        ctk.CTkLabel(tb, text="Karaoke Subtitle Studio",
+                     font=ctk.CTkFont(size=14, weight="bold")).pack(side="left", padx=10, pady=4)
+        self.theme_var = tk.StringVar(value=self._theme)
+        ctk.CTkOptionMenu(tb, variable=self.theme_var, values=list(THEMES), width=100,
+                          command=self.set_theme).pack(side="right", padx=8, pady=4)
+        ctk.CTkLabel(tb, text="Theme:").pack(side="right")
+
+    def set_theme(self, name):
+        """Single source of truth for theming — keeps both windows in sync."""
+        if name not in THEMES:
+            return
+        self._theme = name
+        ctk.set_appearance_mode({"Light": "light", "Dark": "dark", "System": "system"}[name])
+        if hasattr(self, "theme_var"):
+            self.theme_var.set(name)
+        ed = self._editor
+        if ed is not None and ed.winfo_exists():
+            ed.theme_var.set(name)
+            ed._apply_theme(name)   # recolour the editor's text panes + reload
 
     # model build
     def _reload_groups(self):
@@ -346,9 +372,7 @@ class AppV2(base.App):
             messagebox.showerror("Load preset failed", str(e)); return
         self._apply_style_preset(d)
         if d.get("theme") in THEMES:
-            self._theme = d["theme"]
-            if self._editor is not None and self._editor.winfo_exists():
-                self._editor._apply_theme(d["theme"])
+            self.set_theme(d["theme"])   # syncs both toolbars + ctk appearance
         self._reload_groups()
         if d.get("cues_v2") and apply_cues_v2(self._project, d["cues_v2"]):
             self._rebuild_render()
@@ -577,7 +601,7 @@ class CueTableEditor(ctk.CTkToplevel):
         ctk.CTkCheckBox(bar, text="Preview-couple", variable=self.couple).pack(side="right", padx=4)
         self.theme_var = tk.StringVar(value=self.theme_name)
         ctk.CTkOptionMenu(bar, variable=self.theme_var, values=list(THEMES), width=92,
-                          command=lambda v: self._apply_theme(v)).pack(side="right", padx=4)
+                          command=lambda v: self.app.set_theme(v)).pack(side="right", padx=4)
         ctk.CTkLabel(bar, text="Theme:").pack(side="right")
 
         mid = ctk.CTkFrame(self, fg_color="transparent"); mid.pack(fill="both", expand=True, padx=4)
