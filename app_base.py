@@ -78,15 +78,11 @@ class App(ctk.CTk):
         main.grid_columnconfigure(0, weight=0)
         main.grid_columnconfigure(1, weight=1)
         main.grid_rowconfigure(0, weight=1)
-        controls = ctk.CTkScrollableFrame(main, width=500, label_text="")
-        controls.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        self._build_left_rail(main)
         right = ctk.CTkFrame(main, fg_color="transparent")
         right.grid(row=0, column=1, sticky="nsew")
 
-        self._build_io(controls)
-        self._build_style(controls)
         self._build_preview(right)
-        self._bind_mousewheel(controls)  # CTkScrollableFrame wheel is flaky on Linux
 
         bar = ctk.CTkFrame(self, fg_color="transparent"); bar.pack(fill="x", padx=8, pady=(0, 6))
         ctk.CTkButton(bar, text="Edit cues…", command=self.open_editor).pack(side="left")
@@ -110,6 +106,13 @@ class App(ctk.CTk):
         self.status.configure(state="disabled")
         if not HAS_FFMPEG:
             self.log("⚠ ffmpeg not found — exact preview/burn disabled; tkinter approximation only.")
+
+    def _build_left_rail(self, main):
+        controls = ctk.CTkScrollableFrame(main, width=500, label_text="")
+        controls.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        self._build_io(controls)
+        self._build_style(controls)
+        self._bind_mousewheel(controls)
 
     def _bind_mousewheel(self, scroll_frame):
         """Bind wheel scrolling on a CTkScrollableFrame and all its descendants

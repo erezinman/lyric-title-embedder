@@ -92,6 +92,18 @@ class AppV2(base.App):
                           command=self.set_theme).pack(side="right", padx=8, pady=4)
         ctk.CTkLabel(tb, text="Theme:").pack(side="right")
 
+    def _build_left_rail(self, main):
+        rail = ctk.CTkTabview(main, width=500)
+        rail.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        rail.add("Style"); rail.add("Inspector")
+        style_tab = ctk.CTkScrollableFrame(rail.tab("Style"), label_text="")
+        style_tab.pack(fill="both", expand=True)
+        self._build_io(style_tab)
+        self._build_style(style_tab)
+        self._bind_mousewheel(style_tab)
+        self.inspector_tab = ctk.CTkScrollableFrame(rail.tab("Inspector"), label_text="")
+        self.inspector_tab.pack(fill="both", expand=True)
+
     def set_theme(self, name):
         """Single source of truth for theming — keeps both windows in sync."""
         if name not in THEMES:
@@ -320,11 +332,14 @@ class CueDock(ctk.CTkFrame):
         for seq in ("<Delete>", "<KP_Delete>", "<BackSpace>"):
             self.bind(seq, self._key_delete)
 
-        # properties
-        outer, self.prop = base.ctk_labelframe(self, "Properties"); outer.pack(fill="x", padx=4, pady=3)
+        # properties — built into inspector_tab (clears stale widgets from previous dock instance)
+        for _w in self.app.inspector_tab.winfo_children():
+            _w.destroy()
+        outer, self.prop = base.ctk_labelframe(self.app.inspector_tab, "Properties")
+        outer.pack(fill="x", padx=4, pady=3)
         self._build_props()
 
-        gouter, g = base.ctk_labelframe(self, "Global defaults (changing these updates every inherited value)")
+        gouter, g = base.ctk_labelframe(self.app.inspector_tab, "Global defaults (changing these updates every inherited value)")
         gouter.pack(fill="x", padx=4, pady=3)
         self.g_fin = tk.StringVar(); self.g_fout = tk.StringVar(); self.g_ling = tk.StringVar()
         for c, (lab, var, key) in enumerate((("fade-in ms", self.g_fin, "fade_in_ms"),
