@@ -194,3 +194,54 @@ def generate_ass(ctx, path=None):
             return {"wrote": path, "events": n}
         return text
     return ctx.run(f)
+
+
+_BURN_JOBS = {}        # job_id -> {"frac","done","ok","err","out"}
+_BURN_LOCK = threading.Lock()
+
+def render_frame(ctx, time_s):
+    def build():
+        _require_project(ctx)
+        cfg = ctx.cfg()
+        ass = os.path.join(tempfile.gettempdir(), "_mcp_frame.ass")
+        text, _ = engine.build_ass(cfg, engine.project_to_render(ctx.session.project))
+        with open(ass, "w", encoding="utf-8") as fh: fh.write(text)
+        return cfg, ass
+    cfg, ass = ctx.run(build)
+    out = os.path.join(tempfile.gettempdir(), f"_mcp_frame_{uuid.uuid4().hex}.png")
+    cmd = engine.ffmpeg.frame_cmd(ctx.video_path(), ass, time_s, cfg["play_w"], cfg["play_h"], out)
+    import subprocess
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    if p.returncode != 0 or not os.path.isfile(out):
+        raise RuntimeError("frame render failed: " + (p.stderr or "")[-300:])
+    with open(out, "rb") as fh: return fh.read()
+
+def burn(ctx, out_path, video_in=None):
+    def build():
+        _require_project(ctx)
+        a = os.path.join(tempfile.gettempdir(), f"_mcp_burn_{uuid.uuid4().hex}.ass")
+        text, _ = engine.build_ass(ctx.cfg(), engine.project_to_render(ctx.session.project))
+        with open(a, "w", encoding="utf-8") as fh: fh.write(text)
+        return a
+    ass = ctx.run(build)
+    src = video_in or ctx.video_path()
+    if not src:
+        raise ValueError("burn needs a video: pass video_in or set the input video")
+    jid = uuid.uuid4().hex
+    with _BURN_LOCK:
+        _BURN_JOBS[jid] = {"frac": 0.0, "done": False, "ok": False, "err": None, "out": out_path}
+    total = engine.ffmpeg.probe_duration(src) or 1.0
+    cmd = engine.ffmpeg.burn_cmd(src, ass, out_path)
+    def worker():
+        ok, err = engine.ffmpeg.run(cmd, total, lambda fr: _BURN_JOBS[jid].__setitem__("frac", fr))
+        with _BURN_LOCK:
+            _BURN_JOBS[jid].update(done=True, ok=ok, err=(None if ok else str(err)[-400:]), frac=1.0)
+    threading.Thread(target=worker, daemon=True).start()
+    return {"job_id": jid}
+
+def burn_status(ctx, job_id):
+    with _BURN_LOCK:
+        st = _BURN_JOBS.get(job_id)
+        if st is None:
+            raise ValueError(f"unknown burn job_id {job_id}")
+        return dict(st)

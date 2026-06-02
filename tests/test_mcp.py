@@ -109,6 +109,25 @@ def t_generate_ass_to_file_and_text():
     p = "/tmp/_mcp.ass"; tools.generate_ass(ctx, p)
     return ("Dialogue:" in txt and os.path.isfile(p) and open(p).read().count("Dialogue:") > 0), "ass ok"
 
+def t_render_frame_png():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    ctx.set_globals({"play_w": 480, "play_h": 270})
+    png = tools.render_frame(ctx, 13.0)
+    return (isinstance(png, (bytes, bytearray)) and bytes(png[:8]) == b"\x89PNG\r\n\x1a\n"), f"len={len(png)}"
+
+def t_burn_job_completes():
+    import subprocess, core, time as _t
+    subprocess.run([core.FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+                    "-i", "color=c=navy:s=320x180:d=1", "/tmp/_mcp_in.mp4"], check=True)
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json"); ctx.set_globals({"play_w": 320, "play_h": 180})
+    job = tools.burn(ctx, "/tmp/_mcp_out.mp4", video_in="/tmp/_mcp_in.mp4")
+    jid = job["job_id"]; st = None
+    for _ in range(200):
+        st = tools.burn_status(ctx, jid)
+        if st["done"]: break
+        _t.sleep(0.1)
+    return (st and st["done"] and st["ok"] and os.path.isfile("/tmp/_mcp_out.mp4")), f"st={st}"
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)
