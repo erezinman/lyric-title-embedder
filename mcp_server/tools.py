@@ -87,3 +87,68 @@ def get_render(ctx):
 
 def get_ass(ctx):
     return ctx.run(lambda: (_require_project(ctx), engine.build_ass(ctx.cfg(), engine.project_to_render(ctx.session.project))[0])[1])
+
+
+_LANE = {"in": "fin_tags", "out": "fout_tags"}
+
+def _do(ctx, fn_name, *args):
+    return ctx.run(lambda: ctx.session.do(fn_name, *args))
+
+def set_group_style(ctx, gi, partial):
+    _do(ctx, "set_group_style", gi, partial); return ctx.run(lambda: _event_view(ctx, gi))
+
+def set_cue_style(ctx, word_ids, partial):
+    _do(ctx, "set_cue_style", set(word_ids), partial)
+    return ctx.run(lambda: [_word_view(ctx, w) for w in word_ids])
+
+def make_fade_tag(ctx, kind, word_ids):
+    _do(ctx, "make_tag", _LANE[kind], set(word_ids)); return get_state(ctx)
+
+def clear_fade_tag(ctx, kind, word_ids):
+    _do(ctx, "clear_tag", _LANE[kind], set(word_ids)); return get_state(ctx)
+
+def set_fade_tag_props(ctx, kind, word_ids, trigger=None, dur=None):
+    def f():
+        lane = _LANE[kind]; tags = ctx.session.project[lane]
+        tis = {_tag_of(tags, w)[0] for w in word_ids}
+        if None in tis or len(tis) != 1:
+            raise ValueError("set_fade_tag_props: all word_ids must belong to ONE fade group "
+                             "(make_fade_tag them first)")
+        return ctx.session.do("set_tag_props", lane, next(iter(tis)), trigger, dur)
+    ctx.run(f); return get_state(ctx)
+
+def set_layout_props(ctx, gi, win_start=None, win_end=None, linger=None, accumulate="words"):
+    _do(ctx, "set_layout_props", gi, win_start, win_end, linger, accumulate); return ctx.run(lambda: _event_view(ctx, gi))
+
+def merge_events(ctx, gidxs):
+    ok = _do(ctx, "layout_merge", set(gidxs))
+    if ok is False: raise ValueError("merge_events needs >=2 adjacent event indices")
+    return list_groups(ctx)
+
+def ungroup_event(ctx, gi):
+    _do(ctx, "layout_ungroup", gi); return list_groups(ctx)
+
+def split_event(ctx, gi, line_index):
+    _do(ctx, "layout_split_event", gi, line_index); return list_groups(ctx)
+
+def break_line(ctx, gi, li, ti, after=True):
+    _do(ctx, "add_break", gi, li, ti, after); return ctx.run(lambda: _event_view(ctx, gi))
+
+def merge_words(ctx, gi, li, ti, sep=""):
+    _do(ctx, "merge_prev_word", gi, li, ti, sep); return ctx.run(lambda: _event_view(ctx, gi))
+
+def delete_words(ctx, word_ids):
+    _do(ctx, "toggle_word_del", set(word_ids), True); return ctx.run(lambda: [_word_view(ctx, w) for w in word_ids])
+
+def restore_words(ctx, word_ids):
+    _do(ctx, "toggle_word_del", set(word_ids), False); return ctx.run(lambda: [_word_view(ctx, w) for w in word_ids])
+
+def set_fade_defaults(ctx, fade_in_ms=None, fade_out_ms=None, linger=None):
+    def f():
+        for k, v in (("fade_in_ms", fade_in_ms), ("fade_out_ms", fade_out_ms), ("linger", linger)):
+            if v is not None: ctx.session.do("set_global", k, v)
+    ctx.run(f); return ctx.run(lambda: dict(ctx.session.project["globals"]))
+
+def undo(ctx): ctx.run(lambda: ctx.session.undo()); return get_state(ctx)
+
+def redo(ctx): ctx.run(lambda: ctx.session.redo()); return get_state(ctx)

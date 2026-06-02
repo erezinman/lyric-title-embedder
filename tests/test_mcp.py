@@ -9,6 +9,7 @@ def check(name, fn):
     except Exception as e:
         import traceback; results.append((False, name, f"EXC {type(e).__name__}: {e}"))
 
+import engine
 from mcp_server.context import HeadlessContext, DEFAULT_GLOBALS
 
 def t_headless_loads_and_cfg():
@@ -47,6 +48,45 @@ def t_get_render_and_ass():
     ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
     r = tools.get_render(ctx); a = tools.get_ass(ctx)
     return (len(r) > 0 and "start" in r[0] and "[V4+ Styles]" in a and "Dialogue:" in a), f"groups={len(r)}"
+
+def t_edit_group_style_and_undo():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.set_group_style(ctx, 0, {"fontsize": 88, "border_style": 3})
+    assert ctx.session.project["layout"][0]["style"]["fontsize"] == 88
+    a = tools.get_ass(ctx); assert "Style: Box," in a
+    tools.undo(ctx)
+    return (ctx.session.project["layout"][0]["style"] == {}), "undo cleared group style"
+
+def t_edit_cue_style_border_dropped():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    wid = ctx.session.project["layout"][0]["lines"][0]["toks"][0]["ids"][0]
+    tools.set_cue_style(ctx, [wid], {"primary": "#00FF00", "border_style": 3})
+    st = tools.get_word(ctx, wid)["cue_style"]
+    return (st == {"primary": "#00FF00"}), f"st={st}"
+
+def t_fade_tag_make_and_props():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.make_fade_tag(ctx, "out", [0, 1, 2])
+    tools.set_fade_tag_props(ctx, "out", [0], trigger=99.0, dur=500)
+    r = engine.project_to_render(ctx.session.project)
+    foats = [w["fout_at"] for g in r for ln in g["lines"] for w in ln["words"] if w["fout_at"] is not None]
+    return (any(abs(x - 99.0) < 1e-6 for x in foats)), f"foats~{[round(x,1) for x in foats][:4]}"
+
+def t_layout_merge_split_redo():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    n0 = len(ctx.session.project["layout"])
+    tools.merge_events(ctx, [0, 1]); n1 = len(ctx.session.project["layout"])
+    tools.undo(ctx); n2 = len(ctx.session.project["layout"])
+    tools.redo(ctx); n3 = len(ctx.session.project["layout"])
+    return (n1 == n0 - 1 and n2 == n0 and n3 == n0 - 1), f"{n0},{n1},{n2},{n3}"
+
+def t_delete_restore_words():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.delete_words(ctx, [0]); d1 = tools.get_word(ctx, 0)["location"]
+    tok_deleted = ctx.session.project["layout"][d1[0]]["lines"][d1[1]]["toks"][d1[2]]["del"]
+    tools.restore_words(ctx, [0])
+    tok_restored = ctx.session.project["layout"][d1[0]]["lines"][d1[1]]["toks"][d1[2]]["del"]
+    return (tok_deleted is True and tok_restored is False), "delete/restore ok"
 
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
