@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useProjectStore } from "../api/useProjectStore";
 import { burn } from "../api/client";
 import { TopBar } from "./TopBar";
@@ -38,9 +38,13 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   // selection
   const [sel, setSel] = useState<SelState>({ scope: "group", gi: 0, tok: null });
   const [selectedWords, setSelectedWords] = useState<Set<number>>(new Set());
+  const [anchorWid, setAnchorWid] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   // EventStrip only appears after an explicit group selection (avoids duplicate label text nodes)
   const [groupExplicitSel, setGroupExplicitSel] = useState(false);
+
+  // keep a ref to P so the Esc handler can close over it without stale closure issues
+  const pRef = useRef(P);
 
   // rail / dock tabs — start on "project" so StyleWaterfall doesn't overlap CueLanes event labels
   const [railTab, setRailTab] = useState<"project" | "inspector">("project");
@@ -57,23 +61,103 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     store.call(tool, args).catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)));
   }, [store]);
 
+  // keep pRef in sync with P
+  useEffect(() => { pRef.current = P; }, [P]);
+
+  // ---- cueList: every cue in layout order with its start time ----
+  const cueList = useCallback(() => {
+    const project = pRef.current;
+    if (!project) return [];
+    const result: { wid: number; gi: number; li: number; ti: number; start: number }[] = [];
+    for (let gi = 0; gi < project.layout.length; gi++) {
+      const g = project.layout[gi];
+      for (let li = 0; li < g.lines.length; li++) {
+        for (let ti = 0; ti < g.lines[li].toks.length; ti++) {
+          const tok = g.lines[li].toks[ti];
+          const wid = tok.ids[0];
+          const start = Math.min(...tok.ids.map((id) => project.words[id]?.start ?? Infinity));
+          result.push({ wid, gi, li, ti, start });
+        }
+      }
+    }
+    return result;
+  }, []);
+
+  // ---- unified selectCue ----
+  const selectCue = useCallback((
+    gi: number, li: number, ti: number, wid: number,
+    mods: { ctrl?: boolean; shift?: boolean } = {}
+  ) => {
+    if (mods.shift) {
+      // range selection by time order
+      setSelectedWords((prev) => {
+        const project = pRef.current;
+        if (!project) return prev;
+        const list = cueList();
+        const clickedEntry = list.find((c) => c.wid === wid);
+        // find anchor entry: use anchorWid if set, else fall back to the first item in prev set
+        const anchorEntry = anchorWid != null
+          ? list.find((c) => c.wid === anchorWid)
+          : prev.size > 0
+            ? list.find((c) => prev.has(c.wid))
+            : null;
+        if (!clickedEntry || !anchorEntry) {
+          return new Set([wid]);
+        }
+        const [aStart, bStart] = [
+          Math.min(anchorEntry.start, clickedEntry.start),
+          Math.max(anchorEntry.start, clickedEntry.start),
+        ];
+        const next = new Set<number>();
+        for (const c of list) {
+          if (c.start >= aStart && c.start <= bStart) next.add(c.wid);
+        }
+        return next;
+      });
+      setSel({ scope: "cue", gi, tok: { li, ti } });
+      // don't move anchor on shift
+    } else if (mods.ctrl) {
+      // toggle
+      setSelectedWords((prev) => {
+        const next = new Set(prev);
+        if (next.has(wid)) next.delete(wid); else next.add(wid);
+        return next;
+      });
+      setSel({ scope: "cue", gi, tok: { li, ti } });
+      setAnchorWid(wid);
+    } else {
+      // plain click
+      setSel({ scope: "cue", gi, tok: { li, ti } });
+      setSelectedWords(new Set([wid]));
+      setAnchorWid(wid);
+    }
+  }, [anchorWid, cueList]);
+
+  // ---- clearSelection ----
+  const clearSelection = useCallback(() => {
+    setSel({ scope: "global", gi: 0, tok: null });
+    setSelectedWords(new Set());
+    setAnchorWid(null);
+  }, []);
+
+  // ---- Esc key clears selection ----
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        const target = e.target as HTMLElement;
+        if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") return;
+        clearSelection();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [clearSelection]);
+
   // ---- selection helpers ----
-  const selectWord = useCallback((gi: number, li: number, ti: number, wid: number) => {
-    setSel({ scope: "cue", gi, tok: { li, ti } });
-    setSelectedWords(new Set([wid]));
-  }, []);
-
-  const shiftSelectWord = useCallback((wid: number) => {
-    setSelectedWords((prev) => {
-      const next = new Set(prev);
-      if (next.has(wid)) next.delete(wid); else next.add(wid);
-      return next;
-    });
-  }, []);
-
   const selectEvent = useCallback((gi: number) => {
     setSel({ scope: "group", gi, tok: null });
     setSelectedWords(new Set());
+    setAnchorWid(null);
     setGroupExplicitSel(true);
   }, []);
 
@@ -195,8 +279,10 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     const result: TrackWord[] = [];
     for (let gi = 0; gi < P.layout.length; gi++) {
       const g = P.layout[gi];
-      for (const line of g.lines) {
-        for (const tok of line.toks) {
+      for (let li = 0; li < g.lines.length; li++) {
+        const line = g.lines[li];
+        for (let ti = 0; ti < line.toks.length; ti++) {
+          const tok = line.toks[ti];
           const wid = tok.ids[0];
           const w = P.words[wid];
           if (!w) continue;
@@ -206,6 +292,8 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
             s: w.start,
             e: Math.max(...tok.ids.map((id) => P.words[id]?.end ?? 0)),
             gi,
+            li,
+            ti,
             del: tok.del,
           });
         }
@@ -314,7 +402,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
       for (let li = 0; li < g.lines.length; li++) {
         for (let ti = 0; ti < g.lines[li].toks.length; ti++) {
           if (g.lines[li].toks[ti].ids.includes(wid)) {
-            selectWord(gi, li, ti, wid);
+            selectCue(gi, li, ti, wid);
             return;
           }
         }
@@ -476,7 +564,8 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                 time={time}
                 liveId={liveId}
                 selId={wid}
-                onSelect={selectWordByWid}
+                selectedWords={selectedWords}
+                onSelect={selectCue}
               />
             </div>
           )}
@@ -487,8 +576,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
               selectedWords={selectedWords}
               collapsed={collapsed}
               aiHotKey={aiHotKey}
-              onSelectWord={selectWord}
-              onShiftWord={shiftSelectWord}
+              onSelectWord={selectCue}
               onSelectEvent={selectEvent}
               onToggleCollapse={toggleCollapse}
             />

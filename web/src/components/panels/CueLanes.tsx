@@ -10,8 +10,7 @@ export interface CueLanesProps {
   selectedWords: Set<number>;
   collapsed: Set<number>;
   aiHotKey: string | null;
-  onSelectWord: (gi: number, li: number, ti: number, wid: number) => void;
-  onShiftWord: (wid: number) => void;
+  onSelectWord: (gi: number, li: number, ti: number, wid: number, mods: { ctrl?: boolean; shift?: boolean }) => void;
   onSelectEvent: (gi: number) => void;
   onToggleCollapse: (gi: number) => void;
 }
@@ -67,7 +66,7 @@ function FadeCell({ sched, kind, project, gi, wid }: FadeCellProps) {
 
 export function CueLanes({
   project, sel, selectedWords, collapsed, aiHotKey,
-  onSelectWord, onShiftWord, onSelectEvent, onToggleCollapse,
+  onSelectWord, onSelectEvent, onToggleCollapse,
 }: CueLanesProps) {
   return (
     <div className="lanes">
@@ -121,7 +120,7 @@ export function CueLanes({
                         (aiHotKey === "w" + wid ? " aihot" : "")
                       }
                       onClick={(ev) =>
-                        ev.shiftKey ? onShiftWord(wid) : onSelectWord(gi, li, ti, wid)
+                        onSelectWord(gi, li, ti, wid, { ctrl: ev.ctrlKey || ev.metaKey, shift: ev.shiftKey })
                       }
                     >
                       <span className="lc word">

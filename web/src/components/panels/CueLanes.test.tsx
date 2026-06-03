@@ -53,7 +53,6 @@ describe("CueLanes", () => {
         collapsed={new Set<number>()}
         aiHotKey={null}
         onSelectWord={() => {}}
-        onShiftWord={() => {}}
         onSelectEvent={() => {}}
         onToggleCollapse={() => {}}
       />,

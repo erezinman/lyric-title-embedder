@@ -6,6 +6,8 @@ export interface TrackWord {
   s: number;
   e: number;
   gi: number;
+  li: number;
+  ti: number;
   del?: boolean;
   frac?: boolean;
 }
@@ -22,12 +24,13 @@ interface WordTrackProps {
   time: number;
   liveId: number | null;
   selId: number | null;
-  onSelect: (wid: number) => void;
+  selectedWords?: Set<number>;
+  onSelect: (gi: number, li: number, ti: number, wid: number, mods: { ctrl?: boolean; shift?: boolean }) => void;
 }
 
 // Expanded cues timeline: one labelled lane per layout event, cue blocks
 // positioned by time, with a single playhead spanning all lanes.
-export function WordTrack({ words, events, dur, time, liveId, selId, onSelect }: WordTrackProps) {
+export function WordTrack({ words, events, dur, time, liveId, selId, selectedWords, onSelect }: WordTrackProps) {
   const progress = dur ? time / dur : 0;
   const lanes = (events ?? []).filter((ev) => words.some((w) => w.gi === ev.gi));
 
@@ -45,17 +48,18 @@ export function WordTrack({ words, events, dur, time, liveId, selId, onSelect }:
               .map((w) => {
                 const left = (w.s / dur) * 100;
                 const width = Math.max(0.4, ((w.e - w.s) / dur) * 100);
+                const isMulti = selectedWords?.has(w.wid) ?? false;
                 const cls =
                   "block" +
                   (w.wid === liveId ? " live" : "") +
-                  (w.wid === selId ? " sel" : "") +
+                  (w.wid === selId || isMulti ? " sel" : "") +
                   (w.del ? " del" : "");
                 return (
                   <div
                     key={w.wid}
                     className={cls}
                     style={{ left: `${left}%`, width: `${width}%`, background: colorForIndex(w.gi) }}
-                    onClick={() => onSelect(w.wid)}
+                    onClick={(e) => onSelect(w.gi, w.li, w.ti, w.wid, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })}
                     title={`${w.text} · ${w.s.toFixed(2)}–${w.e.toFixed(2)}s`}
                   >
                     <span className="bt">{w.text}</span>
