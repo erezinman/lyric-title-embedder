@@ -167,6 +167,35 @@ def t_set_fade_tag_props_trigger_only():
     t = ctx.session.project["fin_tags"][0]
     return (t["trigger"] == 1.5 and "dur" not in t, t)
 
+def t_get_project_minimal_shape():
+    import json
+    from engine.model import STYLE_KEYS
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    pj = tools.get_project(ctx)
+    keys = set(pj.keys())
+    ok = (keys == {"words", "layout", "fin_tags", "fout_tags", "globals", "global_style", "placement"}
+          and set(pj["global_style"].keys()) == set(STYLE_KEYS)
+          and "use_pos" not in pj["placement"]
+          and "pos" in pj["placement"]
+          and "fade" in pj["layout"][0] and "style" in pj["layout"][0]
+          and set(pj["layout"][0]["lines"][0]["toks"][0].keys()) == {"ids", "sep", "del", "style"})
+    json.dumps(pj)
+    return (ok, sorted(keys))
+
+def t_get_project_fade_tags_have_no_color_dur():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.make_fade_tag(ctx, "in", [0, 1])
+    pj = tools.get_project(ctx)
+    t = pj["fin_tags"][0]
+    return (set(t.keys()) == {"ids", "trigger"} and isinstance(t["ids"], list), t)
+
+def t_event_view_merged_token_text():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.merge_words(ctx, 0, 0, 1, sep=" ")    # merge token ti=1 into ti=0 on line 0 of group 0
+    grp = tools.get_group(ctx, 0)
+    w0 = grp["lines"][0]["words"][0]
+    return (len(w0["ids"]) == 2 and " " in w0["text"], w0)
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)

@@ -1,7 +1,10 @@
 # mcp_server/tools.py — tool implementations over an EngineContext. No `mcp` import.
 import json, os, tempfile, threading, uuid
 import engine
+import core
 from engine.model import resolve_style, _tag_of
+
+_PLACE_KEYS = ["align", "play_w", "play_h", "margin_l", "margin_r", "margin_v", "pos"]
 
 
 def _gctx_for_resolve(ctx):
@@ -28,7 +31,8 @@ def _event_view(ctx, gi):
             "style_overrides": dict(g.get("style") or {}),
             "fade_overrides": dict(g.get("fade") or {}),
             "resolved_style": resolve_style(None, g, gd),
-            "lines": [{"li": li, "words": [{"wid": t["ids"][0], "text": words[t["ids"][0]]["text"],
+            "lines": [{"li": li, "words": [{"wid": t["ids"][0], "ids": list(t["ids"]),
+                        "sep": t.get("sep", ""), "text": core.token_text(words, t),
                         "start": min(words[i]["start"] for i in t["ids"]),
                         "end": max(words[i]["end"] for i in t["ids"]),
                         "deleted": t.get("del", False),
@@ -85,6 +89,29 @@ def list_words(ctx):
 
 def get_render(ctx):
     return ctx.run(lambda: (_require_project(ctx), engine.project_to_render(ctx.session.project))[1])
+
+
+def get_project(ctx):
+    def f():
+        from engine.model import STYLE_KEYS
+        _require_project(ctx)
+        p = ctx.session.project; g = ctx.get_globals()
+        layout = [{"label": grp["label"], "accumulate": grp.get("accumulate", "words"),
+                   "win_start": grp.get("win_start"), "win_end": grp.get("win_end"),
+                   "linger": grp.get("linger"), "del": grp.get("del", False),
+                   "style": dict(grp.get("style") or {}), "fade": dict(grp.get("fade") or {}),
+                   "lines": [{"toks": [{"ids": list(t["ids"]), "sep": t.get("sep", ""),
+                                        "del": t.get("del", False),
+                                        "style": dict(t.get("style") or {})}
+                                       for t in ln["toks"]]} for ln in grp["lines"]]}
+                  for grp in p["layout"]]
+        mk = lambda lane: [{"ids": sorted(t["ids"]), "trigger": t.get("trigger")} for t in p[lane]]
+        return {"words": [dict(w) for w in p["words"]], "layout": layout,
+                "fin_tags": mk("fin_tags"), "fout_tags": mk("fout_tags"),
+                "globals": dict(p["globals"]),
+                "global_style": {k: g[k] for k in STYLE_KEYS},
+                "placement": {k: g.get(k) for k in _PLACE_KEYS}}
+    return ctx.run(f)
 
 
 def get_ass(ctx):

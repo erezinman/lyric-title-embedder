@@ -21,6 +21,8 @@ def build_server(ctx, name="karaoke-subtitle-studio"):
     @mcp.tool()
     def get_render() -> list: return tools.get_render(ctx)
     @mcp.tool()
+    def get_project() -> dict: return tools.get_project(ctx)
+    @mcp.tool()
     def get_ass() -> str: return tools.get_ass(ctx)
 
     @mcp.tool()
