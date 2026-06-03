@@ -94,6 +94,20 @@ def t_api_burn_job():
     import os
     return (st and st["done"] and st["ok"] and os.path.isfile("/tmp/_kss_dout.mp4")), f"st={st}"
 
+def t_library_roundtrip():
+    import shutil, os
+    pdir = "/tmp/_kss_projects"; shutil.rmtree(pdir, ignore_errors=True); os.makedirs(pdir)
+    c, ctx = _client()                      # _client uses projects_dir=/tmp/_kss_projects
+    c.post("/api/projects/new", json={"name": "demo", "lyrics_path": "aligned_lyrics.json"})
+    c.post("/api/call", json={"tool": "set_group_style", "args": {"gi": 0, "partial": {"font": "Arial"}}})
+    c.post("/api/projects/save", json={"name": "demo"})
+    lst = c.get("/api/projects").json()
+    assert "demo" in lst, lst
+    c2, ctx2 = _client()
+    c2.post("/api/projects/open", json={"name": "demo"})
+    st = c2.get("/api/state").json()
+    return (st["events"][0]["style_overrides"].get("font") == "Arial"), f"lst={lst}"
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)

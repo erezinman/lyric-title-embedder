@@ -55,4 +55,22 @@ def make_routes(ctx, hub):
         except Exception as e:
             return _err(str(e), 404)
 
-    return call, state, render, ass, ws_endpoint, frame, burn, burn_status
+    from daemon import library
+    async def projects_list(request):
+        return JSONResponse(library.list_projects(request.app.state.projects_dir))
+    async def projects_new(request):
+        b = await request.json()
+        library.new_project(request.app.state.projects_dir, b["name"], b["lyrics_path"])
+        library.open_project(ctx, request.app.state.projects_dir, b["name"])
+        return JSONResponse({"opened": b["name"]})
+    async def projects_open(request):
+        b = await request.json()
+        library.open_project(ctx, request.app.state.projects_dir, b["name"])
+        return JSONResponse({"opened": b["name"]})
+    async def projects_save(request):
+        b = await request.json()
+        library.save_project(ctx, request.app.state.projects_dir, b["name"])
+        return JSONResponse({"saved": b["name"]})
+
+    return call, state, render, ass, ws_endpoint, frame, burn, burn_status, \
+           projects_list, projects_new, projects_open, projects_save
