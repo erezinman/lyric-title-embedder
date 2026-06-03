@@ -153,6 +153,14 @@ def t_ws_push_after_set_group_fade_carries_fade():
         g0 = msg["state"]["layout"][0]
         return (msg["type"] == "state" and g0["fade"].get("fade_in_ms") == 400, g0.get("fade"))
 
+def t_new_project_is_immediately_listable():
+    import shutil, os
+    pdir = "/tmp/_kss_projects"; shutil.rmtree(pdir, ignore_errors=True); os.makedirs(pdir)
+    c, ctx = _client()
+    c.post("/api/projects/new", json={"name": "fresh", "lyrics_path": "aligned_lyrics.json"})
+    lst = c.get("/api/projects").json()    # listable WITHOUT an explicit save
+    return ("fresh" in lst, lst)
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)

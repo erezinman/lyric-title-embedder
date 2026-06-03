@@ -63,6 +63,7 @@ def make_routes(ctx, hub):
         try:
             library.new_project(request.app.state.projects_dir, b["name"], b["lyrics_path"])
             library.open_project(ctx, request.app.state.projects_dir, b["name"])
+            library.save_project(ctx, request.app.state.projects_dir, b["name"])  # persist project.json so it is listable immediately
         except ValueError as e:
             return _err(str(e))
         return JSONResponse({"opened": b["name"]})
