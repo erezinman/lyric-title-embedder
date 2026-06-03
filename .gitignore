@@ -20,3 +20,16 @@ karaoke.ass
 *.swp
 .idea/
 .vscode/
+
+# Web build artifacts (tsc -b composite emits + vite cache)
+web/*.tsbuildinfo
+web/vite.config.d.ts
+web/vite.config.js
+.vite/
+
+# Runtime project library (self-contained project folders)
+/projects/
+
+# Local media / design-system source bundles
+/Clip.mp4
+*.zip
