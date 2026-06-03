@@ -25,9 +25,9 @@ export function TimingPanel({ tok, project, unlocked, onToggleLock, onSetTime, o
           <Icon name="settings" size={10} />{unlocked ? "unlocked" : "locked"}
         </button>
       </div>
-      <NumField label="Start" value={span.start} disabled={!unlocked} step={0.05}
+      <NumField label="Start" value={span.start} disabled={!unlocked || merged} step={0.05}
         onCommit={(v) => onSetTime(Math.max(0, Math.min(v, span.end - 0.01)), span.end)} />
-      <NumField label="End" value={span.end} disabled={!unlocked} step={0.05}
+      <NumField label="End" value={span.end} disabled={!unlocked || merged} step={0.05}
         onCommit={(v) => onSetTime(span.start, Math.max(span.start + 0.01, v))} />
       <label className="timing-text">
         <span>Text</span>
@@ -35,7 +35,7 @@ export function TimingPanel({ tok, project, unlocked, onToggleLock, onSetTime, o
           onBlur={(e) => onSetText(e.currentTarget.value)}
           onKeyDown={(e) => { if (e.key === "Enter") onSetText((e.target as HTMLInputElement).value); }} />
       </label>
-      {merged && <p className="locked-note">Merged cue — un-merge to edit text per word.</p>}
+      {merged && <p className="locked-note">Merged cue — un-merge to edit timing/text per word.</p>}
     </div>
   );
 }

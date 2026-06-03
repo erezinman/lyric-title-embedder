@@ -165,6 +165,7 @@ export function WordTrack({
         const drag = dragRef.current;
         if (!drag || !drag.active) return;
         if (e.key === "Escape") {
+          e.stopImmediatePropagation();
           drag.cancelled = true;
           dragRef.current = null;
           setPreview(new Map());

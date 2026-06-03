@@ -162,7 +162,6 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   useEffect(() => {
     if (!timingsUnlocked) return;
     const handler = (e: KeyboardEvent) => {
-      if (!timingsUnlocked) return;
       const target = e.target as HTMLElement;
       if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") return;
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
