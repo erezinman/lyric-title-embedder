@@ -1,138 +1,227 @@
-// app.jsx — interactive shell: Project Library → merged editor (Layout 1 · Timeline Dock).
-// Model: groups (events) → words(cues). A cue = one+ words with start/stop bounds.
-// A "solo" group is a standalone cue. All edits flow through a history (undo/redo).
+// app.jsx — Project Library → merged editor wired to the real-shaped model (model.jsx).
+// Selection scopes (cue/group/global) drive the waterfall; ops mutate the project
+// through one shared history (undo/redo). A simulated MCP "AI agent" edits live too.
 const { useState, useEffect, useRef } = React;
 
-const INITIAL_GROUPS = [
-  { id: "g0", label: "Verse 1", solo: false, words: [
-    { id: 0, text: "Caught", s: 0.30, e: 0.70 },
-    { id: 1, text: "in", s: 0.80, e: 1.00 },
-    { id: 2, text: "a", s: 1.05, e: 1.20 },
-    { id: 3, text: "bleating", s: 1.40, e: 2.00, fadeOut: true },
-    { id: 4, text: "obsession", s: 2.20, e: 3.10, fadeOut: true },
-  ] },
-  { id: "g1", label: "Verse 1", solo: false, words: [
-    { id: 5, text: "Tangled", s: 3.70, e: 4.20 },
-    { id: 6, text: "up", s: 4.25, e: 4.45 },
-    { id: 7, text: "in", s: 4.50, e: 4.70 },
-    { id: 8, text: "wool", s: 4.95, e: 5.45 },
-    { id: 9, text: "and", s: 5.55, e: 5.75 },
-    { id: 10, text: "static", s: 5.95, e: 6.85 },
-  ] },
-];
 const PROJ_NAMES = Object.fromEntries(PROJECTS.map(p => [p.id, p.name]));
-const clone = (g) => g.map(x => ({ ...x, words: x.words.map(w => ({ ...w })) }));
-const snap = (t) => Math.round(t / 0.05) * 0.05;
 
-// minimal undo/redo history over the groups array
 function useHistory(initial) {
   const [hist, setHist] = useState({ past: [], present: initial, future: [] });
-  const set = (updater) => setHist(h => {
+  const set = (updater, meta) => setHist(h => {
     const next = typeof updater === "function" ? updater(h.present) : updater;
     return { past: [...h.past, h.present], present: next, future: [] };
   });
   const undo = () => setHist(h => h.past.length ? { past: h.past.slice(0, -1), present: h.past[h.past.length - 1], future: [h.present, ...h.future] } : h);
   const redo = () => setHist(h => h.future.length ? { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1) } : h);
-  return { groups: hist.present, set, undo, redo, canUndo: hist.past.length > 0, canRedo: hist.future.length > 0 };
+  return { project: hist.present, set, undo, redo, canUndo: hist.past.length > 0, canRedo: hist.future.length > 0 };
 }
 
 function Editor({ projectId, onHome }) {
-  const H = useHistory(INITIAL_GROUPS);
-  const groups = H.groups;
+  const H = useHistory(clone(INITIAL_PROJECT));
+  const P = H.project;
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(1.6);
-  const [preset, setPreset] = useState("Karaoke Bounce");
-  const [sel, setSel] = useState({ type: "word", id: 3 });
-  const [railTab, setRailTab] = useState("inspector");
-  const [dockTab, setDockTab] = useState("timeline");
+  const [sel, setSel] = useState({ scope: "cue", gi: 0, tok: tokAt(INITIAL_PROJECT, 0, 0, 3) });
+  const [selWords, setSelWords] = useState(new Set());
   const [collapsed, setCollapsed] = useState(new Set());
+  const [railTab, setRailTab] = useState("inspector");
+  const [dockTab, setDockTab] = useState("lanes");
+  const [pvMode, setPvMode] = useState("live");
   const [toast, setToast] = useState(null);
+  const [aiHot, setAiHot] = useState(null); // {key, tier}
   const raf = useRef(null);
 
-  // derived
-  const allWords = groups.flatMap((g, gi) => g.words.map(w => ({ ...w, gi, groupId: g.id })));
-  const liveWords = allWords.filter(w => !w.del);
-  const dur = Math.max(8, ...allWords.map(w => w.e), 0) + 1.2;
-  const liveId = (() => { const w = liveWords.find(w => w.s <= time && time < w.e); return w ? w.id : null; })();
-  const activeGroupIdx = (() => { let idx = 0; groups.forEach((g, i) => { const f = g.words.filter(x => !x.del)[0]; if (f && f.s <= time) idx = i; }); return idx; })();
-  const activeLine = groups[activeGroupIdx] ? groups[activeGroupIdx].words.filter(w => !w.del) : [];
-  const selId = sel.type === "word" ? sel.id : null;
-  const selWord = sel.type === "word" ? allWords.find(w => w.id === sel.id) : null;
-  const selGroupId = sel.type === "group" ? sel.id : (selWord ? selWord.groupId : null);
+  const dur = totalDuration(P);
+
+  // keep sel.tok in sync with the live project (after edits/undo)
+  const curTok = sel.tok ? tokAtLoc(P, sel.gi, sel.tok.li, sel.tok.ti) : null;
+  const selWid = curTok ? curTok.ids[0] : null;
 
   // playback
   useEffect(() => {
     if (!playing) return;
     let last = performance.now();
-    const tick = (now) => { const dt = (now - last) / 1000; last = now; setTime(t => { const nt = t + dt; return nt >= dur ? 0 : nt; }); raf.current = requestAnimationFrame(tick); };
+    const tick = (now) => { const dt = (now - last) / 1000; last = now; setTime(t => (t + dt >= dur ? 0 : t + dt)); raf.current = requestAnimationFrame(tick); };
     raf.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf.current);
   }, [playing, dur]);
 
-  const nextWid = () => (allWords.reduce((m, w) => Math.max(m, w.id), -1) + 1);
-  const selectWord = (id) => { setSel({ type: "word", id }); setRailTab("inspector"); };
-  const selectGroup = (id) => { setSel({ type: "group", id }); setRailTab("inspector"); };
+  // simulated AI agent editing over MCP (shared timeline)
+  useEffect(() => {
+    const fire = () => {
+      H.set(p => { const np = clone(p); const g = np.layout[1]; g.style = { ...g.style, bold: !(g.style.bold ?? np.global_style.bold) }; return np; });
+      setAiHot({ key: "g1", tier: "group" });
+      setToast({ ai: true, msg: "AI agent toggled Bold on “Chorus”" });
+      setTimeout(() => setAiHot(null), 2600);
+      setTimeout(() => setToast(t => (t && t.ai ? null : t)), 3200);
+    };
+    const t1 = setTimeout(fire, 11000);
+    const iv = setInterval(fire, 26000);
+    return () => { clearTimeout(t1); clearInterval(iv); };
+  }, []);
 
-  // ── cue operations (all revertible via history) ──
-  const editText = (id, text) => H.set(gs => clone(gs).map(g => ({ ...g, words: g.words.map(w => w.id === id ? { ...w, text } : w) })));
-  const nudge = (id, ds, de) => H.set(gs => clone(gs).map(g => ({ ...g, words: g.words.map(w => {
-    if (w.id !== id) return w;
-    let s = Math.max(0, snap(w.s + ds)), e = snap(w.e + de);
-    if (e <= s) { if (de) e = s + 0.05; else s = e - 0.05; }
-    return { ...w, s: Math.max(0, s), e };
-  }) })));
-  const toggleDel = (id) => H.set(gs => clone(gs).map(g => ({ ...g, words: g.words.map(w => w.id === id ? { ...w, del: !w.del } : w) })));
-  const addInGroup = () => {
-    const gid = selGroupId || groups[activeGroupIdx].id;
-    const id = nextWid();
-    H.set(gs => clone(gs).map(g => g.id === gid
-      ? { ...g, words: [...g.words, { id, text: "word", s: snap(time), e: snap(time) + 0.6 }].sort((a, b) => a.s - b.s) }
-      : g));
-    selectWord(id);
+  // ── selection ──
+  const selectWord = (gi, li, ti, wid) => { setSel({ scope: "cue", gi, tok: { li, ti } }); setSelWords(new Set([wid])); setRailTab("inspector"); };
+  const selectWordByWid = (wid) => { const f = findTokByWord(P, wid); if (f) selectWord(f.gi, f.li, f.ti, wid); };
+  const selectEvent = (gi) => { setSel({ scope: "group", gi, tok: null }); setSelWords(new Set()); setRailTab("inspector"); };
+  const selectTier = (scope) => setSel(s => ({ ...s, scope }));
+  const shiftWord = (wid) => setSelWords(s => { const n = new Set(s); n.has(wid) ? n.delete(wid) : n.add(wid); return n; });
+
+  // ── style edits (waterfall) ──
+  const setStyle = (tier, key, value) => H.set(p => {
+    const np = clone(p);
+    if (tier === "global") np.global_style[key] = value;
+    else if (tier === "group") np.layout[sel.gi].style[key] = value;
+    else { const t = np.layout[sel.gi].lines[sel.tok.li].toks[sel.tok.ti]; t.style[key] = value; }
+    return np;
+  });
+  const clearStyle = (tier, key) => H.set(p => {
+    const np = clone(p);
+    if (tier === "group") delete np.layout[sel.gi].style[key];
+    else if (tier === "cue") delete np.layout[sel.gi].lines[sel.tok.li].toks[sel.tok.ti].style[key];
+    return np;
+  });
+
+  // ── fade groups ──
+  const wordsForOp = () => (selWords.size ? [...selWords] : (selWid != null ? [selWid] : []));
+  const groupFade = (kind) => {
+    const ids = wordsForOp(); if (ids.length < 1) return;
+    H.set(p => {
+      const np = clone(p);
+      const arr = kind === "in" ? np.fin_tags : np.fout_tags;
+      arr.forEach(t => t.ids = t.ids.filter(id => !ids.includes(id)));
+      for (let i = arr.length - 1; i >= 0; i--) if (!arr[i].ids.length) arr.splice(i, 1);
+      const usedColors = arr.map(t => t.color);
+      let color = 0; while (usedColors.includes(color) && color < 9) color++;
+      arr.push({ ids: [...ids].sort((a, b) => a - b), color, trigger: null, dur: null });
+      return np;
+    });
+    setToast({ msg: `Grouped ${ids.length} words to fade ${kind} together` }); setTimeout(() => setToast(null), 2200);
   };
-  const addSolo = () => {
-    const id = nextWid();
-    const gid = "g" + Date.now().toString(36);
-    H.set(gs => [...clone(gs), { id: gid, label: "Cue", solo: true, words: [{ id, text: "new cue", s: snap(time), e: snap(time) + 0.8 }] }]
-      .sort((a, b) => (a.words[0] ? a.words[0].s : 0) - (b.words[0] ? b.words[0].s : 0)));
-    selectWord(id);
+  const clearFade = (kind) => {
+    const wid = selWid; if (wid == null) return;
+    H.set(p => { const np = clone(p); const arr = kind === "in" ? np.fin_tags : np.fout_tags;
+      for (let i = arr.length - 1; i >= 0; i--) if (arr[i].ids.includes(wid)) arr.splice(i, 1); return np; });
   };
-  const splitWord = (id) => {
-    H.set(gs => clone(gs).map(g => {
-      const i = g.words.findIndex(w => w.id === id);
-      if (i < 0) return g;
-      const w = g.words[i], mid = snap((w.s + w.e) / 2), cut = Math.ceil(w.text.length / 2);
-      const a = { ...w, e: mid, text: w.text.slice(0, cut), frac: true, fadeOut: false };
-      const b = { ...w, id: nextWid(), s: mid, text: w.text.slice(cut) || "…", frac: true };
-      return { ...g, words: [...g.words.slice(0, i), a, b, ...g.words.slice(i + 1)] };
+  const setFadeProps = (kind, patch) => {
+    const wid = selWid; if (wid == null) return;
+    H.set(p => { const np = clone(p); const arr = kind === "in" ? np.fin_tags : np.fout_tags;
+      const t = arr.find(t => t.ids.includes(wid)); if (t) Object.assign(t, patch); return np; });
+  };
+
+  // ── layout ops ──
+  const mergeWords = () => {
+    const ids = [...selWords].sort((a, b) => a - b); if (ids.length < 2) return;
+    H.set(p => {
+      const np = clone(p); const first = findTokByWord(np, ids[0]); if (!first) return p;
+      const line = np.layout[first.gi].lines[first.li];
+      // collect tokens in this line whose ids are all selected & contiguous
+      const merged = []; const keep = [];
+      line.toks.forEach(t => { if (t.ids.every(id => ids.includes(id))) merged.push(...t.ids); else keep.push(t); });
+      if (merged.length < 2) return p;
+      const newTok = { ids: merged.sort((a, b) => a - b), sep: " ", del: false, style: {} };
+      const idx = line.toks.findIndex(t => t.ids.includes(ids[0]));
+      keep.splice(Math.min(idx, keep.length), 0, newTok);
+      line.toks = keep;
+      return np;
+    });
+    setSelWords(new Set());
+  };
+  const mergeEvents = () => {
+    const gi = sel.gi; if (gi == null || gi >= P.layout.length - 1) return;
+    H.set(p => { const np = clone(p); const a = np.layout[gi], b = np.layout[gi + 1];
+      a.lines = [...a.lines, ...b.lines]; np.layout.splice(gi + 1, 1); return np; });
+    setToast({ msg: "Merged event into the next" }); setTimeout(() => setToast(null), 2000);
+  };
+  const ungroupEvent = () => {
+    const gi = sel.gi; if (gi == null) return;
+    H.set(p => { const np = clone(p); const g = np.layout[gi];
+      const toks = g.lines.flatMap(l => l.toks);
+      const solos = toks.map((t, i) => ({ label: g.label + " ·" + (i + 1), accumulate: "off", win_start: null, win_end: null, linger: null, del: false, style: {}, lines: [{ toks: [t] }] }));
+      np.layout.splice(gi, 1, ...solos); return np; });
+    setToast({ msg: "Ungrouped event into solo cues" }); setTimeout(() => setToast(null), 2000);
+  };
+  const setLayoutProp = (patch) => H.set(p => { const np = clone(p); Object.assign(np.layout[sel.gi], patch); return np; });
+  const splitEvent = () => {
+    const gi = sel.gi; if (gi == null) return; const g = P.layout[gi]; if (!g || g.lines.length < 2) return;
+    H.set(p => { const np = clone(p); const ev = np.layout[gi]; const at = 1; // split after first line
+      const a = { ...ev, lines: ev.lines.slice(0, at) };
+      const b = { ...ev, label: ev.label + " ·2", lines: ev.lines.slice(at) };
+      np.layout.splice(gi, 1, a, b); return np; });
+    setToast({ msg: "Split event at line break" }); setTimeout(() => setToast(null), 2000);
+  };
+  const breakLine = () => {
+    if (!curTok) return; const { gi, li, ti } = { gi: sel.gi, li: sel.tok.li, ti: sel.tok.ti };
+    H.set(p => { const np = clone(p); const line = np.layout[gi].lines[li]; if (ti >= line.toks.length - 1) return p;
+      const a = { toks: line.toks.slice(0, ti + 1) }, b = { toks: line.toks.slice(ti + 1) };
+      np.layout[gi].lines.splice(li, 1, a, b); return np; });
+    setToast({ msg: "Broke line after this cue (\\N)" }); setTimeout(() => setToast(null), 2000);
+  };
+  const deleteSel = () => {
+    const ids = wordsForOp(); if (!ids.length) return;
+    const anyLive = ids.some(id => { const f = findTokByWord(P, id); return f && !f.tok.del; });
+    H.set(p => { const np = clone(p);
+      np.layout.forEach(g => g.lines.forEach(l => l.toks.forEach(t => { if (t.ids.some(id => ids.includes(id))) t.del = anyLive; }))); return np; });
+  };
+  const toggleCollapse = (gi) => setCollapsed(c => { const n = new Set(c); n.has(gi) ? n.delete(gi) : n.add(gi); return n; });
+  const doExport = () => { setToast({ msg: "Burned → " + (PROJ_NAMES[projectId] || "project").toLowerCase().replace(/\s+/g, "_") + "_subbed.mp4" }); setTimeout(() => setToast(null), 2600); };
+
+  // ── derived: caption + timeline ──
+  const activeGi = (() => { let idx = 0; P.layout.forEach((g, gi) => { const [s] = eventWindow(P, gi); if (s <= time) idx = gi; }); return idx; })();
+  const capWords = (() => {
+    const g = P.layout[activeGi]; if (!g) return [];
+    const out = [];
+    g.lines.forEach(l => l.toks.filter(t => !t.del).forEach(t => {
+      const sched = wordSchedule(P, activeGi, t.ids[0]);
+      const endT = Math.max(...t.ids.map(id => P.words[id].end));
+      const rs = resolveStyle(P, activeGi, t);
+      const fill = rs.primary.src !== "global" ? rs.primary.value : null;
+      out.push({ wid: t.ids[0], text: tokText(P, t), live: sched.start_s <= time && time < endT, pending: sched.start_s > time + 0.001, sel: t.ids.includes(selWid), fill });
     }));
-  };
-  const toggleCollapse = (gid) => setCollapsed(c => { const n = new Set(c); n.has(gid) ? n.delete(gid) : n.add(gid); return n; });
-  const doExport = () => { setToast("Burned → " + (PROJ_NAMES[projectId] || "project").toLowerCase().replace(/\s+/g, "_") + "_subbed.mp4"); setTimeout(() => setToast(null), 2600); };
+    return out;
+  })();
+  const blocks = tokens(P).filter(t => true).map(t => {
+    const live = t.ids.map(id => P.words[id]);
+    const s = Math.min(...live.map(w => w.start)), e = Math.max(...live.map(w => w.end));
+    const sched = wordSchedule(P, t.gi, t.ids[0]);
+    return { wid: t.ids[0], text: tokText(P, t), s, e, gi: t.gi, del: t.del,
+      live: s <= time && time < e, sel: t.ids.includes(selWid), multi: t.ids.some(id => selWords.has(id)),
+      inFin: sched.inFin, inFout: sched.inFout, accumulate: P.layout[t.gi].accumulate };
+  });
+
+  // fade membership of current selection (for "Clear" affordance + fade editor)
+  const finOf = selWid != null ? fadeTagOf(P, "in", selWid) : null;
+  const foutOf = selWid != null ? fadeTagOf(P, "out", selWid) : null;
+  const fadeMembership = finOf ? "in" : (foutOf ? "out" : null);
 
   return (
     <div className="app">
-      <TopBar project={PROJ_NAMES[projectId] || "Untitled"} time={time} dur={dur} playing={playing}
+      <TopBar project={PROJ_NAMES[projectId] || "Untitled"} time={time} dur={dur} playing={playing} aiConnected={true}
         onPlay={() => setPlaying(p => !p)} onSeekRel={(d) => setTime(t => Math.max(0, Math.min(dur, t + d)))}
         onHome={onHome} onExport={doExport} onUndo={H.undo} onRedo={H.redo} canUndo={H.canUndo} canRedo={H.canRedo} />
 
       <div className="body">
         <aside className="rail">
           <div className="rail-tabs">
-            <button className={"rail-tab" + (railTab === "style" ? " on" : "")} onClick={() => setRailTab("style")}><Icon name="sliders" size={14} />Style</button>
+            <button className={"rail-tab" + (railTab === "style" ? " on" : "")} onClick={() => setRailTab("style")}><Icon name="sliders" size={14} />Project</button>
             <button className={"rail-tab" + (railTab === "inspector" ? " on" : "")} onClick={() => setRailTab("inspector")}><Icon name="layers" size={14} />Inspector</button>
           </div>
           <div className="rail-body">
             {railTab === "style"
-              ? <ControlsRail preset={preset} onPreset={setPreset} />
-              : <Inspector selection={sel} groups={groups} allWords={allWords} preset={preset}
-                  onText={editText} onNudge={nudge} onToggleDel={toggleDel} onSplit={splitWord} />}
+              ? <ControlsRail placement={P.placement} />
+              : <>
+                  <StyleWaterfall project={P} sel={{ scope: sel.scope, gi: sel.gi, tok: curTok }} aiTier={aiHot && aiHot.key === "g" + sel.gi ? aiHot.tier : null}
+                    onSelectTier={selectTier} onSetStyle={setStyle} onClearStyle={clearStyle} />
+                  {(finOf || foutOf) && <FadeGroupPanel finOf={finOf} foutOf={foutOf} globals={P.globals} palette={P.palette} onSet={setFadeProps} onClear={clearFade} />}
+                  {curTok && <TimingPanel tok={curTok} project={P} />}
+                </>}
           </div>
         </aside>
 
         <main className="center">
           <div className="stage-pad">
-            <PreviewStage lines={[activeLine]} time={time} liveId={liveId} selId={selId} preset={preset} onSelectWord={selectWord} />
+            <PreviewStage capWords={capWords} time={time} mode={pvMode} onMode={setPvMode}
+              onSelectWord={selectWordByWid} onRenderExact={() => { setToast({ msg: "Rendered exact libass frame @ " + time.toFixed(2) + "s" }); setTimeout(() => setToast(null), 1800); }} />
           </div>
         </main>
       </div>
@@ -141,33 +230,99 @@ function Editor({ projectId, onHome }) {
         <div className="dock-tabs">
           <button className={"dock-tab" + (dockTab === "timeline" ? " on" : "")} onClick={() => setDockTab("timeline")}><Icon name="waveform" size={13} />Timeline</button>
           <button className={"dock-tab" + (dockTab === "lanes" ? " on" : "")} onClick={() => setDockTab("lanes")}><Icon name="layers" size={13} />Cue lanes</button>
-          <span className="dock-hint">{dockTab === "timeline" ? "Click the waveform to scrub · click a block to edit its bounds" : "Click a cue header or word · add / split / delete below"}</span>
+          <span className="dock-hint">{dockTab === "timeline" ? "Click to scrub · click a block to select · shift-click to multi-select" : "Click an event header or cue · shift-click cues to multi-select for grouping"}</span>
         </div>
-        <CueToolbar canAddInGroup={!!selGroupId || groups.length > 0} canSplit={!!selWord} hasWordSel={!!selWord} wordDeleted={selWord && selWord.del}
-          onAddInGroup={addInGroup} onAddSolo={addSolo} onSplit={() => selWord && splitWord(selWord.id)} onToggleDel={() => selWord && toggleDel(selWord.id)}
-          onUndo={H.undo} onRedo={H.redo} canUndo={H.canUndo} canRedo={H.canRedo} />
+        <OpsToolbar selCount={selWords.size} canGroupFade={selWords.size >= 1 || selWid != null} fadeMembership={fadeMembership}
+          canMergeWords={selWords.size >= 2} canMergeEvents={sel.scope === "group" && sel.gi < P.layout.length - 1}
+          canSplitEvent={sel.scope === "group" && sel.gi != null && P.layout[sel.gi] && P.layout[sel.gi].lines.length > 1}
+          canBreakLine={!!curTok && P.layout[sel.gi] && P.layout[sel.gi].lines[sel.tok.li].toks.length - 1 > sel.tok.ti}
+          hasEvent={sel.scope === "group"} wordDeleted={curTok && curTok.del}
+          onGroupFade={groupFade} onClearFade={clearFade} onMergeWords={mergeWords} onMergeEvents={mergeEvents}
+          onSplitEvent={splitEvent} onBreakLine={breakLine}
+          onUngroupEvent={ungroupEvent} onDelete={deleteSel} onUndo={H.undo} onRedo={H.redo} canUndo={H.canUndo} canRedo={H.canRedo} />
         <div className="dock-body">
           {dockTab === "timeline" ? (
             <div className="wave-wrap">
               <Waveform dur={dur} time={time} onSeek={setTime} />
-              <WordTrack words={allWords} dur={dur} time={time} liveId={liveId} selId={selId} onSelect={selectWord} />
+              <WordTrack blocks={blocks} dur={dur} time={time} palette={P.palette} onSelect={selectWordByWid} onShift={shiftWord} />
             </div>
           ) : (
-            <CueLanes groups={groups} selWordId={selId} selGroupId={sel.type === "group" ? sel.id : null} collapsed={collapsed}
-              onSelectWord={selectWord} onSelectGroup={selectGroup} onToggleCollapse={toggleCollapse} />
+            <CueLanes project={P} sel={{ scope: sel.scope, gi: sel.gi, tok: curTok }} selectedWords={selWords} collapsed={collapsed}
+              aiHotKey={aiHot ? aiHot.key : null} onSelectWord={selectWord} onShiftWord={shiftWord} onSelectEvent={selectEvent} onToggleCollapse={toggleCollapse} />
           )}
         </div>
+        {sel.scope === "group" && sel.gi != null && <EventStrip g={P.layout[sel.gi]} onSet={setLayoutProp} />}
       </section>
 
-      {toast && <div className="toast"><Icon name="check" size={15} />{toast}</div>}
+      {toast && <div className={"toast" + (toast.ai ? " ai" : "")}><Icon name={toast.ai ? "sparkles" : "check"} size={15} />{toast.msg}{toast.ai && <button className="toast-undo" onClick={H.undo}>Undo</button>}</div>}
     </div>
   );
 }
+
+// fade-group trigger/dur editor (shown when selection is in a fade group)
+function FadeGroupPanel({ finOf, foutOf, globals, palette, onSet, onClear }) {
+  const Row = ({ kind, tag }) => {
+    if (!tag) return null;
+    const trigDef = tag.trigger == null, durDef = tag.dur == null;
+    const defDur = kind === "in" ? globals.fade_in_ms : globals.fade_out_ms;
+    return (
+      <div className="fg-row" style={{ "--band": palette[tag.color] }}>
+        <span className="fg-k"><span className="fg-band" />Fade-{kind}<span className="fg-n">{tag.ids.length} words</span></span>
+        <div className="fg-fields">
+          <span className={"fg-f" + (trigDef ? " inh" : " ovr")}>
+            trig <b>{trigDef ? "auto" : tag.trigger.toFixed(2) + "s"}</b>
+            <span className="pm" onClick={() => onSet(kind, { trigger: (tag.trigger == null ? 14 : tag.trigger) - 0.5 })}>−</span>
+            <span className="pm" onClick={() => onSet(kind, { trigger: (tag.trigger == null ? 14 : tag.trigger) + 0.5 })}>+</span>
+            {!trigDef && <span className="pm x" onClick={() => onSet(kind, { trigger: null })}>auto</span>}
+          </span>
+          <span className={"fg-f" + (durDef ? " inh" : " ovr")}>
+            dur <b>{durDef ? defDur : tag.dur}ms</b>
+            <span className="pm" onClick={() => onSet(kind, { dur: Math.max(0, (tag.dur == null ? defDur : tag.dur) - 50) })}>−</span>
+            <span className="pm" onClick={() => onSet(kind, { dur: (tag.dur == null ? defDur : tag.dur) + 50 })}>+</span>
+            {!durDef && <span className="pm x" onClick={() => onSet(kind, { dur: null })}>auto</span>}
+          </span>
+        </div>
+      </div>
+    );
+  };
+  return (
+    <div className="fg-panel">
+      <div className="fg-head"><Icon name="sparkles" size={13} />Fade group<span className="fg-hint">grey = inherits global</span></div>
+      <Row kind="in" tag={finOf} />
+      <Row kind="out" tag={foutOf} />
+    </div>
+  );
+}
+
+// per-event layout props strip (accumulate / window / linger)
+function EventStrip({ g, onSet }) {
+  return (
+    <div className="evt-strip">
+      <span className="es-l"><Icon name="layers" size={12} />{g.label}</span>
+      <span className="es-grp">Accumulate
+        <span className="seg2 sm">
+          {["words", "lines", "off"].map(m => <button key={m} className={g.accumulate === m ? "on" : ""} onClick={() => onSet({ accumulate: m })}>{m}</button>)}
+        </span>
+      </span>
+      <span className="es-grp">Linger
+        <span className="pv-step sm">
+          <span className="pm" onClick={() => onSet({ linger: Math.max(0, (g.linger ?? 0) - 0.1) })}>−</span>
+          <span className="v">{(g.linger ?? 0).toFixed(1)}s</span>
+          <span className="pm" onClick={() => onSet({ linger: (g.linger ?? 0) + 0.1 })}>+</span>
+        </span>
+      </span>
+      <span className="es-note">window auto · {g.win_start == null ? "first word" : g.win_start + "s"} → {g.win_end == null ? "last + linger" : g.win_end + "s"}</span>
+    </div>
+  );
+}
+
+// helpers to (re)locate a token
+function tokAt(project, gi, li, wid) { const t = project.layout[gi].lines[li].toks.find(t => t.ids.includes(wid)); const ti = project.layout[gi].lines[li].toks.indexOf(t); return { li, ti }; }
+function tokAtLoc(project, gi, li, ti) { try { return project.layout[gi].lines[li].toks[ti] || null; } catch (e) { return null; } }
 
 function App() {
   const [view, setView] = useState({ name: "library", projectId: null });
   if (view.name === "library") return <ProjectLibrary onOpen={(id) => setView({ name: "editor", projectId: id })} />;
   return <Editor projectId={view.projectId} onHome={() => setView({ name: "library", projectId: null })} />;
 }
-
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);

@@ -175,6 +175,7 @@ the three is an "AI-slop" default (no Inter/Roboto).
 | `colors_and_type.css` | **Single source of truth**: all color, type, spacing, radii, shadow tokens + semantic type classes. |
 | `SKILL.md` | Agent-Skill entry point (Claude Code compatible) for designing in-brand. |
 | `HANDOFF_v3.md` | Developer handoff for building v3 for real (Tauri/web shell over the Python core; perf + preview architecture; feature→engine map). |
+| `HANDOFF_real-model.md` | Reconciles the UI kit with the **real engine model** (ground-truth `project` shape, daemon API, the global→group→cue style waterfall) + the design decisions behind the v3 editor. |
 | `assets/` | `logo-mark.svg`, `logo-glyph.svg`. |
 | `preview/` | Design-system specimen cards (type, colors, spacing, components, brand) shown in the Design System tab. `card.css` is shared scaffolding. |
 | `ui_kits/desktop-app/` | The interactive **merged editor** UI kit (Project Library → Timeline-Dock editor). See its own README for component contracts. |
