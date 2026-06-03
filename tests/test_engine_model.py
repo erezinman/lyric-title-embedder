@@ -386,12 +386,12 @@ def t_render_all_deleted_event_dropped():
 
 
 def t_render_event_end_extended_by_fout_tail():
-    """fout_tag with large trigger+dur extends event end beyond natural end."""
+    """fout_tag trigger + group fade_out_ms extend event end beyond natural end."""
     p = engine.make_project(CFG)
     wid0 = p["layout"][0]["lines"][0]["toks"][0]["ids"][0]
+    mut.set_group_fade(p, 0, {"fade_out_ms": 2000})   # duration via group waterfall
     mut.make_tag(p, "fout_tags", [wid0])
-    # Set trigger far beyond win_e and dur=2000ms -> fade_end = 25.0 + 2.0 = 27.0
-    mut.set_tag_props(p, "fout_tags", 0, 25.0, 2000)
+    mut.set_tag_props(p, "fout_tags", 0, 25.0)         # trigger only -> fade_end = 25.0 + 2.0
     g = engine.project_to_render(p)
     ok = abs(g[0]["end"] - 27.0) < 1e-9
     return ok, f"end={g[0]['end']} expected=27.0"
@@ -411,11 +411,12 @@ def t_render_fout_tag_no_trigger_uses_word_end():
 
 
 def t_render_fin_tag_trigger_and_dur_explicit():
-    """fin_tag with explicit trigger overrides start_s; explicit dur overrides fin_ms."""
+    """fin_tag trigger overrides start_s; group fade_in_ms overrides fin_ms."""
     p = engine.make_project(CFG)
     wid0 = p["layout"][0]["lines"][0]["toks"][0]["ids"][0]
+    mut.set_group_fade(p, 0, {"fade_in_ms": 500})      # duration via group waterfall
     mut.make_tag(p, "fin_tags", [wid0])
-    mut.set_tag_props(p, "fin_tags", 0, 10.0, 500)
+    mut.set_tag_props(p, "fin_tags", 0, 10.0)          # trigger only
     g = engine.project_to_render(p)
     w0 = g[0]["lines"][0]["words"][0]
     ok = abs(w0["start_s"] - 10.0) < 1e-9 and w0["fin_ms"] == 500
