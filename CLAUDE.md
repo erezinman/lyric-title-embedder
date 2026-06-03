@@ -121,6 +121,38 @@ See `docs/superpowers/specs/2026-06-02-engine-mcp-server-design.md` for the full
 `tools.py`, and `context.py` are SDK-free, so the headless test suite (`tests/test_mcp.py`,
 16 tests) calls tool functions directly without any MCP transport or SDK installed.
 
+### daemon/ — unified engine daemon (v3 backend)
+
+See `docs/superpowers/specs/2026-06-03-engine-daemon-design.md` for the full design.
+
+`daemon/` is a new top-level package that merges `/mcp` (FastMCP SSE) + `/api` (HTTP) + `/ws`
+(WebSocket) over **one shared `Session`** on a single uvicorn/Starlette process.
+
+- **`DaemonContext(HeadlessContext)`** (`daemon/context.py`) — synchronous `HeadlessContext`
+  subclass (no Tk). Owns its own `Session` + dict globals. Wires `Session.on_change` to call
+  `Hub.schedule(get_state())` so every mutation broadcasts the full state to all `/ws` clients.
+- **`Hub`** (`daemon/hub.py`) — thread-safe WebSocket client registry. `schedule(msg)` is
+  callable from the synchronous `on_change` path; it hops to the asyncio event loop via
+  `loop.call_soon_threadsafe` and fires the async broadcast.
+- **`daemon/api.py`** — Starlette route factories: `POST /api/call` (dispatches to
+  `mcp_server/tools.py` by name), `GET /api/state|render|ass`, `GET /api/frame?t=` (PNG),
+  `POST /api/burn` + `GET /api/burn/{job_id}`, project library routes.
+- **`daemon/app.py`** — `build_app(ctx, hub)` assembles the Starlette app: co-mounts
+  `build_server(ctx).sse_app(mount_path="/mcp")`, adds the `/api` routes and `/ws` WebSocket
+  endpoint, optional bearer-token middleware on `/api`, CORS.
+- **`daemon/library.py`** — project library: self-contained folders under a projects dir
+  (`<name>/lyrics.json` + `<name>/project.json`).
+- **`daemon/__main__.py`** — CLI entry: `python -m daemon [--port 8770] [--projects-dir projects]
+  [--json aligned_lyrics.json]`; loopback-only; `KSS_MCP_TOKEN` guards `/api`.
+
+**Import isolation:** only `daemon/app.py`, `daemon/api.py`, and `daemon/__main__.py` import
+starlette / uvicorn / the `mcp` SDK. `engine/`, `controller.py`, `mcp_server/tools.py`, and
+`mcp_server/context.py` remain SDK-free. `DaemonContext` reuses `EngineContext` +
+`mcp_server/tools.py` verbatim — no tool logic is duplicated.
+
+The daemon runs **alongside** the old CTk app (separate process, separate `Session`) — the CTk
+app is untouched. Needs `poetry install --with mcp` (adds `mcp` SDK + `uvicorn` + `websockets`).
+
 ### View layer (CTk + tk)
 
 - **`core.py`** — UI-free shared helpers (used by engine and view): `ass_time`, `esc`,

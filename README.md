@@ -307,6 +307,46 @@ Word-level timing/text edits, add/remove words, and a generic validated patch to
 
 ---
 
+## Engine daemon (v3 backend)
+
+The `daemon/` package is a **unified backend process** that merges three services over **one shared
+engine `Session`**:
+
+| Endpoint | What it does |
+|----------|-------------|
+| **`/mcp`** | The existing FastMCP SSE server (AI clients) — co-mounted on the same uvicorn process, sharing the daemon's `Session`. |
+| **`/api/*`** | A web HTTP API — `POST /api/call {tool, args}` (the full `mcp_server/tools.py` surface), `GET /api/state`, `GET /api/render`, `GET /api/ass`, `GET /api/frame?t=` (PNG), `POST /api/burn` + `GET /api/burn/{job_id}`, and a project library (`GET /api/projects`, `POST /api/projects/new|open|save`). |
+| **`/ws`** | A WebSocket that pushes full state (`{type:"state", state}`) to every connected client on every `Session.on_change` — so AI (MCP) and web-UI edits broadcast to all clients (shared undo/redo timeline). |
+
+### Run
+
+```bash
+poetry install --with mcp   # adds mcp SDK + uvicorn + websockets
+python -m daemon [--port 8770] [--projects-dir projects] [--json aligned_lyrics.json]
+```
+
+The daemon binds to loopback only (`127.0.0.1`). Set `KSS_MCP_TOKEN` to require a bearer token on
+`/api` routes.
+
+### Project library
+
+Projects live as self-contained folders under `--projects-dir` (default: `projects/`): each folder
+holds `lyrics.json` + `project.json` (globals + full cue model), so opening a project requires no
+external lyrics path argument.
+
+### Relationship to the CTk app
+
+The daemon runs **alongside** the CustomTkinter app — both share the `engine/` package but run in
+**separate processes with their own `Session`**. The CTk app is untouched.
+
+### What's next
+
+- **Spec B — React/Vite v3 UI**: a browser web app that talks to this daemon over `/api` + `/ws`.
+- **Spec C — Tauri desktop shell** (deferred): wraps the browser UI in a native window; requires
+  Rust + webkit2gtk, not yet installable in this environment.
+
+---
+
 ## Known limitations / gotchas
 
 - The on-canvas preview text is a **per-cue approximation** (word-by-word fonts/colors); trust
