@@ -44,6 +44,7 @@ def get_state(ctx):
             v = _event_view(ctx, gi)
             ev.append({"gi": gi, "label": v["label"], "win": v["win"], "accumulate": v["accumulate"],
                        "style_overrides": v["style_overrides"],
+                       "fade_overrides": v["fade_overrides"],
                        "n_words": sum(len(ln["toks"]) for ln in g["lines"])})
         return {"n_events": len(p["layout"]), "n_words": len(p["words"]),
                 "globals": ctx.get_globals(), "fade_defaults": dict(p["globals"]), "events": ev}

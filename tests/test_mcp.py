@@ -146,6 +146,12 @@ def t_set_group_fade_tool_returns_fade_overrides():
     view = tools.set_group_fade(ctx, 0, {"fade_in_ms": 400})
     return (view["fade_overrides"] == {"fade_in_ms": 400}, view.get("fade_overrides"))
 
+def t_get_state_event_includes_fade_overrides():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.set_group_fade(ctx, 0, {"fade_in_ms": 400})
+    st = tools.get_state(ctx)
+    return (st["events"][0]["fade_overrides"] == {"fade_in_ms": 400}, st["events"][0].get("fade_overrides"))
+
 def t_regress_fade_tag_props_rejects_cross_and_ungrouped():
     ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
     tools.make_fade_tag(ctx, "out", [0, 1]); tools.make_fade_tag(ctx, "out", [5, 6])

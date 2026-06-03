@@ -614,6 +614,18 @@ def t_set_group_fade_set_and_clear():
     return (a == {"fade_in_ms": 400, "fade_out_ms": 600} and b == {"fade_out_ms": 600}, (a, b))
 
 # ============================================================
+# 30. layout_ungroup preserves parent fade dict
+# ============================================================
+def t_layout_ungroup_preserves_fade_dict():
+    p = fresh()
+    mut.set_group_fade(p, 0, {"fade_in_ms": 333})
+    nlines = len(p["layout"][0]["lines"])
+    mut.layout_ungroup(p, 0)
+    new = p["layout"][:nlines]
+    ok = all("fade" in g for g in new) and new[0]["fade"] == {"fade_in_ms": 333}
+    return (ok, [g.get("fade") for g in new])
+
+# ============================================================
 # Run all active tests
 # ============================================================
 ACTIVE = [
@@ -646,6 +658,7 @@ ACTIVE = [
     t_render_excludes_all_del_event,
     t_session_multiple_undo_chain,
     t_set_group_fade_set_and_clear,
+    t_layout_ungroup_preserves_fade_dict,
 ]
 
 for fn in ACTIVE:

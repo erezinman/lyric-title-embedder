@@ -117,7 +117,8 @@ def layout_ungroup(project, gi):
     L = project["layout"]; g = L[gi]
     new = [{"label": g["label"], "lines": [ln], "accumulate": g["accumulate"],
             "win_start": None, "win_end": None, "linger": g.get("linger"),
-            "del": False, "style": dict(g.get("style") or {})} for ln in g["lines"]]  # copies parent group's style (legacy AppV2 dropped it)
+            "del": False, "style": dict(g.get("style") or {}),
+            "fade": dict(g.get("fade") or {})} for ln in g["lines"]]  # copies parent group's style and fade (legacy AppV2 dropped it)
     project["layout"] = L[:gi] + new + L[gi + 1:]
 
 def layout_split_event(project, gi, li):
