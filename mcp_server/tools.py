@@ -2,7 +2,7 @@
 import json, os, tempfile, threading, uuid
 import engine
 import core
-from engine.model import resolve_style, _tag_of
+from engine.model import resolve_style, _tag_of, STYLE_KEYS
 
 _PLACE_KEYS = ["align", "play_w", "play_h", "margin_l", "margin_r", "margin_v", "pos"]
 
@@ -93,7 +93,6 @@ def get_render(ctx):
 
 def get_project(ctx):
     def f():
-        from engine.model import STYLE_KEYS
         _require_project(ctx)
         p = ctx.session.project; g = ctx.get_globals()
         layout = [{"label": grp["label"], "accumulate": grp.get("accumulate", "words"),

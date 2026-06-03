@@ -10,7 +10,7 @@ Model (tag-based, fully reactive via inherited→overridden resolution):
             accumulate, del, lines:[{toks:[{ids,sep,del}]}]}   (\\N structure)
   fin_tags / fout_tags : [{ids:set, trigger}]  — words that fade
             in/out together. trigger defaults to first/last member word's time;
-            dur defaults to globals. None = inherit.
+            duration comes from the group fade override (or global). None = inherit.
   globals : {fade_in_ms, fade_out_ms, linger}
 Resolution (most specific wins): word → tag → global → built-in.
 
