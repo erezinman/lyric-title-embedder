@@ -148,6 +148,12 @@ def set_fade_tag_props(ctx, kind, word_ids, trigger=None):
         return ctx.session.do("set_tag_props", lane, next(iter(tis)), trigger)
     ctx.run(f); return get_state(ctx)
 
+def set_word_times(ctx, updates):
+    _do(ctx, "set_word_times", updates); return get_state(ctx)
+
+def set_word_text(ctx, wid, text):
+    _do(ctx, "set_word_text", wid, text); return get_state(ctx)
+
 def set_layout_props(ctx, gi, win_start=None, win_end=None, linger=None, accumulate="words"):
     _do(ctx, "set_layout_props", gi, win_start, win_end, linger, accumulate); return ctx.run(lambda: _event_view(ctx, gi))
 

@@ -204,6 +204,17 @@ def t_headless_cfg_has_no_fade_ms_or_wrap_style():
     c = HeadlessContext().cfg()
     return ("fade_ms" not in c and "wrap_style" not in c, sorted(c.keys()))
 
+def t_set_word_times_tool():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.set_word_times(ctx, [{"wid": 0, "start": 3.0, "end": 3.5}])
+    w = ctx.session.project["words"][0]
+    return (abs(w["start"] - 3.0) < 1e-9 and abs(w["end"] - 3.5) < 1e-9, w)
+
+def t_set_word_text_tool():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.set_word_text(ctx, 0, "Zzz")
+    return (ctx.session.project["words"][0]["text"] == "Zzz", ctx.session.project["words"][0]["text"])
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)
