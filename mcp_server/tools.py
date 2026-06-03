@@ -112,14 +112,14 @@ def make_fade_tag(ctx, kind, word_ids):
 def clear_fade_tag(ctx, kind, word_ids):
     _do(ctx, "clear_tag", _LANE[kind], set(word_ids)); return get_state(ctx)
 
-def set_fade_tag_props(ctx, kind, word_ids, trigger=None, dur=None):
+def set_fade_tag_props(ctx, kind, word_ids, trigger=None):
     def f():
         lane = _LANE[kind]; tags = ctx.session.project[lane]
         tis = {_tag_of(tags, w)[0] for w in word_ids}
         if None in tis or len(tis) != 1:
             raise ValueError("set_fade_tag_props: all word_ids must belong to ONE fade group "
                              "(make_fade_tag them first)")
-        return ctx.session.do("set_tag_props", lane, next(iter(tis)), trigger, dur)
+        return ctx.session.do("set_tag_props", lane, next(iter(tis)), trigger)
     ctx.run(f); return get_state(ctx)
 
 def set_layout_props(ctx, gi, win_start=None, win_end=None, linger=None, accumulate="words"):

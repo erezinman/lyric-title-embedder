@@ -93,16 +93,16 @@ def t_clear_tag_empties_tag():
     return True, "tag cleared"
 
 # ============================================================
-# 4. set_tag_props stores trigger and dur
+# 4. set_tag_props stores trigger only (dur removed)
 # ============================================================
 def t_set_tag_props():
     p = fresh()
     wid0 = first_wid(p)
     mut.make_tag(p, "fin_tags", {wid0})
-    mut.set_tag_props(p, "fin_tags", 0, 5.0, 300)
+    mut.set_tag_props(p, "fin_tags", 0, 5.0)
     t = p["fin_tags"][0]
-    assert t["trigger"] == 5.0 and t["dur"] == 300, f"tag={t}"
-    return True, f"trigger={t['trigger']} dur={t['dur']}"
+    assert t["trigger"] == 5.0 and "dur" not in t, f"tag={t}"
+    return True, f"trigger={t['trigger']}"
 
 # ============================================================
 # 5. set_global stores value in globals dict
@@ -478,8 +478,8 @@ def t_complex_tag_lifecycle():
     # Op1: make tag with w0, w1
     mut.make_tag(p, "fin_tags", {w0, w1})
     assert len(p["fin_tags"]) == 1
-    # Op2: set trigger/dur
-    mut.set_tag_props(p, "fin_tags", 0, 10.0, 500)
+    # Op2: set trigger only (dur removed)
+    mut.set_tag_props(p, "fin_tags", 0, 10.0)
     assert p["fin_tags"][0]["trigger"] == 10.0
     # Op3: make second tag stealing w1 and adding w2
     mut.make_tag(p, "fin_tags", {w1, w2})
@@ -490,7 +490,7 @@ def t_complex_tag_lifecycle():
     # first tag still has w0
     assert w0 in p["fin_tags"][0]["ids"]
     # Op4: set props on second tag
-    mut.set_tag_props(p, "fin_tags", 1, 20.0, 200)
+    mut.set_tag_props(p, "fin_tags", 1, 20.0)
     assert p["fin_tags"][1]["trigger"] == 20.0
     # Op5: clear first tag
     mut.clear_tag(p, "fin_tags", {w0})
@@ -626,6 +626,26 @@ def t_layout_ungroup_preserves_fade_dict():
     return (ok, [g.get("fade") for g in new])
 
 # ============================================================
+# 31. make_tag produces tag with only {ids, trigger}
+# ============================================================
+def t_make_tag_has_no_color_or_dur():
+    p = fresh()
+    wid = first_wid(p)
+    mut.make_tag(p, "fin_tags", {wid})
+    t = p["fin_tags"][0]
+    return (set(t.keys()) == {"ids", "trigger"} and t["trigger"] is None, sorted(t.keys()))
+
+# ============================================================
+# 32. set_tag_props sets trigger only — no dur key
+# ============================================================
+def t_set_tag_props_sets_trigger_only():
+    p = fresh(); wid = first_wid(p)
+    mut.make_tag(p, "fin_tags", {wid})
+    mut.set_tag_props(p, "fin_tags", 0, 2.5)
+    t = p["fin_tags"][0]
+    return (t["trigger"] == 2.5 and "dur" not in t, t)
+
+# ============================================================
 # Run all active tests
 # ============================================================
 ACTIVE = [
@@ -659,6 +679,8 @@ ACTIVE = [
     t_session_multiple_undo_chain,
     t_set_group_fade_set_and_clear,
     t_layout_ungroup_preserves_fade_dict,
+    t_make_tag_has_no_color_or_dur,
+    t_set_tag_props_sets_trigger_only,
 ]
 
 for fn in ACTIVE:

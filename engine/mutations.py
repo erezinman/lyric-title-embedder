@@ -2,14 +2,6 @@
 # The controller snapshots for undo and triggers rebuild; these never touch UI.
 from engine.model import STYLE_KEYS, CUE_STYLE_KEYS, FADE_KEYS
 
-def _next_color(project, lane):
-    used = {t["color"] for t in project[lane]}
-    pal = project["palette"]
-    for c in range(len(pal)):
-        if c not in used:
-            return c
-    return len(project[lane]) % len(pal)
-
 def make_tag(project, lane, ids):
     ids = set(ids)
     if not ids:
@@ -17,17 +9,15 @@ def make_tag(project, lane, ids):
     for t in project[lane]:
         t["ids"] -= ids
     project[lane][:] = [t for t in project[lane] if t["ids"]]
-    project[lane].append({"ids": ids, "color": _next_color(project, lane),
-                          "trigger": None, "dur": None})
+    project[lane].append({"ids": ids, "trigger": None})
 
 def clear_tag(project, lane, ids):
     for t in project[lane]:
         t["ids"] -= set(ids)
     project[lane][:] = [t for t in project[lane] if t["ids"]]
 
-def set_tag_props(project, lane, ti, trigger, dur):
+def set_tag_props(project, lane, ti, trigger):
     project[lane][ti]["trigger"] = trigger
-    project[lane][ti]["dur"] = dur
 
 def set_global(project, key, val):
     project["globals"][key] = val

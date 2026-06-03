@@ -67,7 +67,7 @@ def t_edit_cue_style_border_dropped():
 def t_fade_tag_make_and_props():
     ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
     tools.make_fade_tag(ctx, "out", [0, 1, 2])
-    tools.set_fade_tag_props(ctx, "out", [0], trigger=99.0, dur=500)
+    tools.set_fade_tag_props(ctx, "out", [0], trigger=99.0)
     r = engine.project_to_render(ctx.session.project)
     foats = [w["fout_at"] for g in r for ln in g["lines"] for w in ln["words"] if w["fout_at"] is not None]
     return (any(abs(x - 99.0) < 1e-6 for x in foats)), f"foats~{[round(x,1) for x in foats][:4]}"
@@ -156,9 +156,16 @@ def t_regress_fade_tag_props_rejects_cross_and_ungrouped():
     ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
     tools.make_fade_tag(ctx, "out", [0, 1]); tools.make_fade_tag(ctx, "out", [5, 6])
     def raises(ids):
-        try: tools.set_fade_tag_props(ctx, "out", ids, dur=100); return False
+        try: tools.set_fade_tag_props(ctx, "out", ids, trigger=1.0); return False
         except ValueError: return True
     return (raises([0, 5]) and raises([99])), "cross+ungrouped rejected"
+
+def t_set_fade_tag_props_trigger_only():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.make_fade_tag(ctx, "in", [0])
+    tools.set_fade_tag_props(ctx, "in", [0], trigger=1.5)
+    t = ctx.session.project["fin_tags"][0]
+    return (t["trigger"] == 1.5 and "dur" not in t, t)
 
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)

@@ -34,8 +34,8 @@ def build_server(ctx, name="karaoke-subtitle-studio"):
     @mcp.tool()
     def clear_fade_tag(kind: str, word_ids: list) -> dict: return tools.clear_fade_tag(ctx, kind, word_ids)
     @mcp.tool()
-    def set_fade_tag_props(kind: str, word_ids: list, trigger: Optional[float] = None, dur: Optional[float] = None) -> dict:
-        return tools.set_fade_tag_props(ctx, kind, word_ids, trigger, dur)
+    def set_fade_tag_props(kind: str, word_ids: list, trigger: Optional[float] = None) -> dict:
+        return tools.set_fade_tag_props(ctx, kind, word_ids, trigger)
     @mcp.tool()
     def set_layout_props(gi: int, win_start: Optional[float] = None, win_end: Optional[float] = None,
                          linger: Optional[float] = None, accumulate: str = "words") -> dict:
