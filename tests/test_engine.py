@@ -18,6 +18,7 @@ def check(name, fn):
 
 # Import the CURRENT location for the baseline; later tasks repoint these imports.
 import karaoke_subtitle_gui as m
+import engine
 from engine import mutations as mut
 from controller import Session
 
@@ -116,6 +117,19 @@ def t_regress_build_delta_resets_baseline():
     diag_lines = [l for l in text.splitlines() if l.startswith("Dialogue:")]
     ev_line = diag_lines[ev_idx]
     return ("1c&H0000FF&" in ev_line and "1c&HFFFFFF&" in ev_line), "override + reset both present"
+
+def t_render_group_fade_in_override():
+    p = engine.make_project(CFG)
+    p["layout"][0]["fade"] = {"fade_in_ms": 400}
+    groups = engine.project_to_render(p)
+    w = groups[0]["lines"][0]["words"][0]
+    return (w["fin_ms"] == 400, w["fin_ms"])
+
+def t_render_group_fade_falls_back_to_global():
+    p = engine.make_project(CFG)          # no group override
+    groups = engine.project_to_render(p)
+    w = groups[0]["lines"][0]["words"][0]
+    return (w["fin_ms"] == p["globals"]["fade_in_ms"], w["fin_ms"])
 
 for name, fn in list(globals().items()):
     if name.startswith("t_"): check(name, fn)

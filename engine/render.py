@@ -1,6 +1,6 @@
 # engine/render.py — derive render-groups from a project. UI-free.
 import core
-from engine.model import BUILTIN, _tag_of
+from engine.model import BUILTIN, _tag_of, resolve_fade
 
 def project_to_render(project):
     words = project["words"]
@@ -14,6 +14,7 @@ def project_to_render(project):
         if g.get("del"):
             continue
         acc = g.get("accumulate", "words")
+        gf = resolve_fade(g, {"fade_in_ms": g_fin, "fade_out_ms": g_fout})
         rlines, allspans, fade_ends = [], [], []
         line_tokens = []
         for line in g["lines"]:
@@ -41,18 +42,16 @@ def project_to_render(project):
                     appear = line_first
                 else:
                     appear = tstart
-                fin_ms = g_fin
+                fin_ms = gf["fade_in_ms"]
                 ti, ftag = _tag_of(fin, wid0)
                 if ftag is not None:
                     appear = ftag["trigger"] if ftag.get("trigger") is not None \
                         else min(words[i]["start"] for i in ftag["ids"] if i < len(words))
-                    fin_ms = ftag["dur"] if ftag.get("dur") is not None else g_fin
-                fo_at, fo_ms = None, g_fout
+                fo_at, fo_ms = None, gf["fade_out_ms"]
                 oi, otag = _tag_of(fout, wid0)
                 if otag is not None:
                     fo_at = otag["trigger"] if otag.get("trigger") is not None \
                         else max(words[i]["end"] for i in otag["ids"] if i < len(words))
-                    fo_ms = otag["dur"] if otag.get("dur") is not None else g_fout
                     fade_ends.append(fo_at + fo_ms / 1000.0)
                 rws.append({"text": core.token_text(words, tok), "start_s": appear, "end_s": tend,
                             "fin_ms": fin_ms, "fout_at": fo_at, "fout_ms": fo_ms,
