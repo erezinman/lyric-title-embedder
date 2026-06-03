@@ -25,8 +25,10 @@ export function TimingPanel({ tok, project, unlocked, onToggleLock, onSetTime, o
           <Icon name="settings" size={10} />{unlocked ? "unlocked" : "locked"}
         </button>
       </div>
-      <NumField label="Start" value={span.start} disabled={!unlocked} step={0.05} onCommit={(v) => onSetTime(v, span.end)} />
-      <NumField label="End" value={span.end} disabled={!unlocked} step={0.05} onCommit={(v) => onSetTime(span.start, v)} />
+      <NumField label="Start" value={span.start} disabled={!unlocked} step={0.05}
+        onCommit={(v) => onSetTime(Math.max(0, Math.min(v, span.end - 0.01)), span.end)} />
+      <NumField label="End" value={span.end} disabled={!unlocked} step={0.05}
+        onCommit={(v) => onSetTime(span.start, Math.max(span.start + 0.01, v))} />
       <label className="timing-text">
         <span>Text</span>
         <input aria-label="text" defaultValue={text} disabled={merged}

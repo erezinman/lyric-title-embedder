@@ -400,7 +400,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   }
 
   function setCueTime(start: number, end: number) {
-    if (!P || !sel.tok) return;
+    if (!P || !sel.tok || !timingsUnlocked) return;
     const tk = P.layout[sel.gi].lines[sel.tok.li].toks[sel.tok.ti];
     const earliest = tk.ids.reduce((a, b) => (P.words[a].start <= P.words[b].start ? a : b));
     const latest = tk.ids.reduce((a, b) => (P.words[a].end >= P.words[b].end ? a : b));
@@ -515,7 +515,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                     onClear={clearFade}
                   />
                 )}
-                {tok && <TimingPanel tok={tok} project={P} unlocked={timingsUnlocked} onToggleLock={() => setTimingsUnlocked((u) => !u)} onSetTime={setCueTime} onSetText={setCueText} />}
+                {tok && <TimingPanel key={sel.tok ? `${sel.gi}-${sel.tok.li}-${sel.tok.ti}` : "none"} tok={tok} project={P} unlocked={timingsUnlocked} onToggleLock={() => setTimingsUnlocked((u) => !u)} onSetTime={setCueTime} onSetText={setCueText} />}
               </>
             )}
           </div>

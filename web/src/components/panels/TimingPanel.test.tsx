@@ -27,4 +27,9 @@ describe("TimingPanel", () => {
     render(<TimingPanel tok={tok} project={proj()} unlocked={false} onToggleLock={() => {}} onSetTime={() => {}} onSetText={() => {}} />);
     expect((screen.getByLabelText(/^start$/i) as HTMLInputElement).disabled).toBe(true);
   });
+  it("reflects the selected cue's text on (re)mount", () => {
+    const p = proj(); p.words[0].text = "World";
+    render(<TimingPanel key="x" tok={tok} project={p} unlocked={false} onToggleLock={() => {}} onSetTime={() => {}} onSetText={() => {}} />);
+    expect((screen.getByLabelText(/text/i) as HTMLInputElement).value).toBe("World");
+  });
 });
