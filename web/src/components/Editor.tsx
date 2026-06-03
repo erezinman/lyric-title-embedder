@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useProjectStore } from "../api/useProjectStore";
+import { burn } from "../api/client";
 import { TopBar } from "./TopBar";
 import { Icon } from "./icons/Icon";
 import { resolveStyle, eventWindow, wordSchedule } from "../model/resolve";
@@ -359,7 +360,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
         onPlay={() => setPlaying((p) => !p)}
         onSeekRel={(d) => setTime((t) => Math.max(0, Math.min(dur, t + d)))}
         onHome={onHome}
-        onExport={() => {}}
+        onExport={() => { burn(`${projectName}_subbed.mp4`).catch((e) => setErrMsg(e instanceof Error ? e.message : String(e))); }}
         onUndo={() => store.undo().catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)))}
         onRedo={() => store.redo().catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)))}
         canUndo
@@ -491,6 +492,12 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
           )}
         </div>
       </section>
+      {store.burn && !store.burn.done && (
+        <div className="toast burn-bar">rendering — {Math.round(store.burn.frac * 100)}%</div>
+      )}
+      {store.burn && store.burn.done && (
+        <div className="toast burn-bar">{store.burn.ok ? `done — ${store.burn.out}` : `burn error: ${store.burn.err}`}</div>
+      )}
       {store.lastExternal > 0 && <ExternalToast key={store.lastExternal} />}
       {errMsg && <ErrorToast key={errMsg} msg={errMsg} onClear={() => setErrMsg(null)} />}
     </div>
