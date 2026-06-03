@@ -116,6 +116,27 @@ def t_token_guard():
     r2 = c.get("/api/state", headers={"authorization": "Bearer secret"})
     return (r1.status_code == 401 and r2.status_code == 200), f"{r1.status_code},{r2.status_code}"
 
+def t_mcp_token_guarded():
+    # with a token set, /mcp must be guarded too (not just /api)
+    hub = Hub(); ctx = DaemonContext(hub); ctx.load_lyrics("aligned_lyrics.json")
+    app = build_app(ctx, hub, token="secret", projects_dir="/tmp/_kss_projects")
+    c = TestClient(app)
+    r = c.get("/mcp/sse")                     # no auth -> must be 401 (guard covers /mcp)
+    return (r.status_code == 401), f"/mcp/sse no-auth status={r.status_code}"
+
+def t_library_rejects_bad_name():
+    c, _ = _client()
+    r = c.post("/api/projects/open", json={"name": "../escape"})
+    return (r.status_code == 400 and "error" in r.json()), f"status={r.status_code}"
+
+def t_set_globals_pushes_ws():
+    c, ctx = _client()
+    with c.websocket_connect("/ws") as ws:
+        ws.receive_json()                      # initial
+        c.post("/api/call", json={"tool": "set_globals", "args": {"partial": {"fontsize": 53}}})
+        msg = ws.receive_json()                # must receive a pushed state after a globals edit
+    return (msg["type"] == "state" and msg["state"]["globals"]["fontsize"] == 53), f"msg={msg.get('type')}"
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)

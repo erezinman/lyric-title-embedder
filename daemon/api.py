@@ -60,16 +60,25 @@ def make_routes(ctx, hub):
         return JSONResponse(library.list_projects(request.app.state.projects_dir))
     async def projects_new(request):
         b = await request.json()
-        library.new_project(request.app.state.projects_dir, b["name"], b["lyrics_path"])
-        library.open_project(ctx, request.app.state.projects_dir, b["name"])
+        try:
+            library.new_project(request.app.state.projects_dir, b["name"], b["lyrics_path"])
+            library.open_project(ctx, request.app.state.projects_dir, b["name"])
+        except ValueError as e:
+            return _err(str(e))
         return JSONResponse({"opened": b["name"]})
     async def projects_open(request):
         b = await request.json()
-        library.open_project(ctx, request.app.state.projects_dir, b["name"])
+        try:
+            library.open_project(ctx, request.app.state.projects_dir, b["name"])
+        except ValueError as e:
+            return _err(str(e))
         return JSONResponse({"opened": b["name"]})
     async def projects_save(request):
         b = await request.json()
-        library.save_project(ctx, request.app.state.projects_dir, b["name"])
+        try:
+            library.save_project(ctx, request.app.state.projects_dir, b["name"])
+        except ValueError as e:
+            return _err(str(e))
         return JSONResponse({"saved": b["name"]})
 
     return call, state, render, ass, ws_endpoint, frame, burn, burn_status, \

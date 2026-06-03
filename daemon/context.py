@@ -14,3 +14,7 @@ class DaemonContext(HeadlessContext):
         except Exception:
             return
         self.hub.schedule({"type": "state", "state": state})
+
+    def set_globals(self, partial):
+        super().set_globals(partial)
+        self._fire()

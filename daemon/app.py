@@ -14,7 +14,7 @@ class _Auth(BaseHTTPMiddleware):
     def __init__(self, app, token):
         super().__init__(app); self.token = token
     async def dispatch(self, request, call_next):
-        if request.url.path.startswith("/api") and request.headers.get("authorization") != f"Bearer {self.token}":
+        if request.url.path.startswith(("/api", "/mcp")) and request.headers.get("authorization") != f"Bearer {self.token}":
             return PlainTextResponse("unauthorized", status_code=401)
         return await call_next(request)
 
