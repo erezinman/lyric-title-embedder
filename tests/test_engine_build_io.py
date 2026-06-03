@@ -235,8 +235,8 @@ def t_fade_out_emits_fout_transform():
     toks_flat = [tok for ln in g0["lines"] for tok in ln["toks"]]
     wid = toks_flat[0]["ids"][0]
     mut.make_tag(p, "fout_tags", {wid})
-    # Set explicit trigger and dur
-    mut.set_tag_props(p, "fout_tags", 0, trigger=5.0, dur=300)
+    # Set explicit trigger (no dur — tags no longer carry dur)
+    mut.set_tag_props(p, "fout_tags", 0, trigger=5.0)
     groups = engine.project_to_render(p)
     text, _ = engine.build_ass(CFG, groups)
     diag_lines = [l for l in text.splitlines() if l.startswith("Dialogue:")]
@@ -321,17 +321,17 @@ def t_ass_time_from_dialogue_start():
 # ─── io tests ─────────────────────────────────────────────────────────────────
 
 def t_serialize_cues_structure():
-    """serialize_cues returns dict with expected top-level keys and correct types."""
+    """serialize_cues returns dict with expected top-level keys and correct types; no palette."""
     p, _ = fresh()
     d = engine.serialize_cues(p)
     has_nwords = isinstance(d.get("nwords"), int) and d["nwords"] == len(p["words"])
     has_globals = isinstance(d.get("globals"), dict)
-    has_palette = isinstance(d.get("palette"), list)
+    no_palette = "palette" not in d
     has_layout = isinstance(d.get("layout"), list) and len(d["layout"]) == len(p["layout"])
     has_fin = isinstance(d.get("fin_tags"), list)
     has_fout = isinstance(d.get("fout_tags"), list)
-    ok = all([has_nwords, has_globals, has_palette, has_layout, has_fin, has_fout])
-    return ok, f"nwords={has_nwords} globals={has_globals} palette={has_palette} layout={has_layout} fin={has_fin} fout={has_fout}"
+    ok = all([has_nwords, has_globals, no_palette, has_layout, has_fin, has_fout])
+    return ok, f"nwords={has_nwords} globals={has_globals} no_palette={no_palette} layout={has_layout} fin={has_fin} fout={has_fout}"
 
 def t_serialize_has_style_on_layout_and_toks():
     """serialize_cues includes 'style' key on each layout group and each tok."""
@@ -350,7 +350,8 @@ def t_serialize_has_style_on_layout_and_toks():
 
 def t_apply_cues_roundtrip_rich_state():
     """Full rich-state roundtrip: set group style, cue style, linger, win_start/end,
-    del flags, fin/fout tags, globals, palette — serialize → apply to fresh project → deep compare."""
+    del flags, fin/fout tags with trigger, globals, group fade — serialize → apply to fresh
+    project → deep compare. (palette and tag dur removed from new model.)"""
     p, _ = fresh()
     # group style
     mut.set_group_style(p, 0, {"fontsize": 88, "bold": False})
@@ -364,14 +365,14 @@ def t_apply_cues_roundtrip_rich_state():
     # globals
     mut.set_global(p, "fade_in_ms", 300)
     mut.set_global(p, "linger", 0.5)
-    # palette tweak
-    p["palette"][0] = "#DEADBE"
-    # fin_tag
+    # group fade override
+    p["layout"][0]["fade"] = {"fade_in_ms": 150}
+    # fin_tag (tags now only carry ids + trigger, no dur)
     mut.make_tag(p, "fin_tags", {wid0})
-    mut.set_tag_props(p, "fin_tags", 0, trigger=2.0, dur=400)
+    mut.set_tag_props(p, "fin_tags", 0, trigger=2.0)
     # fout_tag
     mut.make_tag(p, "fout_tags", {wid0})
-    mut.set_tag_props(p, "fout_tags", 0, trigger=4.0, dur=500)
+    mut.set_tag_props(p, "fout_tags", 0, trigger=4.0)
 
     d = engine.serialize_cues(p)
     p2 = engine.make_project(CFG)
@@ -391,11 +392,9 @@ def t_apply_cues_roundtrip_rich_state():
         "tok_del": g0["lines"][0]["toks"][0].get("del") == True,
         "globals_fade_in": p2["globals"].get("fade_in_ms") == 300,
         "globals_linger": abs(p2["globals"].get("linger", 0) - 0.5) < 1e-9,
-        "palette": p2["palette"][0] == "#DEADBE",
+        "group_fade": g0.get("fade") == {"fade_in_ms": 150},
         "fin_tag_trigger": (p2["fin_tags"] and abs((p2["fin_tags"][0].get("trigger") or 0) - 2.0) < 1e-9),
-        "fin_tag_dur": (p2["fin_tags"] and p2["fin_tags"][0].get("dur") == 400),
         "fout_tag_trigger": (p2["fout_tags"] and abs((p2["fout_tags"][0].get("trigger") or 0) - 4.0) < 1e-9),
-        "fout_tag_dur": (p2["fout_tags"] and p2["fout_tags"][0].get("dur") == 500),
     }
     failed = [k for k, v in checks.items() if not v]
     return len(failed) == 0, f"failed_checks={failed}"
@@ -487,20 +486,44 @@ def t_fin_tag_ids_preserved_in_roundtrip():
     ok = len(p2["fin_tags"]) == 1 and wid in p2["fin_tags"][0]["ids"]
     return ok, f"fin_tags={p2['fin_tags']}"
 
-def t_fout_tag_color_and_ids_preserved():
-    """fout_tag color and IDs survive serialize → apply."""
+def t_fout_tag_ids_and_trigger_preserved():
+    """fout_tag IDs and trigger survive serialize → apply (no color in new model)."""
     p, _ = fresh()
     wid = p["layout"][0]["lines"][0]["toks"][0]["ids"][0]
     mut.make_tag(p, "fout_tags", {wid})
-    color_before = p["fout_tags"][0]["color"]
+    mut.set_tag_props(p, "fout_tags", 0, trigger=3.5)
     d = engine.serialize_cues(p)
     p2 = engine.make_project(CFG)
     engine.apply_cues(p2, d)
+    t = p2["fout_tags"][0] if p2["fout_tags"] else {}
     ok = (len(p2["fout_tags"]) == 1
-          and wid in p2["fout_tags"][0]["ids"]
-          and p2["fout_tags"][0]["color"] == color_before)
-    return ok, f"fout_tags={p2['fout_tags']} color_before={color_before}"
+          and wid in t.get("ids", set())
+          and abs((t.get("trigger") or 0) - 3.5) < 1e-9
+          and set(t.keys()) == {"ids", "trigger"})
+    return ok, f"fout_tags={p2['fout_tags']}"
 
+
+def t_serialize_drops_palette_and_tag_color_dur():
+    import json
+    p = engine.make_project(CFG)
+    wid = p["layout"][0]["lines"][0]["toks"][0]["ids"][0]
+    engine.mutations.make_tag(p, "fin_tags", {wid})
+    p["layout"][0]["fade"] = {"fade_in_ms": 333}
+    d = engine.serialize_cues(p)
+    ok = ("palette" not in d
+          and d["fin_tags"][0] == {"ids": [wid], "trigger": None}
+          and d["layout"][0]["fade"] == {"fade_in_ms": 333})
+    json.dumps(d)
+    return (ok, d["fin_tags"][0])
+
+def t_apply_ignores_legacy_palette_color_dur():
+    p = engine.make_project(CFG)
+    legacy = engine.serialize_cues(p)
+    legacy["palette"] = ["#abcdef"] * 10
+    legacy["fin_tags"] = [{"ids": [0], "color": 3, "trigger": 1.0, "dur": 200}]
+    ok = engine.apply_cues(p, legacy)
+    t = p["fin_tags"][0]
+    return (ok and set(t.keys()) == {"ids", "trigger"} and t["trigger"] == 1.0, t)
 
 # ─── run all ──────────────────────────────────────────────────────────────────
 

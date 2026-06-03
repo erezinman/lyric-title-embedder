@@ -46,7 +46,7 @@ def make_project(cfg):
                            "win_start": None, "win_end": None, "linger": None,
                            "del": False, "style": {}, "fade": {}})
     return {"words": words, "layout": layout, "fin_tags": [], "fout_tags": [],
-            "globals": dict(BUILTIN), "palette": list(PALETTE)}
+            "globals": dict(BUILTIN)}
 
 def _tag_of(tags, wid):
     for ti, t in enumerate(tags):
