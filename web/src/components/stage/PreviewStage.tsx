@@ -16,9 +16,11 @@ interface PreviewStageProps {
   onMode: (m: "live" | "exact") => void;
   onRenderExact: () => void;
   onSelectWord: (wid: number) => void;
+  playW?: number;
+  playH?: number;
 }
 
-export function PreviewStage({ capWords, time, mode, onMode, onRenderExact, onSelectWord }: PreviewStageProps) {
+export function PreviewStage({ capWords, time, mode, onMode, onRenderExact, onSelectWord, playW, playH }: PreviewStageProps) {
   return (
     <div className="stage-col">
       <div className="stage-mode-bar">
@@ -37,7 +39,7 @@ export function PreviewStage({ capWords, time, mode, onMode, onRenderExact, onSe
       </div>
       <div className="stage">
         <div className="scan" />
-        <div className="tag">1920 × 1080 · 24fps</div>
+        <div className="tag">{playW ?? 1920} × {playH ?? 1080} · 24fps</div>
         {mode === "live" ? (
           <>
             <div className="live-badge"><span className="pulse" />LIVE</div>

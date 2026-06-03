@@ -222,8 +222,8 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
       const ids = selectedWords.size > 0 ? [...selectedWords] : (selWid() != null ? [selWid()!] : []);
       if (ids.length > 0) dispatch("set_cue_style", { word_ids: ids, partial: { [key]: value } });
     } else {
-      // global — set_globals takes partial directly (not nested under "partial")
-      dispatch("set_globals", { [key]: value });
+      // global — set_globals(ctx, partial) is called as fn(ctx, **args), so args must be { partial: {...} }
+      dispatch("set_globals", { partial: { [key]: value } });
     }
   }
 
@@ -419,6 +419,8 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
             onMode={setPvMode}
             onRenderExact={() => setPvMode("exact")}
             onSelectWord={selectWordByWid}
+            playW={P.placement.play_w}
+            playH={P.placement.play_h}
           />
         </main>
       </div>
