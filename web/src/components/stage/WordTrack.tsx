@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { colorForIndex } from "../../model/palette";
 import { computeMove, computeResize, dragMode } from "../../model/edit";
 import type { TimeUpdate } from "../../model/edit";
@@ -85,6 +85,7 @@ export function WordTrack({
     pointermove: (e: PointerEvent) => void;
     pointerup: (e: PointerEvent) => void;
     keydown: (e: KeyboardEvent) => void;
+    pointercancel: () => void;
   } | null>(null);
 
   const removeListeners = useCallback(() => {
@@ -92,8 +93,16 @@ export function WordTrack({
     window.removeEventListener("pointermove", handlersRef.current.pointermove);
     window.removeEventListener("pointerup", handlersRef.current.pointerup);
     window.removeEventListener("keydown", handlersRef.current.keydown);
+    if (handlersRef.current.pointercancel) {
+      window.removeEventListener("pointercancel", handlersRef.current.pointercancel);
+    }
     handlersRef.current = null;
   }, []);
+
+  // C1: clean up window listeners if component unmounts mid-drag
+  useEffect(() => {
+    return () => removeListeners();
+  }, [removeListeners]);
 
   // Start a drag - sets up window listeners
   const startDrag = useCallback(
@@ -163,10 +172,18 @@ export function WordTrack({
         }
       };
 
-      handlersRef.current = { pointermove: onPointermove, pointerup: onPointerup, keydown: onKeydown };
+      // I1: cancel path for OS/touch interruptions (same as Esc cancel)
+      const onPointercancel = () => {
+        dragRef.current = null;
+        setPreview(new Map());
+        removeListeners();
+      };
+
+      handlersRef.current = { pointermove: onPointermove, pointerup: onPointerup, keydown: onKeydown, pointercancel: onPointercancel };
       window.addEventListener("pointermove", onPointermove);
       window.addEventListener("pointerup", onPointerup);
       window.addEventListener("keydown", onKeydown);
+      window.addEventListener("pointercancel", onPointercancel);
     },
     [removeListeners]
   );
