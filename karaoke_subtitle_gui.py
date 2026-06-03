@@ -8,7 +8,7 @@ Model (tag-based, fully reactive via inherited→overridden resolution):
   words   : immutable canonical atoms [{text,start,end}]
   layout  : ordered events; each event = {label, win_start, win_end, linger,
             accumulate, del, lines:[{toks:[{ids,sep,del}]}]}   (\\N structure)
-  fin_tags / fout_tags : [{ids:set, color, trigger, dur}]  — words that fade
+  fin_tags / fout_tags : [{ids:set, trigger}]  — words that fade
             in/out together. trigger defaults to first/last member word's time;
             dur defaults to globals. None = inherit.
   globals : {fade_in_ms, fade_out_ms, linger}
@@ -751,8 +751,8 @@ class CueDock(ctk.CTkFrame):
             self._wl = self.pf.grid_slaves(row=3, column=1)[0]
             gf_cur = (g.get("fade") or {})
             gf_eff = resolve_fade(g, {"fade_in_ms": self.G()["fade_in_ms"], "fade_out_ms": self.G()["fade_out_ms"]})
-            self._pe("group fade-in ms", gf_cur.get("fade_in_ms"), 6, f"{int(gf_eff['fade_in_ms'])} (global)")
-            self._pe("group fade-out ms", gf_cur.get("fade_out_ms"), 7, f"{int(gf_eff['fade_out_ms'])} (global)")
+            self._pe("group fade-in ms",  gf_cur.get("fade_in_ms"),  6, f"{int(self.G()['fade_in_ms'])} (global)")
+            self._pe("group fade-out ms", gf_cur.get("fade_out_ms"), 7, f"{int(self.G()['fade_out_ms'])} (global)")
             ctk.CTkButton(self.pf, text="Apply fade", width=80, command=self._apply_group_fade).grid(row=8, column=1, sticky="w", pady=3)
             self._wgfi = self.pf.grid_slaves(row=6, column=1)[0]
             self._wgfo = self.pf.grid_slaves(row=7, column=1)[0]
