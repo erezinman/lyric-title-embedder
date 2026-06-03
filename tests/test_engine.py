@@ -131,6 +131,16 @@ def t_render_group_fade_falls_back_to_global():
     w = groups[0]["lines"][0]["words"][0]
     return (w["fin_ms"] == p["globals"]["fade_in_ms"], w["fin_ms"])
 
+def t_render_group_fade_out_override():
+    from engine import mutations as mut
+    p = engine.make_project(CFG)
+    p["layout"][0]["fade"] = {"fade_out_ms": 600}
+    wid = p["layout"][0]["lines"][0]["toks"][0]["ids"][0]
+    mut.make_tag(p, "fout_tags", {wid})
+    groups = engine.project_to_render(p)
+    w = groups[0]["lines"][0]["words"][0]
+    return (w["fout_ms"] == 600, w["fout_ms"])
+
 for name, fn in list(globals().items()):
     if name.startswith("t_"): check(name, fn)
 npass = sum(1 for ok, *_ in results if ok)
