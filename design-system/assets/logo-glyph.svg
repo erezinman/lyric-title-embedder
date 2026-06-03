@@ -1,0 +1,12 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Karaoke Subtitle Studio mark">
+  <defs>
+    <linearGradient id="ksGradGlyph" x1="12" y1="20" x2="52" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF3DA6"></stop>
+      <stop offset="1" stop-color="#8A5BFF"></stop>
+    </linearGradient>
+  </defs>
+  
+  <rect x="13" y="22" width="38" height="7" rx="3.5" fill="url(#ksGradGlyph)"></rect>
+  <rect x="13" y="35" width="22" height="7" rx="3.5" fill="url(#ksGradGlyph)"></rect>
+  <circle cx="45.5" cy="38.5" r="4.5" fill="#3DE0FF"></circle>
+</svg>

@@ -1,0 +1,26 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
+<link rel="stylesheet" href="../colors_and_type.css" /><link rel="stylesheet" href="card.css" />
+<style>
+  .ctl{display:flex;flex-direction:column;gap:7px}
+  .ctl .l{font-family:var(--font-ui);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3)}
+  .combo,.select{height:30px;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-1);font-size:12px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;gap:8px;min-width:150px}
+  .combo{font-family:var(--font-display)}
+  .step{height:30px;display:inline-flex;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-sm)}
+  .step .pm{width:26px;display:grid;place-items:center;color:var(--text-2)}.step .v{width:46px;display:grid;place-items:center;font-family:var(--font-mono);font-size:12px;border-left:1px solid var(--border);border-right:1px solid var(--border)}
+  .toggle{width:38px;height:22px;border-radius:999px;position:relative;background:var(--accent)}.toggle .k{position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--text-on-accent)}
+  .toggle.off{background:var(--surface-3);border:1px solid var(--border)}.toggle.off .k{left:3px;right:auto;background:var(--text-3)}
+  .sws{display:flex;gap:6px}.sws i{width:24px;height:24px;border-radius:5px;border:1px solid rgba(255,255,255,.14)}
+  .cue-input{height:30px;background:var(--surface-3);border:1px solid var(--accent);border-radius:5px;color:var(--text-1);font-size:12.5px;padding:0 10px;width:130px;box-shadow:var(--ring-accent)}
+  .chev{color:var(--text-3)}
+</style></head>
+<body>
+  <div class="eyebrow">Form controls</div>
+  <div class="row" style="align-items:flex-end">
+    <div class="ctl"><span class="l">Combo</span><div class="combo">Space Grotesk<span class="chev">⌄</span></div></div>
+    <div class="ctl"><span class="l">Select</span><div class="select">Bottom-Center<span class="chev">⌄</span></div></div>
+    <div class="ctl"><span class="l">Stepper</span><div class="step"><span class="pm">−</span><span class="v">64</span><span class="pm">+</span></div></div>
+    <div class="ctl"><span class="l">Toggle</span><div style="display:flex;gap:8px"><div class="toggle"><div class="k"></div></div><div class="toggle off"><div class="k"></div></div></div></div>
+    <div class="ctl"><span class="l">Swatches</span><div class="sws"><i style="background:#fff"></i><i style="background:#000"></i><i style="background:var(--accent)"></i></div></div>
+    <div class="ctl"><span class="l">Text (focus)</span><input class="cue-input" value="bleating" /></div>
+  </div>
+</body></html>

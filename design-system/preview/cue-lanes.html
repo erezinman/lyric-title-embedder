@@ -1,0 +1,25 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
+<link rel="stylesheet" href="../colors_and_type.css" /><link rel="stylesheet" href="card.css" />
+<style>
+  .lanes{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;font-family:var(--font-mono);max-width:560px}
+  .lh-row{display:grid;grid-template-columns:1.5fr 1fr 1fr;background:var(--surface-2);border-bottom:1px solid var(--border)}
+  .lh{font-family:var(--font-display);font-size:10.5px;font-weight:600;letter-spacing:.04em;color:var(--text-2);padding:8px 12px;border-right:1px solid var(--border)}
+  .lh:last-child{border-right:0}
+  .evt{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--surface-2);border-bottom:1px solid var(--border);font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--text-2);box-shadow:inset 3px 0 0 var(--cue-1)}
+  .evt .rng{margin-left:auto;font-family:var(--font-mono);font-weight:400;color:var(--text-3);font-size:10px}
+  .lr{display:grid;grid-template-columns:1.5fr 1fr 1fr;border-bottom:1px solid color-mix(in srgb,var(--border) 60%,transparent)}
+  .lr:last-child{border-bottom:0}.lr.sel{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+  .lc{padding:6px 12px;font-size:11.5px;border-right:1px solid color-mix(in srgb,var(--border) 60%,transparent)}
+  .lc:last-child{border-right:0}.lc.inh{color:var(--text-3);font-style:italic}.lc.ovr{color:var(--text-1)}.lc.word{color:var(--text-1)}
+  .lc.g{box-shadow:inset 3px 0 0 var(--cue-1);color:#fff}
+</style></head>
+<body>
+  <div class="eyebrow">Cue lanes — layout · fade-in · fade-out</div>
+  <div class="lanes">
+    <div class="lh-row"><span class="lh">LAYOUT · cue / words</span><span class="lh">FADE-IN</span><span class="lh">FADE-OUT</span></div>
+    <div class="evt">Verse 1 <span class="rng">0.30–3.10</span></div>
+    <div class="lr"><span class="lc word">Caught</span><span class="lc inh">@0.30 / 250</span><span class="lc inh">· none</span></div>
+    <div class="lr sel"><span class="lc word g">bleating</span><span class="lc ovr g">@1.40 / 180</span><span class="lc ovr g">@15.40 / 600</span></div>
+    <div class="lr"><span class="lc word g">obsession</span><span class="lc ovr g">@2.20 / 180</span><span class="lc ovr g">@15.40 / 600</span></div>
+  </div>
+</body></html>

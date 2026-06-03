@@ -1,0 +1,23 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
+<link rel="stylesheet" href="../colors_and_type.css" /><link rel="stylesheet" href="card.css" />
+<style>
+  .btn{height:36px;padding:0 15px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface-3);
+    color:var(--text-1);font-family:var(--font-ui);font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:8px}
+  .btn.primary{background:linear-gradient(120deg,var(--accent),var(--violet));color:var(--text-on-accent);border-color:transparent;font-weight:600;box-shadow:var(--shadow-glow-accent)}
+  .btn.ghost{background:transparent}
+  .btn.danger{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 32%,transparent);background:transparent}
+  .btn.sm{height:30px;padding:0 12px;font-size:12px}
+  .ib{width:36px;height:36px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface-3);color:var(--text-2);display:inline-grid;place-items:center}
+  svg{display:block}
+</style></head>
+<body>
+  <div class="eyebrow">Buttons</div>
+  <div class="row tight" style="align-items:center">
+    <button class="btn primary"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><polyline points="8 7 12 3 16 7"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>Export</button>
+    <button class="btn">Edit cues…</button>
+    <button class="btn ghost">Save preset</button>
+    <button class="btn danger">Quit</button>
+    <button class="btn sm">Render now</button>
+    <span class="ib"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></span>
+  </div>
+</body></html>

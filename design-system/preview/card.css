@@ -1,0 +1,22 @@
+/* card.css — shared scaffolding for the design-system preview cards.
+   Each card imports ../colors_and_type.css then this. Cards show specimens
+   only (no titles — the asset name renders outside the card). */
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text-1); font-family: var(--font-ui);
+  padding: 18px 20px; -webkit-font-smoothing: antialiased; }
+.row { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+.row.tight { gap: 8px; }
+.col { display: flex; flex-direction: column; gap: 6px; }
+.eyebrow { font-family: var(--font-ui); font-weight: 600; font-size: 10px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text-3); margin-bottom: 12px; }
+.mono { font-family: var(--font-mono); }
+.muted { color: var(--text-3); }
+.t2 { color: var(--text-2); }
+
+/* swatches */
+.sw { width: 132px; }
+.sw .chip { height: 54px; border-radius: 10px; border: 1px solid rgba(255,255,255,.08); margin-bottom: 7px; }
+.sw .nm { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-1); }
+.sw .hex { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); }
+.dot-sw { width: 40px; height: 40px; border-radius: 9px; }

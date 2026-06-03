@@ -1,0 +1,29 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
+<link rel="stylesheet" href="../colors_and_type.css" /><link rel="stylesheet" href="card.css" />
+<style>
+  .transport{display:inline-flex;align-items:center;gap:6px;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:5px 12px 5px 6px;margin-bottom:18px}
+  .tbtn{width:30px;height:30px;border-radius:var(--radius-sm);border:0;background:transparent;color:var(--text-2);display:grid;place-items:center}
+  .tbtn.play{background:var(--accent);color:var(--text-on-accent);box-shadow:0 2px 12px var(--glow-accent)}
+  .time{font-family:var(--font-mono);font-size:12.5px;color:var(--text-1);margin-left:6px}.time .d{color:var(--text-3)}
+  .wave{position:relative;display:flex;align-items:flex-end;gap:2px;height:46px;max-width:520px}
+  .bar{flex:1;background:var(--border-strong);border-radius:2px}.bar.on{background:linear-gradient(180deg,var(--accent),var(--violet))}
+  .ph{position:absolute;top:-4px;bottom:-4px;left:36%;width:2px;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+  .ph::before{content:"";position:absolute;top:-3px;left:-4px;width:10px;height:10px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+  svg{display:block}
+</style></head>
+<body>
+  <div class="eyebrow">Transport &amp; waveform</div>
+  <div class="transport">
+    <span class="tbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4"/><rect x="5" y="5" width="2.4" height="14" rx="1"/></svg></span>
+    <span class="tbtn play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20"/></svg></span>
+    <span class="tbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20"/><rect x="16.6" y="5" width="2.4" height="14" rx="1"/></svg></span>
+    <span class="time">0:13.04<span class="d"> / 0:42.18</span></span>
+  </div>
+  <div class="wave" id="w"></div>
+  <script>
+    const bars=[12,18,28,22,38,46,34,54,66,50,36,26,42,60,74,56,40,48,64,52,32,22,38,54,68,84,62,46,34,26,42,58,72,54,36,24,18,30,46,60,48,34,26,20,36,52];
+    const w=document.getElementById('w');
+    bars.forEach((b,i)=>{const s=document.createElement('span');s.className='bar'+((i/bars.length)<=0.36?' on':'');s.style.height=b+'%';w.appendChild(s)});
+    const ph=document.createElement('div');ph.className='ph';w.appendChild(ph);
+  </script>
+</body></html>

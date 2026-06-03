@@ -1,0 +1,29 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
+<link rel="stylesheet" href="../colors_and_type.css" /><link rel="stylesheet" href="card.css" />
+<style>
+  .insp{max-width:440px}
+  .tier{border:1px solid var(--border);border-radius:var(--radius-lg);padding:11px 12px;margin-bottom:8px;background:var(--surface-3)}
+  .tier.word{border-color:color-mix(in srgb,var(--accent) 50%,transparent);background:color-mix(in srgb,var(--accent) 9%,var(--surface-3));box-shadow:var(--ring-accent)}
+  .tier.group{border-color:color-mix(in srgb,var(--violet) 40%,transparent)}
+  .th{display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-weight:600;font-size:12.5px;margin-bottom:8px}
+  .th .meta{margin-left:auto;font-family:var(--font-mono);font-size:10.5px;color:var(--text-3);font-weight:400}
+  .tag{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.08em;padding:2px 6px;border-radius:5px}
+  .tag.word{background:var(--accent);color:var(--text-on-accent)}.tag.group{background:color-mix(in srgb,var(--violet) 28%,transparent);color:var(--violet-soft)}.tag.global{background:var(--border-strong);color:var(--text-2)}
+  .f{display:flex;justify-content:space-between;padding:4px 0;font-size:12px;gap:16px}.f .l{color:var(--text-2)}
+  .f .v{font-family:var(--font-mono);font-size:11.5px;white-space:nowrap}.f .v.ovr{color:var(--accent)}.f .v.grp{color:var(--violet-soft)}.f .v.inh{color:var(--text-3)}
+  .th .meta{white-space:nowrap}
+  .note{font-size:11px;color:var(--text-3);text-align:center}.note b{color:var(--accent)}
+</style></head>
+<body>
+  <div class="eyebrow">Inspector — global → group → word waterfall</div>
+  <div class="insp">
+    <div class="tier word"><div class="th"><span class="tag word">WORD</span>“bleating”<span class="meta">1.40s</span></div>
+      <div class="f"><span class="l">Animation</span><span class="v ovr">Karaoke Bounce</span></div>
+      <div class="f"><span class="l">Fade-in</span><span class="v ovr">180 ms</span></div></div>
+    <div class="tier group"><div class="th"><span class="tag group">GROUP</span>Verse 1<span class="meta">14 words</span></div>
+      <div class="f"><span class="l">Size</span><span class="v grp">64 px</span></div></div>
+    <div class="tier global"><div class="th"><span class="tag global">GLOBAL</span>Defaults</div>
+      <div class="f"><span class="l">Fade-out</span><span class="v inh">600 ms</span></div></div>
+    <div class="note">resolved: <b>word</b> → group → global</div>
+  </div>
+</body></html>
