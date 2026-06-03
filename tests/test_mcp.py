@@ -196,6 +196,14 @@ def t_event_view_merged_token_text():
     w0 = grp["lines"][0]["words"][0]
     return (len(w0["ids"]) == 2 and " " in w0["text"], w0)
 
+def t_headless_globals_have_no_fade_ms_or_wrap_style():
+    g = HeadlessContext().get_globals()
+    return ("fade_ms" not in g and "wrap_style" not in g, sorted(g.keys()))
+
+def t_headless_cfg_has_no_fade_ms_or_wrap_style():
+    c = HeadlessContext().cfg()
+    return ("fade_ms" not in c and "wrap_style" not in c, sorted(c.keys()))
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)

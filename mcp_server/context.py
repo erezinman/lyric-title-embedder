@@ -9,11 +9,11 @@ DEFAULT_GLOBALS = {
     "primary_color": "#FFFFFF", "outline_color": "#000000", "back_color": "#000000",
     "back_alpha": "80", "border_style": 1, "outline_w": 3, "shadow": 0,
     "play_w": 1920, "play_h": 1080, "margin_l": 80, "margin_r": 80, "margin_v": 60,
-    "fade_ms": 250, "wrap_style": 2, "use_pos": True,
+    "use_pos": True,
 }
 GLOBAL_KEYS = ["font", "fontsize", "bold", "align", "primary", "outline", "back",
                "back_alpha", "border_style", "outline_w", "shadow", "play_w", "play_h",
-               "margin_l", "margin_r", "margin_v", "fade_ms", "use_pos", "pos"]
+               "margin_l", "margin_r", "margin_v", "use_pos", "pos"]
 
 class EngineContext:
     session = None
@@ -43,11 +43,11 @@ class HeadlessContext(EngineContext):
     def cfg(self):
         g = self._g
         c = {"font": g["font"], "fontsize": g["fontsize"], "bold": g["bold"], "align": g["align"],
-             "fade_ms": g["fade_ms"], "play_w": g["play_w"], "play_h": g["play_h"],
+             "play_w": g["play_w"], "play_h": g["play_h"],
              "margin_l": g["margin_l"], "margin_r": g["margin_r"], "margin_v": g["margin_v"],
              "primary_color": g["primary"], "outline_color": g["outline"], "back_color": g["back"],
              "back_alpha": g["back_alpha"], "border_style": g["border_style"],
-             "outline_w": g["outline_w"], "shadow": g["shadow"], "wrap_style": g["wrap_style"]}
+             "outline_w": g["outline_w"], "shadow": g["shadow"]}
         if g.get("use_pos") and g.get("pos"): c["pos"] = g["pos"]
         return c
     def load_lyrics(self, json_path, group_by="section", skip_dashes=True):
@@ -125,7 +125,7 @@ class UIContext(EngineContext):
                     "outline_w": a.outline_var.get(), "shadow": a.shadow_var.get(),
                     "play_w": a.pw_var.get(), "play_h": a.ph_var.get(),
                     "margin_l": a.ml_var.get(), "margin_r": a.mr_var.get(), "margin_v": a.mv_var.get(),
-                    "fade_ms": a.fade_var.get(), "use_pos": a.pos_var.get()}
+                    "use_pos": a.pos_var.get()}
         return self.run(read)
     def set_globals(self, partial):
         def write():
@@ -136,7 +136,7 @@ class UIContext(EngineContext):
                  "back_alpha": a.backa_var, "border_style": a.border_var, "outline_w": a.outline_var,
                  "shadow": a.shadow_var, "play_w": a.pw_var, "play_h": a.ph_var,
                  "margin_l": a.ml_var, "margin_r": a.mr_var, "margin_v": a.mv_var,
-                 "fade_ms": a.fade_var, "use_pos": a.pos_var}
+                 "use_pos": a.pos_var}
             for k, v in partial.items():
                 if k in m: m[k].set(v)
                 elif k in ("primary", "outline", "back"): a._color[k] = v
