@@ -1,11 +1,12 @@
-# daemon/app.py — build the unified Starlette app (/api + /ws). /mcp added in a later task.
+# daemon/app.py — build the unified Starlette app (/api + /ws + /mcp).
 import asyncio
 from contextlib import asynccontextmanager
 from starlette.applications import Starlette
-from starlette.routing import Route, WebSocketRoute
+from starlette.routing import Route, WebSocketRoute, Mount
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from daemon.api import make_routes
+from mcp_server.server import build_server
 
 def build_app(ctx, hub, token=None, projects_dir="projects"):
     call, state, render, ass, ws_endpoint = make_routes(ctx, hub)
@@ -15,7 +16,9 @@ def build_app(ctx, hub, token=None, projects_dir="projects"):
         hub.bind_loop(asyncio.get_running_loop())
         yield
 
+    mcp_app = build_server(ctx).sse_app(mount_path="/mcp")
     routes = [
+        Mount("/mcp", app=mcp_app),
         Route("/api/call", call, methods=["POST"]),
         Route("/api/state", state, methods=["GET"]),
         Route("/api/render", render, methods=["GET"]),

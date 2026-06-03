@@ -58,6 +58,22 @@ def t_ws_pushes_state_on_edit():
         msg = ws.receive_json()
     return (msg["type"] == "state" and msg["state"]["events"][0]["style_overrides"].get("fontsize") == 70), f"msg_type={msg['type']}"
 
+def t_mcp_mounted():
+    hub = Hub(); ctx = DaemonContext(hub); ctx.load_lyrics("aligned_lyrics.json")
+    app = build_app(ctx, hub)
+    paths = [getattr(r, "path", getattr(r, "path_format", "")) for r in app.routes]
+    return (any(p == "/mcp" for p in paths)), f"paths={paths}"
+
+def t_shared_session_mcp_edit_pushes_ws():
+    c, ctx = _client()
+    with c.websocket_connect("/ws") as ws:
+        ws.receive_json()                                   # initial
+        from mcp_server import tools
+        wid = ctx.session.project["layout"][0]["lines"][0]["toks"][0]["ids"][0]
+        tools.set_cue_style(ctx, [wid], {"primary": "#FF0000"})   # MCP-side edit on the shared ctx
+        msg = ws.receive_json()
+    return (msg["type"] == "state"), "shared-session push ok"
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)
