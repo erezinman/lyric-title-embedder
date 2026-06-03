@@ -108,6 +108,14 @@ def t_library_roundtrip():
     st = c2.get("/api/state").json()
     return (st["events"][0]["style_overrides"].get("font") == "Arial"), f"lst={lst}"
 
+def t_token_guard():
+    hub = Hub(); ctx = DaemonContext(hub); ctx.load_lyrics("aligned_lyrics.json")
+    app = build_app(ctx, hub, token="secret", projects_dir="/tmp/_kss_projects")
+    c = TestClient(app)
+    r1 = c.get("/api/state")
+    r2 = c.get("/api/state", headers={"authorization": "Bearer secret"})
+    return (r1.status_code == 401 and r2.status_code == 200), f"{r1.status_code},{r2.status_code}"
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)

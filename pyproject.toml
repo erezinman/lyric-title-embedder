@@ -31,3 +31,5 @@ optional = true
 # The core app and test suites do NOT require this group.
 mcp = ">=1.2"
 uvicorn = ">=0.27"
+httpx = ">=0.27"
+websockets = ">=12"
