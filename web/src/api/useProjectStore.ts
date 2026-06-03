@@ -24,13 +24,14 @@ export function useProjectStore(): ProjectStore {
   const [connected, setConnected] = useState(false);
   const [lastExternal, setLastExternal] = useState(0);
   const [burn, setBurn] = useState<BurnMsg | null>(null);
-  const inflight = useRef(0);
+  const localUntil = useRef(0);
   const retry = useRef(0);
   const closed = useRef(false);
 
   useEffect(() => {
     closed.current = false;
     let ws: WebSocket;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
     const connect = () => {
       ws = new WebSocket(wsUrl());
       ws.onopen = () => { setConnected(true); retry.current = 0; };
@@ -38,7 +39,7 @@ export function useProjectStore(): ProjectStore {
         const msg = JSON.parse(typeof e.data === "string" ? e.data : "");
         if (msg.type === "state") {
           setProject(msg.state as Project);
-          if (inflight.current > 0) inflight.current -= 1; else setLastExternal(Date.now());
+          if (Date.now() >= localUntil.current) setLastExternal(Date.now());
         } else if (msg.type === "burn") {
           setBurn(msg.job as BurnMsg);
         }
@@ -48,21 +49,16 @@ export function useProjectStore(): ProjectStore {
         if (closed.current) return;
         const delay = Math.min(1000 * 2 ** retry.current, 8000);
         retry.current += 1;
-        setTimeout(connect, delay);
+        retryTimer = setTimeout(connect, delay);
       };
     };
     connect();
-    return () => { closed.current = true; ws?.close(); };
+    return () => { closed.current = true; if (retryTimer) clearTimeout(retryTimer); ws?.close(); };
   }, []);
 
   const call = useCallback(async <T,>(tool: string, args: Record<string, unknown>): Promise<T> => {
-    inflight.current += 1;
-    try {
-      return await apiCall<T>(tool, args);
-    } catch (e) {
-      inflight.current = Math.max(0, inflight.current - 1);
-      throw e;
-    }
+    localUntil.current = Date.now() + 1500;
+    return apiCall<T>(tool, args);
   }, []);
 
   const undo = useCallback(async () => { await call("undo", {}); }, [call]);
