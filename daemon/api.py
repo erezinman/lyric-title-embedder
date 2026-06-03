@@ -39,4 +39,20 @@ def make_routes(ctx, hub):
         finally:
             hub.unregister(websocket)
 
-    return call, state, render, ass, ws_endpoint
+    async def frame(request):
+        t = float(request.query_params.get("t", "0"))
+        png = tools.render_frame(ctx, t)
+        return Response(png, media_type="image/png")
+
+    async def burn(request):
+        body = await request.json()
+        job = tools.burn(ctx, body["out"], body.get("video_in"))
+        return JSONResponse(job)
+
+    async def burn_status(request):
+        try:
+            return JSONResponse(tools.burn_status(ctx, request.path_params["job_id"]))
+        except Exception as e:
+            return _err(str(e), 404)
+
+    return call, state, render, ass, ws_endpoint, frame, burn, burn_status

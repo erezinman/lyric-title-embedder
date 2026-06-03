@@ -74,6 +74,26 @@ def t_shared_session_mcp_edit_pushes_ws():
         msg = ws.receive_json()
     return (msg["type"] == "state"), "shared-session push ok"
 
+def t_api_frame_png():
+    c, ctx = _client(); ctx.set_globals({"play_w": 320, "play_h": 180})
+    r = c.get("/api/frame?t=13")
+    return (r.status_code == 200 and r.headers["content-type"].startswith("image/png")
+            and r.content[:4] == b"\x89PNG"), f"status={r.status_code} ct={r.headers.get('content-type')}"
+
+def t_api_burn_job():
+    import subprocess, core, time
+    subprocess.run([core.FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+                    "-i", "color=c=navy:s=320x180:d=1", "/tmp/_kss_din.mp4"], check=True)
+    c, ctx = _client(); ctx.set_globals({"play_w": 320, "play_h": 180})
+    r = c.post("/api/burn", json={"out": "/tmp/_kss_dout.mp4", "video_in": "/tmp/_kss_din.mp4"})
+    jid = r.json()["job_id"]; st = None
+    for _ in range(200):
+        st = c.get(f"/api/burn/{jid}").json()
+        if st["done"]: break
+        time.sleep(0.1)
+    import os
+    return (st and st["done"] and st["ok"] and os.path.isfile("/tmp/_kss_dout.mp4")), f"st={st}"
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)

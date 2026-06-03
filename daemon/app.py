@@ -9,7 +9,7 @@ from daemon.api import make_routes
 from mcp_server.server import build_server
 
 def build_app(ctx, hub, token=None, projects_dir="projects"):
-    call, state, render, ass, ws_endpoint = make_routes(ctx, hub)
+    call, state, render, ass, ws_endpoint, frame, burn, burn_status = make_routes(ctx, hub)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -24,6 +24,9 @@ def build_app(ctx, hub, token=None, projects_dir="projects"):
         Route("/api/render", render, methods=["GET"]),
         Route("/api/ass", ass, methods=["GET"]),
         WebSocketRoute("/ws", ws_endpoint),
+        Route("/api/frame", frame, methods=["GET"]),
+        Route("/api/burn", burn, methods=["POST"]),
+        Route("/api/burn/{job_id}", burn_status, methods=["GET"]),
     ]
     middleware = [Middleware(CORSMiddleware, allow_origins=["http://127.0.0.1:5173",
                   "http://localhost:5173"], allow_methods=["*"], allow_headers=["*"])]
