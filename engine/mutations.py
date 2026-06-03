@@ -80,6 +80,27 @@ def toggle_word_del(project, ids, value):
                 if any(i in idset for i in tok["ids"]):
                     tok["del"] = value
 
+def set_word_times(project, updates):
+    """Atomically retime words. updates: list of {wid, start, end}.
+    Validates all entries first (0 <= start < end, wid in range); applies none on any error."""
+    clean = []
+    n = len(project["words"])
+    for u in updates:
+        wid = u["wid"]; s = u["start"]; e = u["end"]
+        if not isinstance(wid, int) or wid < 0 or wid >= n:
+            raise ValueError(f"set_word_times: wid {wid!r} out of range")
+        if s is None or e is None or s < 0 or s >= e:
+            raise ValueError(f"set_word_times: invalid span for wid {wid}: start={s} end={e}")
+        clean.append((wid, s, e))
+    for wid, s, e in clean:
+        project["words"][wid]["start"] = s
+        project["words"][wid]["end"] = e
+
+def set_word_text(project, wid, text):
+    if not isinstance(wid, int) or wid < 0 or wid >= len(project["words"]):
+        raise ValueError(f"set_word_text: wid {wid!r} out of range")
+    project["words"][wid]["text"] = text
+
 def add_break(project, gi, li, ti, after=True):
     ln = project["layout"][gi]["lines"][li]; toks = ln["toks"]
     pos = ti + 1 if after else ti

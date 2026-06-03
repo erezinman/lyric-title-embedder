@@ -683,6 +683,43 @@ ACTIVE = [
     t_set_tag_props_sets_trigger_only,
 ]
 
+# ============================================================
+# New tests: set_word_times and set_word_text
+# ============================================================
+
+def t_set_word_times_batch_and_atomic():
+    p = fresh()
+    mut.set_word_times(p, [{"wid": 0, "start": 1.0, "end": 2.0}, {"wid": 1, "start": 2.0, "end": 2.5}])
+    a = (p["words"][0]["start"], p["words"][0]["end"], p["words"][1]["start"], p["words"][1]["end"])
+    before = [dict(w) for w in p["words"]]
+    raised = False
+    try:
+        mut.set_word_times(p, [{"wid": 2, "start": 5.0, "end": 6.0}, {"wid": 3, "start": 9.0, "end": 9.0}])
+    except ValueError:
+        raised = True
+    unchanged = all(p["words"][i] == before[i] for i in range(len(p["words"])))
+    return (a == (1.0, 2.0, 2.0, 2.5) and raised and unchanged, (a, raised, unchanged))
+
+def t_set_word_times_rejects_negative():
+    p = fresh(); raised = False
+    try:
+        mut.set_word_times(p, [{"wid": 0, "start": -0.1, "end": 1.0}])
+    except ValueError:
+        raised = True
+    return (raised, raised)
+
+def t_set_word_text():
+    p = fresh()
+    mut.set_word_text(p, 0, "Hullo")
+    mut.set_word_text(p, 1, "")
+    return (p["words"][0]["text"] == "Hullo" and p["words"][1]["text"] == "", (p["words"][0]["text"], p["words"][1]["text"]))
+
+ACTIVE += [
+    t_set_word_times_batch_and_atomic,
+    t_set_word_times_rejects_negative,
+    t_set_word_text,
+]
+
 for fn in ACTIVE:
     check(fn.__name__, fn)
 
