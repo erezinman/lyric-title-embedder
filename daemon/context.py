@@ -10,7 +10,7 @@ class DaemonContext(HeadlessContext):
     def _fire(self):
         from mcp_server import tools
         try:
-            state = tools.get_state(self)
+            state = tools.get_project(self)
         except Exception:
             return
         self.hub.schedule({"type": "state", "state": state})

@@ -19,7 +19,7 @@ def make_routes(ctx, hub):
         except Exception as e:
             return _err(f"{type(e).__name__}: {e}", 422)
 
-    async def state(request):  return JSONResponse(tools.get_state(ctx))
+    async def state(request):  return JSONResponse(tools.get_project(ctx))
     async def render(request): return JSONResponse(tools.get_render(ctx))
     async def ass(request):    return Response(tools.get_ass(ctx), media_type="text/plain")
 
@@ -31,7 +31,7 @@ def make_routes(ctx, hub):
         await websocket.accept()
         hub.register(websocket)
         try:
-            await websocket.send_json({"type": "state", "state": tools.get_state(ctx)})
+            await websocket.send_json({"type": "state", "state": tools.get_project(ctx)})
             while True:
                 await websocket.receive_text()
         except Exception:

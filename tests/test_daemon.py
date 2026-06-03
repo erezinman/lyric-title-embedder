@@ -23,7 +23,7 @@ def t_context_fires_hub_on_change():
     tools.set_group_style(ctx, 0, {"fontsize": 80})
     last = hub.scheduled[-1]
     return (n0 >= 1 and len(hub.scheduled) > n0 and last["type"] == "state"
-            and last["state"]["n_events"] >= 1), f"scheduled={len(hub.scheduled)}"
+            and "layout" in last["state"] and len(last["state"]["layout"]) >= 1), f"scheduled={len(hub.scheduled)}"
 
 def t_context_is_synchronous_headless():
     hub = _StubHub(); ctx = DaemonContext(hub)
@@ -42,7 +42,7 @@ def t_api_call_and_state():
     r = c.post("/api/call", json={"tool": "set_group_style", "args": {"gi": 0, "partial": {"fontsize": 96}}})
     assert r.status_code == 200, r.text
     st = c.get("/api/state").json()
-    return (st["events"][0]["style_overrides"].get("fontsize") == 96), f"r={r.json()}"
+    return (st["layout"][0]["style"].get("fontsize") == 96), f"r={r.json()}"
 
 def t_api_call_unknown_tool_400():
     c, _ = _client()
@@ -56,7 +56,7 @@ def t_ws_pushes_state_on_edit():
         assert first["type"] == "state"
         c.post("/api/call", json={"tool": "set_group_style", "args": {"gi": 0, "partial": {"fontsize": 70}}})
         msg = ws.receive_json()
-    return (msg["type"] == "state" and msg["state"]["events"][0]["style_overrides"].get("fontsize") == 70), f"msg_type={msg['type']}"
+    return (msg["type"] == "state" and msg["state"]["layout"][0]["style"].get("fontsize") == 70), f"msg_type={msg['type']}"
 
 def t_mcp_mounted():
     hub = Hub(); ctx = DaemonContext(hub); ctx.load_lyrics("aligned_lyrics.json")
@@ -106,7 +106,7 @@ def t_library_roundtrip():
     c2, ctx2 = _client()
     c2.post("/api/projects/open", json={"name": "demo"})
     st = c2.get("/api/state").json()
-    return (st["events"][0]["style_overrides"].get("font") == "Arial"), f"lst={lst}"
+    return (st["layout"][0]["style"].get("font") == "Arial"), f"lst={lst}"
 
 def t_token_guard():
     hub = Hub(); ctx = DaemonContext(hub); ctx.load_lyrics("aligned_lyrics.json")
@@ -135,7 +135,23 @@ def t_set_globals_pushes_ws():
         ws.receive_json()                      # initial
         c.post("/api/call", json={"tool": "set_globals", "args": {"partial": {"fontsize": 53}}})
         msg = ws.receive_json()                # must receive a pushed state after a globals edit
-    return (msg["type"] == "state" and msg["state"]["globals"]["fontsize"] == 53), f"msg={msg.get('type')}"
+    return (msg["type"] == "state" and msg["state"]["global_style"]["fontsize"] == 53), f"msg={msg.get('type')}"
+
+def t_api_state_is_full_project():
+    c, ctx = _client()
+    r = c.get("/api/state")
+    body = r.json()
+    return (r.status_code == 200 and "words" in body and "layout" in body
+            and "palette" not in body, sorted(body.keys()))
+
+def t_ws_push_after_set_group_fade_carries_fade():
+    c, ctx = _client()
+    with c.websocket_connect("/ws") as ws:
+        ws.receive_json()  # initial state push
+        c.post("/api/call", json={"tool": "set_group_fade", "args": {"gi": 0, "partial": {"fade_in_ms": 400}}})
+        msg = ws.receive_json()
+        g0 = msg["state"]["layout"][0]
+        return (msg["type"] == "state" and g0["fade"].get("fade_in_ms") == 400, g0.get("fade"))
 
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
