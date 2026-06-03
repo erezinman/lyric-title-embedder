@@ -471,6 +471,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
               <Waveform dur={dur} time={time} onSeek={setTime} />
               <WordTrack
                 words={trackWords}
+                events={P.layout.map((g, gi) => ({ gi, label: g.label }))}
                 dur={dur}
                 time={time}
                 liveId={liveId}
