@@ -452,6 +452,22 @@ def t_render_deleted_layout_event_skipped():
 
 
 # ===========================================================================
+# Fade waterfall primitives
+# ===========================================================================
+
+def t_resolve_fade_group_overrides_global():
+    from engine.model import resolve_fade
+    gt = {"fade_in_ms": 250, "fade_out_ms": 1000}
+    got = resolve_fade({"fade": {"fade_out_ms": 50}}, gt)
+    return (got == {"fade_in_ms": 250, "fade_out_ms": 50}, got)
+
+def t_make_project_groups_have_empty_fade():
+    p = engine.make_project(CFG)
+    ok = all(g.get("fade") == {} for g in p["layout"])
+    return (ok, [g.get("fade") for g in p["layout"]][:3])
+
+
+# ===========================================================================
 # Discovery loop
 # ===========================================================================
 SUSPECTED_BUGS = []

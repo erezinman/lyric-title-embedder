@@ -10,6 +10,15 @@ STYLE_KEYS = ["font", "fontsize", "bold", "primary", "outline", "back",
               "back_alpha", "outline_w", "shadow", "border_style"]
 CUE_STYLE_KEYS = [k for k in STYLE_KEYS if k != "border_style"]   # C1: box-mode group-only
 
+FADE_KEYS = ["fade_in_ms", "fade_out_ms"]
+
+
+def resolve_fade(group, gtiming):
+    """Effective fade durations for a layout group: group['fade'] override falls
+    back to the global timing defaults. Group-only (no cue tier)."""
+    gf = (group or {}).get("fade") or {}
+    return {k: (gf[k] if gf.get(k) is not None else gtiming[k]) for k in FADE_KEYS}
+
 
 def make_project(cfg):
     with open(cfg["json_path"], encoding="utf-8") as fh:
@@ -35,7 +44,7 @@ def make_project(cfg):
         else:
             layout.append({"label": sec, "lines": [line], "accumulate": "words",
                            "win_start": None, "win_end": None, "linger": None,
-                           "del": False, "style": {}})
+                           "del": False, "style": {}, "fade": {}})
     return {"words": words, "layout": layout, "fin_tags": [], "fout_tags": [],
             "globals": dict(BUILTIN), "palette": list(PALETTE)}
 
