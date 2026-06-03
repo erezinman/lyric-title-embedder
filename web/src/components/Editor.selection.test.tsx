@@ -86,6 +86,22 @@ describe("selection", () => {
     expect(screen.getByText(/2 selected/i)).toBeTruthy();
   });
 
+  it("shift-click range-selects all cues in time order", async () => {
+    const user = userEvent.setup();
+    render(<Editor projectName="s" onHome={() => {}} />);
+    await waitFor(() => expect(FakeWS.last).toBeTruthy());
+    act(() => FakeWS.last!.emit({ type: "state", state: projectTwoCues() }));
+    const wordA = await screen.findAllByText("a");
+    const laneRowA = wordA.find((el) => el.closest(".lane-row"));
+    await user.click(laneRowA ?? wordA[0]);
+    const wordC = screen.getAllByText("c");
+    const laneRowC = wordC.find((el) => el.closest(".lane-row"));
+    await user.keyboard("{Shift>}");
+    await user.click(laneRowC ?? wordC[0]);
+    await user.keyboard("{/Shift}");
+    expect(screen.getByText(/3 selected/i)).toBeTruthy();
+  });
+
   it("Esc clears selection", async () => {
     const user = userEvent.setup();
     render(<Editor projectName="s" onHome={() => {}} />);

@@ -38,13 +38,14 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   // selection
   const [sel, setSel] = useState<SelState>({ scope: "group", gi: 0, tok: null });
   const [selectedWords, setSelectedWords] = useState<Set<number>>(new Set());
-  const [anchorWid, setAnchorWid] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   // EventStrip only appears after an explicit group selection (avoids duplicate label text nodes)
   const [groupExplicitSel, setGroupExplicitSel] = useState(false);
 
   // keep a ref to P so the Esc handler can close over it without stale closure issues
   const pRef = useRef(P);
+  // anchor for shift-range selection — stored in a ref so selectCue doesn't need it as a dep
+  const anchorRef = useRef<number | null>(null);
 
   // rail / dock tabs — start on "project" so StyleWaterfall doesn't overlap CueLanes event labels
   const [railTab, setRailTab] = useState<"project" | "inspector">("project");
@@ -96,8 +97,8 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
         const list = cueList();
         const clickedEntry = list.find((c) => c.wid === wid);
         // find anchor entry: use anchorWid if set, else fall back to the first item in prev set
-        const anchorEntry = anchorWid != null
-          ? list.find((c) => c.wid === anchorWid)
+        const anchorEntry = anchorRef.current != null
+          ? list.find((c) => c.wid === anchorRef.current)
           : prev.size > 0
             ? list.find((c) => prev.has(c.wid))
             : null;
@@ -124,20 +125,20 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
         return next;
       });
       setSel({ scope: "cue", gi, tok: { li, ti } });
-      setAnchorWid(wid);
+      anchorRef.current = wid;
     } else {
       // plain click
       setSel({ scope: "cue", gi, tok: { li, ti } });
       setSelectedWords(new Set([wid]));
-      setAnchorWid(wid);
+      anchorRef.current = wid;
     }
-  }, [anchorWid, cueList]);
+  }, [cueList]);
 
   // ---- clearSelection ----
   const clearSelection = useCallback(() => {
     setSel({ scope: "global", gi: 0, tok: null });
     setSelectedWords(new Set());
-    setAnchorWid(null);
+    anchorRef.current = null;
   }, []);
 
   // ---- Esc key clears selection ----
@@ -157,7 +158,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   const selectEvent = useCallback((gi: number) => {
     setSel({ scope: "group", gi, tok: null });
     setSelectedWords(new Set());
-    setAnchorWid(null);
+    anchorRef.current = null;
     setGroupExplicitSel(true);
   }, []);
 
