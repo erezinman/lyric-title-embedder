@@ -128,6 +128,27 @@ def t_burn_job_completes():
         _t.sleep(0.1)
     return (st and st["done"] and st["ok"] and os.path.isfile("/tmp/_mcp_out.mp4")), f"st={st}"
 
+def t_regress_load_project_atomic_mismatch():
+    import json
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json"); ctx.set_globals({"fontsize": 64})
+    d = {"globals_style": {"fontsize": 999},
+         "cues_v2": {"nwords": 123456789, "layout": [], "fin_tags": [], "fout_tags": [],
+                     "globals": {}, "palette": []}}
+    p = "/tmp/_regress_bad_proj.json"; json.dump(d, open(p, "w"))
+    before = ctx.get_globals()["fontsize"]; raised = False
+    try: tools.load_project(ctx, p)
+    except Exception: raised = True
+    after = ctx.get_globals()["fontsize"]
+    return (raised and before == 64 and after == 64), f"raised={raised} {before}->{after}"
+
+def t_regress_fade_tag_props_rejects_cross_and_ungrouped():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.make_fade_tag(ctx, "out", [0, 1]); tools.make_fade_tag(ctx, "out", [5, 6])
+    def raises(ids):
+        try: tools.set_fade_tag_props(ctx, "out", ids, dur=100); return False
+        except ValueError: return True
+    return (raises([0, 5]) and raises([99])), "cross+ungrouped rejected"
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)

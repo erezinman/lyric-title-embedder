@@ -19,6 +19,7 @@ def check(name, fn):
 # Import the CURRENT location for the baseline; later tasks repoint these imports.
 import karaoke_subtitle_gui as m
 from engine import mutations as mut
+from controller import Session
 
 def t_make_project():
     p = m.make_project_v2(CFG)
@@ -91,6 +92,30 @@ def t_build_inline_cue_color():
     g = m.project_to_render_v2(p); text, n = m.build_ass_v2(CFG, g)
     # #FF0000 -> ASS &H0000FF& on \1c
     return ("\\1c&H0000FF&" in text), "missing inline 1c override"
+
+def t_regress_do_noop_preserves_redo():
+    p = m.make_project_v2(CFG); s = Session(p)
+    s.do("set_global", "linger", 1.5)       # real edit
+    s.undo()                                 # redo stack now holds it
+    s.do("layout_merge", {0, 2})             # rejected (non-adjacent) -> must not clear redo
+    s.do("make_tag", "fin_tags", set())      # empty -> no-op -> must not clear redo
+    s.redo()                                 # should restore the real edit
+    return (abs(s.project["globals"]["linger"] - 1.5) < 1e-9), f"linger={s.project['globals']['linger']}"
+
+def t_regress_build_delta_resets_baseline():
+    p = m.make_project_v2(CFG)
+    # Find an event that has >1 word so the reset-to-baseline is observable
+    ev_idx = next(
+        i for i, g in enumerate(p["layout"])
+        if sum(len(tok["ids"]) for ln in g["lines"] for tok in ln["toks"]) > 1
+    )
+    wid = p["layout"][ev_idx]["lines"][0]["toks"][0]["ids"][0]
+    mut.set_cue_style(p, {wid}, {"primary": "#FF0000"})
+    g = m.project_to_render_v2(p); text, _ = m.build_ass_v2(CFG, g)
+    # Find the Dialogue line for this event
+    diag_lines = [l for l in text.splitlines() if l.startswith("Dialogue:")]
+    ev_line = diag_lines[ev_idx]
+    return ("1c&H0000FF&" in ev_line and "1c&HFFFFFF&" in ev_line), "override + reset both present"
 
 for name, fn in list(globals().items()):
     if name.startswith("t_"): check(name, fn)
