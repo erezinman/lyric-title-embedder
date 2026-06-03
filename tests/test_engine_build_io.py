@@ -525,6 +525,27 @@ def t_apply_ignores_legacy_palette_color_dur():
     t = p["fin_tags"][0]
     return (ok and set(t.keys()) == {"ids", "trigger"} and t["trigger"] == 1.0, t)
 
+def t_serialize_persists_word_edits():
+    import json
+    p = engine.make_project(CFG)
+    engine.mutations.set_word_times(p, [{"wid": 0, "start": 9.5, "end": 10.25}])
+    engine.mutations.set_word_text(p, 0, "EDITED")
+    d = engine.serialize_cues(p)
+    ok_doc = (len(d["words"]) == len(p["words"]) and d["words"][0] == {"text": "EDITED", "start": 9.5, "end": 10.25})
+    p2 = engine.make_project(CFG)
+    applied = engine.apply_cues(p2, json.loads(json.dumps(d)))
+    w0 = p2["words"][0]
+    return (ok_doc and applied and w0["text"] == "EDITED" and abs(w0["start"] - 9.5) < 1e-9 and abs(w0["end"] - 10.25) < 1e-9, (ok_doc, w0))
+
+def t_apply_without_words_is_backcompat():
+    p = engine.make_project(CFG)
+    d = engine.serialize_cues(p)
+    del d["words"]
+    p2 = engine.make_project(CFG)
+    orig = dict(p2["words"][0])
+    ok = engine.apply_cues(p2, d)
+    return (ok and p2["words"][0] == orig, p2["words"][0])
+
 # ─── run all ──────────────────────────────────────────────────────────────────
 
 _active = {name: fn for name, fn in list(globals().items())

@@ -3,6 +3,7 @@ from engine.model import BUILTIN
 
 def serialize_cues(p):
     return {"nwords": len(p["words"]), "globals": dict(p["globals"]),
+            "words": [{"text": w["text"], "start": w["start"], "end": w["end"]} for w in p["words"]],
             "layout": [{"label": g["label"], "accumulate": g.get("accumulate", "words"),
                         "win_start": g.get("win_start"), "win_end": g.get("win_end"),
                         "linger": g.get("linger"), "del": g.get("del", False),
@@ -20,6 +21,10 @@ def apply_cues(project, d):
     if not d or d.get("nwords") != len(project["words"]):
         return False
     project["globals"] = {**BUILTIN, **(d.get("globals") or {})}
+    sw = d.get("words")
+    if sw and len(sw) == len(project["words"]):
+        for i, w in enumerate(sw):
+            project["words"][i] = {"text": w["text"], "start": w["start"], "end": w["end"]}
     project["layout"] = [{"label": g.get("label", ""), "accumulate": g.get("accumulate", "words"),
                           "win_start": g.get("win_start"), "win_end": g.get("win_end"),
                           "linger": g.get("linger"), "del": g.get("del", False),
