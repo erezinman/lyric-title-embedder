@@ -31,7 +31,9 @@ single-word cues edit their word; merged cues move/resize as a unit (un-merge fo
 | Constraints | `start ≥ 0`, `start < end` (mutation rejects otherwise). Overlaps and any ordering allowed. |
 | Selection | One shared `selectedWords` set across the timeline **and** the cue lanes (bidirectional). click = single (primary); Ctrl/Cmd-click = toggle; Shift-click = range (time order). **Esc** clears selection. |
 | Retime UX | Timeline drag (body = move, edge = resize) **+** numeric Timing panel. Multi-select **move** shifts all selected by the same delta (diffs preserved). Resize is single-cue. **Esc during drag cancels** (revert, no commit). |
-| Small cues | Min block hit-width (~14px); resize handles appear on hover/selection and may overhang; below ~22px the block is move-only by drag with resize via panel/keyboard; keyboard nudge (`←/→` shift, `Shift+←/→` resize end). |
+| Timing lock | A **lock/unlock timings** toggle, **default locked**. While locked, ALL timing edits are disabled (timeline drag/resize handles inert, keyboard nudge off, numeric start/end read-only); **text editing stays available**. Unlocking enables timing edits. (Reuses/replaces the Timing panel's existing "locked" pill.) |
+| Numeric fields | Start/end inputs accept direct entry and step on **↑/↓** while focused (Shift+↑/↓ = larger step); only active when timings are unlocked. |
+| Small cues | Min block hit-width (~14px); resize handles appear on hover/selection and may overhang; below ~22px the block is move-only by drag with resize via panel/keyboard; keyboard nudge (`←/→` shift, `Shift+←/→` resize end) — all gated on unlocked timings. |
 | Zoom | Deferred. |
 
 ## Architecture
@@ -55,6 +57,11 @@ single-word cues edit their word; merged cues move/resize as a unit (un-merge fo
 - `get_project` already serializes `words` verbatim — the web has live word timing/text.
 
 ### Web (`web/src/`)
+- **Timing lock** (in `Editor`): `timingsUnlocked: boolean`, **default false**. A lock toggle in the
+  Timing panel header (replacing the static "locked" pill) flips it. When `false`, all timing
+  affordances are inert: `WordTrack` renders no drag/resize handles and ignores pointer-drags, the
+  keyboard nudge handler is disabled, and the numeric start/end fields are read-only. Text editing is
+  independent of the lock. Every retime entry point checks this flag before dispatching.
 - **Selection model** (in `Editor`): `selectedWords: Set<number>` (representative wid per selected
   cue) + a `primary` wid (drives the inspector/Timing panel) + an `anchor` wid (for Shift-range).
   Handlers `selectOne(wid)`, `toggle(wid)`, `rangeTo(wid)` (selects all cues whose time falls between
@@ -75,9 +82,11 @@ single-word cues edit their word; merged cues move/resize as a unit (un-merge fo
 - **Keyboard** (when a cue is selected and the timeline/editor has focus): `←/→` nudge the primary
   cue's start+end by a small step (e.g., 50ms) via `set_word_times`; `Shift+←/→` nudge only the end;
   **Esc** clears selection (when not dragging).
-- **Timing panel** (`TimingPanel`, unlocked): editable numeric **start**/**end** (steppers + direct
-  entry) and a **text** input for the primary cue; commit on blur/Enter → `set_word_times` /
-  `set_word_text`. Remove the "locked / coming soon" note and lock pill.
+- **Timing panel** (`TimingPanel`): a **lock toggle** in the header (default locked). **Text** input
+  for the primary cue is always editable → `set_word_text` on commit. **Start/end** fields are
+  read-only while locked; when unlocked they accept direct entry and step on **↑/↓** (Shift+↑/↓ =
+  larger step) and commit on blur/Enter → `set_word_times`. The old "locked / coming soon" note is
+  replaced by the live lock toggle.
 - Cue start/end for a block = `min(member word starts)` … `max(member word ends)`; a small helper
   (e.g., `cueSpan(project, token)`), reused by the timeline and panel.
 
@@ -114,8 +123,14 @@ state arrives on release. Undo/redo (server timeline) revert/replay each retime/
   one-element update changing only the grabbed edge with `start < end`.
 - Esc during a simulated drag dispatches nothing and reverts preview.
 - keyboard nudge dispatches `set_word_times` with the stepped time.
-- Timing panel: editing start/end/text dispatches `set_word_times` / `set_word_text`; the locked note
-  is gone.
+- **timing lock (default locked):** with timings locked, a block exposes no resize/drag handles and a
+  pointer-drag dispatches nothing; the numeric start/end fields are read-only; keyboard nudge is a
+  no-op; **text editing still dispatches** `set_word_text`. After toggling unlock, drag/nudge/numeric
+  edits dispatch `set_word_times`.
+- **numeric fields:** ↑/↓ in a focused start/end field steps the value (Shift = larger step) and
+  commit dispatches `set_word_times`.
+- Timing panel: the lock toggle flips the locked/unlocked state; text input dispatches `set_word_text`
+  regardless of lock.
 
 ## Verification
 1. `python -m daemon` + `npm --prefix web run dev`; open a project, Timeline tab.
