@@ -1,39 +1,60 @@
-// TimingPanel.tsx — locked read-only timing inspector for a selected token.
-// Ported from design-system/ui_kits/desktop-app/panels.jsx.
-// Start = Math.min of all word starts; Stop = Math.max of all word ends. Read-only.
-
+import { useState, useEffect } from "react";
 import { Icon } from "../icons/Icon";
+import { cueSpan } from "../../model/edit";
 import type { Project, Token } from "../../types";
 
 export interface TimingPanelProps {
   tok: Token | null;
   project: Project;
+  unlocked: boolean;
+  onToggleLock: () => void;
+  onSetTime: (start: number, end: number) => void;
+  onSetText: (text: string) => void;
 }
 
-export function TimingPanel({ tok, project }: TimingPanelProps) {
+export function TimingPanel({ tok, project, unlocked, onToggleLock, onSetTime, onSetText }: TimingPanelProps) {
   if (!tok) return null;
-  const live = tok.ids.map((id) => project.words[id]).filter(Boolean);
-  const s = Math.min(...live.map((w) => w.start));
-  const e = Math.max(...live.map((w) => w.end));
+  const span = cueSpan(project, tok);
+  const text = tok.ids.map((id) => project.words[id].text).join(tok.sep || " ");
+  const merged = tok.ids.length > 1;
   return (
-    <div className="locked">
+    <div className="timing">
       <div className="locked-h">
         <Icon name="clock" size={13} />Timing
-        <span className="lock-pill">
-          <Icon name="settings" size={10} />locked
-        </span>
+        <button className="lock-pill" onClick={onToggleLock} title={unlocked ? "Lock timings" : "Unlock timings"}>
+          <Icon name="settings" size={10} />{unlocked ? "unlocked" : "locked"}
+        </button>
       </div>
-      <div className="locked-row">
-        <span>Start</span>
-        <b className="mono">{s.toFixed(2)}s</b>
-      </div>
-      <div className="locked-row">
-        <span>Stop</span>
-        <b className="mono">{e.toFixed(2)}s</b>
-      </div>
-      <p className="locked-note">
-        Word text &amp; timing are locked to the source alignment — editing coming soon.
-      </p>
+      <NumField label="Start" value={span.start} disabled={!unlocked} step={0.05} onCommit={(v) => onSetTime(v, span.end)} />
+      <NumField label="End" value={span.end} disabled={!unlocked} step={0.05} onCommit={(v) => onSetTime(span.start, v)} />
+      <label className="timing-text">
+        <span>Text</span>
+        <input aria-label="text" defaultValue={text} disabled={merged}
+          onBlur={(e) => onSetText(e.currentTarget.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") onSetText((e.target as HTMLInputElement).value); }} />
+      </label>
+      {merged && <p className="locked-note">Merged cue — un-merge to edit text per word.</p>}
+    </div>
+  );
+}
+
+function NumField({ label, value, disabled, step, onCommit }: { label: string; value: number; disabled: boolean; step: number; onCommit: (v: number) => void; }) {
+  const [v, setV] = useState(value.toFixed(3));
+  useEffect(() => { setV(value.toFixed(3)); }, [value]);
+  const commit = (raw: string) => { const n = parseFloat(raw); if (!Number.isNaN(n)) onCommit(n); };
+  return (
+    <div className={"locked-row" + (disabled ? " ro" : "")}>
+      <span>{label}</span>
+      <input aria-label={label} className="mono num" disabled={disabled} value={v}
+        onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => {
+          const cur = parseFloat(v) || 0;
+          if (e.key === "Enter") commit((e.target as HTMLInputElement).value);
+          else if (e.key === "ArrowUp") { e.preventDefault(); const n = cur + step * (e.shiftKey ? 5 : 1); setV(n.toFixed(3)); onCommit(n); }
+          else if (e.key === "ArrowDown") { e.preventDefault(); const n = Math.max(0, cur - step * (e.shiftKey ? 5 : 1)); setV(n.toFixed(3)); onCommit(n); }
+        }}
+        onBlur={(e) => commit(e.target.value)} />
+      <span className="unit">s</span>
     </div>
   );
 }

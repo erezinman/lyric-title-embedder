@@ -51,6 +51,9 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   const [railTab, setRailTab] = useState<"project" | "inspector">("project");
   const [dockTab, setDockTab] = useState<"timeline" | "lanes">("lanes");
 
+  // timing lock toggle (default locked)
+  const [timingsUnlocked, setTimingsUnlocked] = useState(false);
+
   // AI state
   const [aiTier] = useState<"global" | "group" | "cue" | null>(null);
   const [aiHotKey] = useState<string | null>(null);
@@ -396,6 +399,23 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     dispatch(wordDeleted() ? "restore_words" : "delete_words", { word_ids: ids });
   }
 
+  function setCueTime(start: number, end: number) {
+    if (!P || !sel.tok) return;
+    const tk = P.layout[sel.gi].lines[sel.tok.li].toks[sel.tok.ti];
+    const earliest = tk.ids.reduce((a, b) => (P.words[a].start <= P.words[b].start ? a : b));
+    const latest = tk.ids.reduce((a, b) => (P.words[a].end >= P.words[b].end ? a : b));
+    const updates = earliest === latest
+      ? [{ wid: earliest, start, end }]
+      : [{ wid: earliest, start, end: P.words[earliest].end }, { wid: latest, start: P.words[latest].start, end }];
+    dispatch("set_word_times", { updates });
+  }
+
+  function setCueText(text: string) {
+    if (!P || !sel.tok) return;
+    const tk = P.layout[sel.gi].lines[sel.tok.li].toks[sel.tok.ti];
+    if (tk.ids.length === 1) dispatch("set_word_text", { wid: tk.ids[0], text });
+  }
+
   function selectWordByWid(wid: number) {
     if (!P) return;
     for (let gi = 0; gi < P.layout.length; gi++) {
@@ -495,7 +515,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                     onClear={clearFade}
                   />
                 )}
-                {tok && <TimingPanel tok={tok} project={P} />}
+                {tok && <TimingPanel tok={tok} project={P} unlocked={timingsUnlocked} onToggleLock={() => setTimingsUnlocked((u) => !u)} onSetTime={setCueTime} onSetText={setCueText} />}
               </>
             )}
           </div>
