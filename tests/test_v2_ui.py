@@ -165,14 +165,16 @@ def t_global_reactivity_render():
     return (dur0 == 1000 and dur1 == 1750), f"{dur0}->{dur1}"
 
 def t_tag_override_and_clear():
+    # Tags now only carry {ids, trigger}; dur is a group-level fade override.
+    # Test: set trigger override -> render reflects it; clear -> back to word-end default.
     ids = {3, 4, 5}
     app.make_tag("fout_tags", ids); pump(2)
     ti = len(app._project["fout_tags"]) - 1
-    app.set_tag_props("fout_tags", ti, 99.0, 500.0); pump(2)
+    app.set_tag_props("fout_tags", ti, 99.0); pump(2)
     foats0 = [w["fout_at"] for w in render_words() if w["fout_at"] is not None]
     ov = any(abs(x - 99.0) < 1e-6 for x in foats0)
-    # clear override -> back to last-word-end default
-    app.set_tag_props("fout_tags", ti, None, None); pump(2)
+    # clear trigger override -> back to last-word-end default
+    app.set_tag_props("fout_tags", ti, None); pump(2)
     foats = [w["fout_at"] for w in render_words() if w["fout_at"] is not None]
     reverted = all(abs(x - 99.0) > 1e-6 for x in foats)
     return (ov and reverted), f"override={ov} reverted={reverted}"
@@ -205,10 +207,18 @@ def t_one_tag_per_word():
     has1 = [sorted(t["ids"]) for t in tags if 1 in t["ids"]]
     return (len(has1) == 1 and set(has1[0]) >= {1, 2}), f"tags={[sorted(t['ids']) for t in tags]}"
 
-def t_palette_distinct():
+def t_tags_have_no_color_distinct_ids():
+    # palette / per-tag color was removed; CTk colors by group index.
+    # Tags only have {ids, trigger}.  Assert: tags are structurally correct
+    # (no 'color' key, no 'dur' key) and each tag covers distinct ids.
     app.make_tag("fin_tags", {0}); app.make_tag("fin_tags", {1}); app.make_tag("fin_tags", {2}); pump(2)
-    cols = [t["color"] for t in app._project["fin_tags"]]
-    return (len(set(cols)) == len(cols)), f"colors={cols}"
+    tags = app._project["fin_tags"]
+    no_color = all("color" not in t for t in tags)
+    no_dur   = all("dur"   not in t for t in tags)
+    all_ids  = [wid for t in tags for wid in t["ids"]]
+    distinct = len(all_ids) == len(set(all_ids))
+    return (no_color and no_dur and distinct), \
+        f"no_color={no_color} no_dur={no_dur} distinct={distinct} tags={[dict(t) for t in tags]}"
 
 def t_serialize_roundtrip():
     app.make_tag("fout_tags", {0, 1, 2}); pump(2)
@@ -295,7 +305,7 @@ tests = [
     ("accumulate=off shares window start", t_accumulate_off_starts_at_window),
     ("undo/redo", t_undo_redo),
     ("one tag per word invariant", t_one_tag_per_word),
-    ("palette distinct colors", t_palette_distinct),
+    ("tags have no color/dur, distinct ids", t_tags_have_no_color_distinct_ids),
     ("serialize roundtrip after edits", t_serialize_roundtrip),
     ("build valid (balanced braces)", t_build_valid),
     ("split event no crash", t_split_event_no_crash),

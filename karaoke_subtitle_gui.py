@@ -750,7 +750,6 @@ class CueDock(ctk.CTkFrame):
             self._we = self.pf.grid_slaves(row=2, column=1)[0]
             self._wl = self.pf.grid_slaves(row=3, column=1)[0]
             gf_cur = (g.get("fade") or {})
-            gf_eff = resolve_fade(g, {"fade_in_ms": self.G()["fade_in_ms"], "fade_out_ms": self.G()["fade_out_ms"]})
             self._pe("group fade-in ms",  gf_cur.get("fade_in_ms"),  6, f"{int(self.G()['fade_in_ms'])} (global)")
             self._pe("group fade-out ms", gf_cur.get("fade_out_ms"), 7, f"{int(self.G()['fade_out_ms'])} (global)")
             ctk.CTkButton(self.pf, text="Apply fade", width=80, command=self._apply_group_fade).grid(row=8, column=1, sticky="w", pady=3)

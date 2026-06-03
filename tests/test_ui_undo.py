@@ -420,11 +420,13 @@ def t_interleaved_6ops_full_undo():
 # 18. Undo across fade-tag group + prop override (make_tag then set_tag_props)
 # ══════════════════════════════════════════════════════════════════════════════
 def t_undo_make_tag_then_set_tag_props():
+    # Tags now carry only {ids, trigger}; dur was removed (group-level).
+    # Test: set trigger -> undo -> undo make_tag -> back to original snapshots.
     s0 = snap()
     app.make_tag("fin_tags", {3, 4, 5}); pump(2)
     s1 = snap()
     ti = len(app._project["fin_tags"]) - 1
-    app.set_tag_props("fin_tags", ti, 12.5, 750.0); pump(2)
+    app.set_tag_props("fin_tags", ti, 12.5); pump(2)
     s2 = snap()
 
     # undo set_tag_props
@@ -436,9 +438,8 @@ def t_undo_make_tag_then_set_tag_props():
 
     ok = (after_undo1 == s1 and after_undo2 == s0
           and s2["fin_tags"][-1]["trigger"] == 12.5
-          and s2["fin_tags"][-1]["dur"] == 750.0
           and s1["fin_tags"][-1]["trigger"] is None
-          and s1["fin_tags"][-1]["dur"] is None)
+          and "dur" not in s2["fin_tags"][-1])
     return ok, f"trigger_s2={s2['fin_tags'][-1]['trigger'] if s2['fin_tags'] else 'N/A'}"
 
 

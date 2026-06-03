@@ -251,26 +251,29 @@ def t_cue_override_not_affected_by_global_font():
 
 
 def t_fade_out_default_reactivity():
-    """set_global('fade_out_ms', X) -> an inherited fout tag uses X;
-    a tag with explicit dur override is unaffected."""
-    # Tag words 0,1,2 (no dur override) -> fout_ms should track global
-    app.make_tag("fout_tags", {0, 1, 2}); pump(2)
-    # Tag words 3,4 with explicit dur override
-    app.make_tag("fout_tags", {3, 4}); pump(2)
-    ti_override = len(app._project["fout_tags"]) - 1
-    app.set_tag_props("fout_tags", ti_override, None, 333.0); pump(2)
+    """set_global('fade_out_ms', X) -> a group without fade override uses X;
+    a group with an explicit fade_out_ms override is unaffected.
+    (dur is now a group-level fade override, not a tag-level field.)"""
+    # Set a per-group fade_out_ms override on group 1 -> 333 ms
+    app.set_group_fade(1, {"fade_out_ms": 333}); pump(2)
+    # Tag words from group 0 (inherits global) and group 1 (has override)
+    # Get word ids from each group
+    g0_toks = [t for l in app._project["layout"][0]["lines"] for t in l["toks"]]
+    g1_toks = [t for l in app._project["layout"][1]["lines"] for t in l["toks"]]
+    g0_ids = {g0_toks[0]["ids"][0]} if g0_toks else set()
+    g1_ids = {g1_toks[0]["ids"][0]} if g1_toks else set()
+    if g0_ids:
+        app.make_tag("fout_tags", g0_ids); pump(2)
+    if g1_ids:
+        app.make_tag("fout_tags", g1_ids); pump(2)
     # Change global fade_out_ms
     app.set_global("fade_out_ms", 1500); pump(2)
     app._rebuild_render(); pump(2)
     rws = render_words()
-    # Words 0..2: inherited -> fout_ms should be 1500
-    inherited_fout = [w["fout_ms"] for w in rws if w["fout_at"] is not None
-                      and w.get("style") == {} or w.get("style") is None]
-    # Word with override should still be 333
-    # We need to pick by index. Let's just check all fout tags.
     all_fout = [(w["fout_ms"], w["fout_at"]) for w in rws if w["fout_at"] is not None]
-    # Tags 0..2 inherit global; tag 3,4 override = 333
+    # Group 0 inherits global -> fout_ms should be 1500
     inherited_ok = any(ms == 1500 for ms, _ in all_fout)
+    # Group 1 override -> fout_ms should still be 333
     override_ok = any(abs(ms - 333.0) < 1e-3 for ms, _ in all_fout)
     return (inherited_ok and override_ok), f"fout pairs={all_fout}"
 
