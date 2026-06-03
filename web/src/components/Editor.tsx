@@ -4,6 +4,7 @@ import { burn } from "../api/client";
 import { TopBar } from "./TopBar";
 import { Icon } from "./icons/Icon";
 import { resolveStyle, eventWindow, wordSchedule } from "../model/resolve";
+import { computeMove, computeResize } from "../model/edit";
 import type { Token } from "../types";
 
 // Panels
@@ -156,6 +157,44 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [clearSelection]);
+
+  // ---- Keyboard nudge (arrow keys) for timing — gated on timingsUnlocked ----
+  useEffect(() => {
+    if (!timingsUnlocked) return;
+    const handler = (e: KeyboardEvent) => {
+      if (!timingsUnlocked) return;
+      const target = e.target as HTMLElement;
+      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") return;
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+
+      const project = pRef.current;
+      if (!project) return;
+      // Find current tok
+      const s = sel;
+      if (!s.tok) return;
+      const tok = project.layout[s.gi]?.lines[s.tok.li]?.toks[s.tok.ti];
+      if (!tok) return;
+
+      e.preventDefault();
+      const step = e.shiftKey ? 0.25 : 0.05;
+      const sign = e.key === "ArrowRight" ? 1 : -1;
+      const dt = sign * step;
+
+      let updates;
+      if (e.shiftKey) {
+        // Shift+Arrow: resize end only
+        updates = computeResize(project, tok, "end", dt);
+      } else {
+        // Plain arrow: move the cue
+        updates = computeMove(project, [tok], dt);
+      }
+      dispatch("set_word_times", { updates });
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  // sel is in deps so the handler always has the current selection
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timingsUnlocked, sel, dispatch]);
 
   // ---- selection helpers ----
   const selectEvent = useCallback((gi: number) => {
@@ -587,6 +626,9 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                 selId={wid}
                 selectedWords={selectedWords}
                 onSelect={selectCue}
+                project={P}
+                unlocked={timingsUnlocked}
+                onRetime={(updates) => dispatch("set_word_times", { updates })}
               />
             </div>
           )}

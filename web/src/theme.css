@@ -202,6 +202,13 @@ svg.lucide { display: block; }
   pointer-events: none; transition: left .1s linear; z-index: 4; }
 .wt-playhead::before { content:""; position: absolute; top: 0; left: -4px; width: 10px; height: 10px; border-radius: 50%;
   background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+/* drag handles — only shown when timings unlocked */
+.wt-area .block .wt-handle { position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize; opacity: 0; }
+.wt-handle.l { left: -2px; }
+.wt-handle.r { right: -2px; }
+.wt.unlocked .block:hover .wt-handle, .wt.unlocked .block.sel .wt-handle { opacity: 1; background: color-mix(in srgb, #fff 55%, transparent); }
+.wt.unlocked .wt-area .block { cursor: grab; }
+.wt:not(.unlocked) .wt-handle { display: none; }
 
 /* cue lanes */
 .lanes { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; font-family: var(--font-mono); }
