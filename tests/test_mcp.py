@@ -141,6 +141,11 @@ def t_regress_load_project_atomic_mismatch():
     after = ctx.get_globals()["fontsize"]
     return (raised and before == 64 and after == 64), f"raised={raised} {before}->{after}"
 
+def t_set_group_fade_tool_returns_fade_overrides():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    view = tools.set_group_fade(ctx, 0, {"fade_in_ms": 400})
+    return (view["fade_overrides"] == {"fade_in_ms": 400}, view.get("fade_overrides"))
+
 def t_regress_fade_tag_props_rejects_cross_and_ungrouped():
     ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
     tools.make_fade_tag(ctx, "out", [0, 1]); tools.make_fade_tag(ctx, "out", [5, 6])

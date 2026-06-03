@@ -26,6 +26,7 @@ def _event_view(ctx, gi):
     return {"gi": gi, "label": g["label"], "win": [s, e], "accumulate": g.get("accumulate", "words"),
             "linger": g.get("linger"), "deleted": g.get("del", False),
             "style_overrides": dict(g.get("style") or {}),
+            "fade_overrides": dict(g.get("fade") or {}),
             "resolved_style": resolve_style(None, g, gd),
             "lines": [{"li": li, "words": [{"wid": t["ids"][0], "text": words[t["ids"][0]]["text"],
                         "start": min(words[i]["start"] for i in t["ids"]),
@@ -96,6 +97,9 @@ def _do(ctx, fn_name, *args):
 
 def set_group_style(ctx, gi, partial):
     _do(ctx, "set_group_style", gi, partial); return ctx.run(lambda: _event_view(ctx, gi))
+
+def set_group_fade(ctx, gi, partial):
+    _do(ctx, "set_group_fade", gi, partial); return ctx.run(lambda: _event_view(ctx, gi))
 
 def set_cue_style(ctx, word_ids, partial):
     _do(ctx, "set_cue_style", set(word_ids), partial)

@@ -603,6 +603,17 @@ def t_session_multiple_undo_chain():
     return True, "multi-undo chain restores each prior state exactly"
 
 # ============================================================
+# 29. set_group_fade: set and clear
+# ============================================================
+def t_set_group_fade_set_and_clear():
+    p = fresh()
+    mut.set_group_fade(p, 0, {"fade_in_ms": 400, "fade_out_ms": 600})
+    a = dict(p["layout"][0]["fade"])
+    mut.set_group_fade(p, 0, {"fade_in_ms": None})
+    b = dict(p["layout"][0]["fade"])
+    return (a == {"fade_in_ms": 400, "fade_out_ms": 600} and b == {"fade_out_ms": 600}, (a, b))
+
+# ============================================================
 # Run all active tests
 # ============================================================
 ACTIVE = [
@@ -634,6 +645,7 @@ ACTIVE = [
     t_complex_break_style_merge,
     t_render_excludes_all_del_event,
     t_session_multiple_undo_chain,
+    t_set_group_fade_set_and_clear,
 ]
 
 for fn in ACTIVE:

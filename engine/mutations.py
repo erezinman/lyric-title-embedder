@@ -1,6 +1,6 @@
 # engine/mutations.py — pure project edits: (project, ...) -> None (mutate in place).
 # The controller snapshots for undo and triggers rebuild; these never touch UI.
-from engine.model import STYLE_KEYS, CUE_STYLE_KEYS
+from engine.model import STYLE_KEYS, CUE_STYLE_KEYS, FADE_KEYS
 
 def _next_color(project, lane):
     used = {t["color"] for t in project[lane]}
@@ -51,6 +51,18 @@ def set_group_style(project, gi, partial):
         else:
             st[k] = v
     project["layout"][gi]["style"] = _clean(st, STYLE_KEYS)
+
+def set_group_fade(project, gi, partial):
+    """Merge partial into layout[gi]['fade']; None clears a key (inherit). Group-only."""
+    gf = dict(project["layout"][gi].get("fade") or {})
+    for k, v in partial.items():
+        if k not in FADE_KEYS:
+            continue
+        if v is None:
+            gf.pop(k, None)
+        else:
+            gf[k] = v
+    project["layout"][gi]["fade"] = gf
 
 def set_cue_style(project, ids, partial):
     """Apply partial to every token covered by `ids` (a set of word ids).

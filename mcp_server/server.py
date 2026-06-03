@@ -26,6 +26,8 @@ def build_server(ctx, name="karaoke-subtitle-studio"):
     @mcp.tool()
     def set_group_style(gi: int, partial: dict) -> dict: return tools.set_group_style(ctx, gi, partial)
     @mcp.tool()
+    def set_group_fade(gi: int, partial: dict) -> dict: return tools.set_group_fade(ctx, gi, partial)
+    @mcp.tool()
     def set_cue_style(word_ids: list, partial: dict) -> list: return tools.set_cue_style(ctx, word_ids, partial)
     @mcp.tool()
     def make_fade_tag(kind: str, word_ids: list) -> dict: return tools.make_fade_tag(ctx, kind, word_ids)
