@@ -3,8 +3,6 @@ import json
 import core
 
 BUILTIN = {"fade_in_ms": 250, "fade_out_ms": 1000, "linger": 0.0}
-PALETTE = ["#7a4a4a", "#4a7a4a", "#4a5a7a", "#7a6a3a", "#6a4a7a",
-           "#3a7a7a", "#7a3a5a", "#5a7a3a", "#3a5a7a", "#7a5a3a"]
 
 STYLE_KEYS = ["font", "fontsize", "bold", "primary", "outline", "back",
               "back_alpha", "outline_w", "shadow", "border_style"]

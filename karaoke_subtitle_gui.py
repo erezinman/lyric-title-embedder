@@ -22,7 +22,7 @@ import customtkinter as ctk
 import app_base as base
 import engine
 import controller
-from engine.model import make_project, _tag_of, BUILTIN, PALETTE, resolve_style
+from engine.model import make_project, _tag_of, BUILTIN, resolve_style, resolve_fade
 from engine.render import project_to_render
 project_to_render_v2 = project_to_render
 make_project_v2 = make_project          # back-compat name used elsewhere/tests
@@ -32,11 +32,13 @@ build_ass_v2 = build_ass
 
 # Editor themes: tk.Text pane colors + group-color palette (chrome is driven by
 # ctk.set_appearance_mode, so no ttk styling is needed here).
+_DARK_PALETTE = ["#7a4a4a", "#4a7a4a", "#4a5a7a", "#7a6a3a", "#6a4a7a",
+                 "#3a7a7a", "#7a3a5a", "#5a7a3a", "#3a5a7a", "#7a5a3a"]
 _LIGHT_PALETTE = ["#ffd2d2", "#d2f0d2", "#d2e0ff", "#fff0c2", "#ecd2ff",
                   "#cdeeee", "#ffd2ea", "#e2f5cf", "#d2e8ff", "#ffe2cf"]
 THEMES = {
     "Dark":   {"bg": "#1e1e1e", "fg": "#e0e0e0", "inh": "#8a8a8a", "ovr": "#ffffff",
-               "del": "#666666", "hdr": "#88bbff", "palette": PALETTE},
+               "del": "#666666", "hdr": "#88bbff", "palette": _DARK_PALETTE},
     "Light":  {"bg": "#fbfbfb", "fg": "#202020", "inh": "#888888", "ovr": "#000000",
                "del": "#b0b0b0", "hdr": "#0044aa", "palette": _LIGHT_PALETTE},
     "System": {"bg": "#ffffff", "fg": "#000000", "inh": "#777777", "ovr": "#000000",
@@ -217,11 +219,12 @@ class AppV2(base.App):
 
     def make_tag(self, lane, ids):                 self._session.do("make_tag", lane, set(ids))
     def clear_tag(self, lane, ids):                self._session.do("clear_tag", lane, set(ids))
-    def set_tag_props(self, lane, ti, trigger, dur): self._session.do("set_tag_props", lane, ti, trigger, dur)
+    def set_tag_props(self, lane, ti, trigger): self._session.do("set_tag_props", lane, ti, trigger)
     def set_global(self, key, val):                self._session.do("set_global", key, val)
     def set_layout_props(self, gi, win_start, win_end, linger, accumulate):
         self._session.do("set_layout_props", gi, win_start, win_end, linger, accumulate)
     def set_group_style(self, gi, partial):        self._session.do("set_group_style", gi, partial)
+    def set_group_fade(self, gi, partial):         self._session.do("set_group_fade", gi, partial)
     def set_cue_style(self, ids, partial):         self._session.do("set_cue_style", set(ids), partial)
     def toggle_word_del(self, ids, value):         self._session.do("toggle_word_del", set(ids), value)
     def add_break(self, gi, li, ti, after=True):   self._session.do("add_break", gi, li, ti, after)
@@ -432,25 +435,27 @@ class CueDock(ctk.CTkFrame):
             t.config(state="normal"); t.delete("1.0", "end")
         self.rows = []
 
-        def fin_disp(wid, tok_start):
-            ti, t = _tag_of(p["fin_tags"], wid)
-            if t is None:
-                return f"· {tok_start:.2f}", "inh", None
-            trig = t["trigger"] if t.get("trigger") is not None else min(words[i]["start"] for i in t["ids"])
-            dur = t["dur"] if t.get("dur") is not None else G["fade_in_ms"]
-            style = "ovr" if (t.get("trigger") is not None or t.get("dur") is not None) else "inh"
-            return f"@{trig:.2f}/{int(dur)}", style, t["color"]
-
-        def fout_disp(wid, tok_end):
-            ti, t = _tag_of(p["fout_tags"], wid)
-            if t is None:
-                return "· none", "inh", None
-            trig = t["trigger"] if t.get("trigger") is not None else max(words[i]["end"] for i in t["ids"])
-            dur = t["dur"] if t.get("dur") is not None else G["fade_out_ms"]
-            style = "ovr" if (t.get("trigger") is not None or t.get("dur") is not None) else "inh"
-            return f"@{trig:.2f}/{int(dur)}", style, t["color"]
-
         for gi, g in enumerate(p["layout"]):
+            gf = resolve_fade(g, {"fade_in_ms": G["fade_in_ms"], "fade_out_ms": G["fade_out_ms"]})
+
+            def fin_disp(wid, tok_start, _gf=gf):
+                tag_i, t = _tag_of(p["fin_tags"], wid)
+                if t is None:
+                    return f"· {tok_start:.2f}", "inh", None
+                trig = t["trigger"] if t.get("trigger") is not None else min(words[i]["start"] for i in t["ids"])
+                dur = _gf["fade_in_ms"]
+                style = "ovr" if t.get("trigger") is not None else "inh"
+                return f"@{trig:.2f}/{int(dur)}", style, (tag_i if tag_i is not None else 0)
+
+            def fout_disp(wid, tok_end, _gf=gf):
+                tag_i, t = _tag_of(p["fout_tags"], wid)
+                if t is None:
+                    return "· none", "inh", None
+                trig = t["trigger"] if t.get("trigger") is not None else max(words[i]["end"] for i in t["ids"])
+                dur = _gf["fade_out_ms"]
+                style = "ovr" if t.get("trigger") is not None else "inh"
+                return f"@{trig:.2f}/{int(dur)}", style, (tag_i if tag_i is not None else 0)
+
             ids = [i for ln in g["lines"] for tk_ in ln["toks"] for i in tk_["ids"]]
             if ids:
                 s = g["win_start"] if g.get("win_start") is not None else min(words[i]["start"] for i in ids)
@@ -460,7 +465,7 @@ class CueDock(ctk.CTkFrame):
                 s = e = 0.0
             arrow = "▸" if gi in self.collapsed else "▾"
             dd = "  (deleted)" if g.get("del") else ""
-            gcol = gi % len(p["palette"])     # colour each event (layout group) like the fade lanes
+            gcol = gi % 10     # colour each event (layout group) like the fade lanes
             self._row(self.L, f"{arrow} [{g['label']}] {s:.2f}-{e:.2f} {g.get('accumulate','words')}{dd}",
                       "hdr", gcol)
             self._row(self.I, "", None); self._row(self.O, "", None)
@@ -652,19 +657,23 @@ class CueDock(ctk.CTkFrame):
         _, gi, li, ti, wid = row
         if lane == "fin_tags":
             ti2, t = _tag_of(p["fin_tags"], wid)
+            g = p["layout"][gi]
+            gf = resolve_fade(g, {"fade_in_ms": G["fade_in_ms"], "fade_out_ms": G["fade_out_ms"]})
             if t is None:
-                return f"fade-in: own time {words[wid]['start']:.2f}s · dur {int(G['fade_in_ms'])}ms (global)"
+                return f"fade-in: own time {words[wid]['start']:.2f}s · dur {int(gf['fade_in_ms'])}ms (group/global)"
             dt = min(words[i]['start'] for i in t["ids"])
             trg = "overridden %.2fs" % t["trigger"] if t.get("trigger") is not None else f"default {dt:.2f}s (first word)"
-            dd = "overridden %dms" % int(t["dur"]) if t.get("dur") is not None else f"default {int(G['fade_in_ms'])}ms (global)"
+            dd = f"group/global {int(gf['fade_in_ms'])}ms"
             return f"fade-in group · trigger: {trg} · dur: {dd}"
         if lane == "fout_tags":
             ti2, t = _tag_of(p["fout_tags"], wid)
+            g = p["layout"][gi]
+            gf = resolve_fade(g, {"fade_in_ms": G["fade_in_ms"], "fade_out_ms": G["fade_out_ms"]})
             if t is None:
                 return "fade-out: none (group the word to add one)"
             de = max(words[i]['end'] for i in t["ids"])
             trg = "overridden %.2fs" % t["trigger"] if t.get("trigger") is not None else f"default {de:.2f}s (last word end)"
-            dd = "overridden %dms" % int(t["dur"]) if t.get("dur") is not None else f"default {int(G['fade_out_ms'])}ms (global)"
+            dd = f"group/global {int(gf['fade_out_ms'])}ms"
             return f"fade-out group · trigger: {trg} · dur: {dd}"
         return None
 
@@ -740,8 +749,15 @@ class CueDock(ctk.CTkFrame):
             self._ws = self.pf.grid_slaves(row=1, column=1)[0]
             self._we = self.pf.grid_slaves(row=2, column=1)[0]
             self._wl = self.pf.grid_slaves(row=3, column=1)[0]
+            gf_cur = (g.get("fade") or {})
+            gf_eff = resolve_fade(g, {"fade_in_ms": self.G()["fade_in_ms"], "fade_out_ms": self.G()["fade_out_ms"]})
+            self._pe("group fade-in ms", gf_cur.get("fade_in_ms"), 6, f"{int(gf_eff['fade_in_ms'])} (global)")
+            self._pe("group fade-out ms", gf_cur.get("fade_out_ms"), 7, f"{int(gf_eff['fade_out_ms'])} (global)")
+            ctk.CTkButton(self.pf, text="Apply fade", width=80, command=self._apply_group_fade).grid(row=8, column=1, sticky="w", pady=3)
+            self._wgfi = self.pf.grid_slaves(row=6, column=1)[0]
+            self._wgfo = self.pf.grid_slaves(row=7, column=1)[0]
             g_style = g.get("style") or {}
-            self._build_style_section(6, "Style — group overrides (blank = inherit)",
+            self._build_style_section(9, "Style — group overrides (blank = inherit)",
                                       g_style, self._glob_style(), "gs", True, self._apply_group_style)
         elif self.sel_lane in ("fin_tags", "fout_tags") and self.sel_ids:
             ti, t = _tag_of(p[self.sel_lane], next(iter(self.sel_ids)))
@@ -750,14 +766,12 @@ class CueDock(ctk.CTkFrame):
             words = p["words"]
             if t:
                 if self.sel_lane == "fin_tags":
-                    deftrig = min(words[i]["start"] for i in t["ids"]); defdur = self.G()["fade_in_ms"]
+                    deftrig = min(words[i]["start"] for i in t["ids"])
                 else:
-                    deftrig = max(words[i]["end"] for i in t["ids"]); defdur = self.G()["fade_out_ms"]
+                    deftrig = max(words[i]["end"] for i in t["ids"])
                 self._pe("trigger (s)", t.get("trigger"), 1, f"{deftrig:.2f} (boundary word)")
-                self._pe("dur (ms)", t.get("dur"), 2, f"{int(defdur)} (global)")
-                ctk.CTkButton(self.pf, text="Apply", width=70, command=lambda: self._apply_tag(ti)).grid(row=3, column=1, sticky="w", pady=3)
+                ctk.CTkButton(self.pf, text="Apply", width=70, command=lambda: self._apply_tag(ti)).grid(row=2, column=1, sticky="w", pady=3)
                 self._tg = self.pf.grid_slaves(row=1, column=1)[0]
-                self._td = self.pf.grid_slaves(row=2, column=1)[0]
             else:
                 ctk.CTkLabel(self.pf, text="(ungrouped — click Group to create a fade group)").grid(row=1, column=0, columnspan=3, sticky="w")
         elif self.sel_lane == "word" and (self.sel_word or self.sel_ids):
@@ -803,9 +817,21 @@ class CueDock(ctk.CTkFrame):
 
     def _apply_tag(self, ti):
         try:
-            self.app.set_tag_props(self.sel_lane, ti, self._f(self._tg), self._f(self._td))
+            self.app.set_tag_props(self.sel_lane, ti, self._f(self._tg))
         except ValueError:
             self.app.log("Tag props must be numbers or blank.")
+
+    def _apply_group_fade(self):
+        try:
+            fi = self._f(self._wgfi)
+            fo = self._f(self._wgfo)
+            partial = {
+                "fade_in_ms": (int(fi) if fi is not None else None),
+                "fade_out_ms": (int(fo) if fo is not None else None),
+            }
+            self.app.set_group_fade(self.sel_group, partial)
+        except ValueError:
+            self.app.log("Group fade values must be integers or blank.")
 
     # ── style helpers ──────────────────────────────────────────────────
     def _opt_int(self, var):

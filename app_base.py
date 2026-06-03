@@ -157,7 +157,6 @@ class App(ctk.CTk):
         self.size_var   = tk.IntVar(value=64)
         self.bold_var   = tk.BooleanVar(value=True)
         self.align_var  = tk.StringVar(value="Bottom-Center (2)")
-        self.fade_var   = tk.IntVar(value=250)
         self.group_var  = tk.StringVar(value="section")
         self.skip_var   = tk.BooleanVar(value=True)
         self.pos_var    = tk.BooleanVar(value=True)
@@ -187,7 +186,6 @@ class App(ctk.CTk):
         ctk.CTkOptionMenu(f, variable=self.align_var, values=list(ALIGN_LABELS), width=170,
                           command=lambda *_: self._on_align()).grid(row=r, column=1, sticky="w", **pad); r += 1
         L("Free placement (\\pos)", r); ctk.CTkCheckBox(f, text="", variable=self.pos_var, command=self._refresh_preview).grid(row=r, column=1, sticky="w", **pad); r += 1
-        L("Fade-in (ms/word)", r); S(self.fade_var, 0, 3000, r); r += 1
         L("Group by", r)
         ctk.CTkOptionMenu(f, variable=self.group_var, values=["section", "line"], width=110,
                           command=lambda *_: self._reload_groups()).grid(row=r, column=1, sticky="w", **pad); r += 1
@@ -655,7 +653,7 @@ class App(ctk.CTk):
         c = {
             "json_path": self.json_var.get(), "font": self.font_var.get(),
             "fontsize": self.size_var.get(), "bold": self.bold_var.get(),
-            "align": ALIGN_LABELS[self.align_var.get()], "fade_ms": self.fade_var.get(),
+            "align": ALIGN_LABELS[self.align_var.get()],
             "group_by": self.group_var.get(), "skip_dashes": self.skip_var.get(),
             "play_w": self.pw_var.get(), "play_h": self.ph_var.get(),
             "margin_l": self.ml_var.get(), "margin_r": self.mr_var.get(), "margin_v": self.mv_var.get(),
@@ -663,9 +661,6 @@ class App(ctk.CTk):
             "back_color": self._color["back"], "back_alpha": (self.backa_var.get() or "80").upper()[:2],
             "border_style": self.border_var.get(), "outline_w": self.outline_var.get(),
             "shadow": self.shadow_var.get(),
-            # WrapStyle 2 = no automatic wrapping; break only on explicit \N.
-            # So resizing the box never re-wraps the text (matches the preview).
-            "wrap_style": 2,
         }
         if self.pos_var.get():
             c["pos"] = self._anchor_xy_playres()
@@ -690,7 +685,7 @@ class App(ctk.CTk):
         """Style/placement preset (shared). Subclasses extend with their cues."""
         return {
             "font": self.font_var.get(), "fontsize": self.size_var.get(), "bold": self.bold_var.get(),
-            "align": self.align_var.get(), "fade_ms": self.fade_var.get(),
+            "align": self.align_var.get(),
             "group_by": self.group_var.get(), "skip_dashes": self.skip_var.get(),
             "use_pos": self.pos_var.get(),
             "play_w": self.pw_var.get(), "play_h": self.ph_var.get(),
@@ -706,7 +701,6 @@ class App(ctk.CTk):
         self.size_var.set(d.get("fontsize", self.size_var.get()))
         self.bold_var.set(d.get("bold", self.bold_var.get()))
         if d.get("align") in ALIGN_LABELS: self.align_var.set(d["align"])
-        self.fade_var.set(d.get("fade_ms", self.fade_var.get()))
         self.group_var.set(d.get("group_by", self.group_var.get()))
         self.skip_var.set(d.get("skip_dashes", self.skip_var.get()))
         self.pos_var.set(d.get("use_pos", self.pos_var.get()))
