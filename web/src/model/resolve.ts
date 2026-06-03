@@ -11,7 +11,7 @@ export function resolveStyle(project: Project, gi: number, tok: Token | null): R
     const grp = g?.style as Record<string, unknown> | undefined;
     if (k !== "border_style" && cue && cue[k] != null) out[k] = { value: cue[k], src: "cue" };
     else if (grp && grp[k] != null) out[k] = { value: grp[k], src: "group" };
-    else out[k] = { value: (project.global_style as unknown as Record<string, unknown>)[k], src: "global" };
+    else out[k] = { value: project.global_style[k], src: "global" };
   }
   return out;
 }
