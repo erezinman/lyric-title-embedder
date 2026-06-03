@@ -49,6 +49,13 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   const [aiTier] = useState<"global" | "group" | "cue" | null>(null);
   const [aiHotKey] = useState<string | null>(null);
 
+  // error surfacing
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+
+  const dispatch = useCallback((tool: string, args: Record<string, unknown>) => {
+    store.call(tool, args).catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)));
+  }, [store]);
+
   // ---- selection helpers ----
   const selectWord = useCallback((gi: number, li: number, ti: number, wid: number) => {
     setSel({ scope: "cue", gi, tok: { li, ti } });
@@ -209,13 +216,13 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   // ---- intent handlers ----
   function setStyle(tier: "global" | "group" | "cue", key: string, value: unknown) {
     if (tier === "group") {
-      store.call("set_group_style", { gi: sel.gi, partial: { [key]: value } });
+      dispatch("set_group_style", { gi: sel.gi, partial: { [key]: value } });
     } else if (tier === "cue") {
       const ids = selectedWords.size > 0 ? [...selectedWords] : (selWid() != null ? [selWid()!] : []);
-      if (ids.length > 0) store.call("set_cue_style", { word_ids: ids, partial: { [key]: value } });
+      if (ids.length > 0) dispatch("set_cue_style", { word_ids: ids, partial: { [key]: value } });
     } else {
       // global — set_globals takes partial directly (not nested under "partial")
-      store.call("set_globals", { [key]: value });
+      dispatch("set_globals", { [key]: value });
     }
   }
 
@@ -225,32 +232,32 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
 
   function setFade(key: "fade_in_ms" | "fade_out_ms", value: number | null) {
     if (!P) return;
-    store.call("set_group_fade", { gi: sel.gi, partial: { [key]: value } });
+    dispatch("set_group_fade", { gi: sel.gi, partial: { [key]: value } });
   }
 
   function groupFade(kind: "in" | "out") {
     const ids = wordsForOp();
     if (ids.length === 0) return;
-    store.call("make_fade_tag", { kind, word_ids: ids });
+    dispatch("make_fade_tag", { kind, word_ids: ids });
   }
 
   function clearFade(kind: "in" | "out") {
     const ids = wordsForOp();
     if (ids.length === 0) return;
-    store.call("clear_fade_tag", { kind, word_ids: ids });
+    dispatch("clear_fade_tag", { kind, word_ids: ids });
   }
 
   function setFadeTrigger(kind: "in" | "out", trigger: number | null) {
     const ids = wordsForOp();
     if (ids.length === 0) return;
-    store.call("set_fade_tag_props", { kind, word_ids: ids, trigger });
+    dispatch("set_fade_tag_props", { kind, word_ids: ids, trigger });
   }
 
   function setLayoutProp(patch: Partial<{ accumulate: "words" | "lines" | "off"; linger: number; win_start: number | null; win_end: number | null }>) {
     if (!P) return;
     const g = P.layout[sel.gi];
     if (!g) return;
-    store.call("set_layout_props", {
+    dispatch("set_layout_props", {
       gi: sel.gi,
       win_start: patch.win_start !== undefined ? patch.win_start : g.win_start,
       win_end: patch.win_end !== undefined ? patch.win_end : g.win_end,
@@ -261,22 +268,15 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
 
   function mergeWords() {
     if (!P) return;
-    // Find the sorted selected word ids
     const sortedIds = [...selectedWords].sort((a, b) => a - b);
-    if (sortedIds.length < 2) return;
-    // For each adjacent pair, find them in the layout and merge the later into the earlier
-    // We fold left: merge sortedIds[1] into sortedIds[0], then [2] into [0], etc.
-    // Actually: merge pairs sequentially — find (gi, li, ti) for the later token and call merge_words
-    for (let i = 1; i < sortedIds.length; i++) {
-      // Find the token containing sortedIds[i]
-      for (let gi = 0; gi < P.layout.length; gi++) {
-        const g = P.layout[gi];
-        for (let li = 0; li < g.lines.length; li++) {
-          for (let ti = 0; ti < g.lines[li].toks.length; ti++) {
-            const tok = g.lines[li].toks[ti];
-            if (tok.ids.includes(sortedIds[i]) && ti > 0) {
-              store.call("merge_words", { gi, li, ti, sep: " " });
-            }
+    if (sortedIds.length !== 2) return; // multi-merge unsafe against a stale snapshot; restrict to 2 for now (TODO: multi-merge follow-up)
+    for (let gi = 0; gi < P.layout.length; gi++) {
+      const g = P.layout[gi];
+      for (let li = 0; li < g.lines.length; li++) {
+        for (let ti = 1; ti < g.lines[li].toks.length; ti++) {
+          if (g.lines[li].toks[ti].ids.includes(sortedIds[1])) {
+            dispatch("merge_words", { gi, li, ti, sep: " " });
+            return;
           }
         }
       }
@@ -284,26 +284,26 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   }
 
   function mergeEvents() {
-    store.call("merge_events", { gidxs: [sel.gi, sel.gi + 1] });
+    dispatch("merge_events", { gidxs: [sel.gi, sel.gi + 1] });
   }
 
   function ungroupEvent() {
-    store.call("ungroup_event", { gi: sel.gi });
+    dispatch("ungroup_event", { gi: sel.gi });
   }
 
   function splitEvent() {
-    store.call("split_event", { gi: sel.gi, line_index: 1 });
+    dispatch("split_event", { gi: sel.gi, line_index: 1 });
   }
 
   function breakLine() {
     if (!sel.tok) return;
-    store.call("break_line", { gi: sel.gi, li: sel.tok.li, ti: sel.tok.ti, after: true });
+    dispatch("break_line", { gi: sel.gi, li: sel.tok.li, ti: sel.tok.ti, after: true });
   }
 
   function deleteSel() {
     const ids = wordsForOp();
     if (ids.length === 0) return;
-    store.call(wordDeleted() ? "restore_words" : "delete_words", { word_ids: ids });
+    dispatch(wordDeleted() ? "restore_words" : "delete_words", { word_ids: ids });
   }
 
   function selectWordByWid(wid: number) {
@@ -346,24 +346,8 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     tok: sel.tok,
   };
 
-  // live word id: first word of the active event at current time
-  const liveGi = activeGi();
-  let liveId: number | null = null;
-  if (P.layout[liveGi]) {
-    for (const line of P.layout[liveGi].lines) {
-      for (const t of line.toks) {
-        if (!t.del) {
-          const sched = wordSchedule(P, liveGi, t.ids[0]);
-          const wordEnd = Math.max(...t.ids.map((id) => P.words[id]?.end ?? 0));
-          if (sched.start_s <= time && time < wordEnd) {
-            liveId = t.ids[0];
-            break;
-          }
-        }
-      }
-      if (liveId != null) break;
-    }
-  }
+  // derive liveId from capWords (already computed above — no duplicate scan needed)
+  const liveId = capWords.find((w) => w.live)?.wid ?? null;
 
   return (
     <div className="app">
@@ -376,8 +360,8 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
         onSeekRel={(d) => setTime((t) => Math.max(0, Math.min(dur, t + d)))}
         onHome={onHome}
         onExport={() => {}}
-        onUndo={store.undo}
-        onRedo={store.redo}
+        onUndo={() => store.undo().catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)))}
+        onRedo={() => store.redo().catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)))}
         canUndo
         canRedo
       />
@@ -473,8 +457,8 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
           onBreakLine={breakLine}
           onUngroupEvent={ungroupEvent}
           onDelete={deleteSel}
-          onUndo={store.undo}
-          onRedo={store.redo}
+          onUndo={() => store.undo().catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)))}
+          onRedo={() => store.redo().catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)))}
           canUndo
           canRedo
         />
@@ -508,8 +492,14 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
         </div>
       </section>
       {store.lastExternal > 0 && <ExternalToast key={store.lastExternal} />}
+      {errMsg && <ErrorToast key={errMsg} msg={errMsg} onClear={() => setErrMsg(null)} />}
     </div>
   );
+}
+
+function ErrorToast({ msg, onClear }: { msg: string; onClear: () => void }) {
+  useEffect(() => { const t = setTimeout(onClear, 4000); return () => clearTimeout(t); }, [onClear]);
+  return <div className="toast err"><Icon name="close" size={15} />{msg}</div>;
 }
 
 function ExternalToast() {
