@@ -214,6 +214,11 @@ Headless generators (no GUI). Run from the project root so `aligned_lyrics.json`
   config block at the top of the file.
 - **`build_from_api.py`** — emits several `.srt` variants from the API timings.
 - **`build_srts.py`** — the original hand-mapped SRT variants. Kept for reference.
+- **`tools/suno_fetch.py`** — fetch a song's `aligned_lyrics.json` straight from Suno:
+  `python tools/suno_fetch.py https://suno.com/song/<id> [-o OUT.json] [-f]`. Prompts (hidden) for
+  your Suno session token — copy it from DevTools (Network → any `studio-api` request →
+  `Authorization` header); it expires within minutes, so grab it right before fetching. The token
+  is never stored.
 
 ---
 
