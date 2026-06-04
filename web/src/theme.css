@@ -167,6 +167,24 @@ svg.lucide { display: block; }
 .rail-note { display: flex; align-items: flex-start; gap: 6px; font-size: 11px; color: var(--text-3); line-height: 1.5; margin: 6px 0 2px; }
 .rail-note svg { color: var(--violet); flex: 0 0 auto; margin-top: 1px; }
 
+/* Alignment 3×3 numpad grid */
+.ag-wrap { position: relative; }
+.kit-sel { height: 30px; min-width: 150px; background: var(--surface-3); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text-1); font-size: 12px; display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 10px; white-space: nowrap; }
+.kit-sel:hover { border-color: var(--border-strong); } .kit-sel svg { color: var(--text-3); }
+.ag-back { position: fixed; inset: 0; z-index: 20; }
+.ag-grid { position: absolute; right: 0; top: 34px; z-index: 21; display: grid; grid-template-columns: repeat(3, 30px); grid-template-rows: repeat(3, 30px); gap: 4px;
+  padding: 8px; background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-3); }
+.ag-cell { border: 1px solid var(--border); border-radius: 5px; background: var(--surface-3); display: grid; place-items: center; padding: 0; cursor: pointer; }
+.ag-cell span { width: 12px; height: 4px; border-radius: 2px; background: var(--text-3); }
+.ag-cell:hover { border-color: var(--border-strong); } .ag-cell:hover span { background: var(--text-2); }
+.ag-cell.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.ag-cell.on span { background: var(--accent); }
+/* numpad position of the bar within each cell */
+.ag-cell:nth-child(1) span,.ag-cell:nth-child(4) span,.ag-cell:nth-child(7) span { justify-self: start; }
+.ag-cell:nth-child(3) span,.ag-cell:nth-child(6) span,.ag-cell:nth-child(9) span { justify-self: end; }
+.ag-cell { align-items: end; } .ag-cell:nth-child(-n+3) { align-items: start; } .ag-cell:nth-child(n+4):nth-child(-n+6) { align-items: center; }
+
 /* ===== Dock (timeline + lanes) ===== */
 .dock { flex: 0 0 252px; background: var(--surface-1); border-top: 1px solid var(--border);
   display: flex; flex-direction: column; min-height: 0; }

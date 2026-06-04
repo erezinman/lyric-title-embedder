@@ -1,14 +1,9 @@
 // ControlsRail.tsx — source/output (real names) + placement (alignment editable,
 // \pos toggle) + disabled animation presets (engine lacks them).
 import { Icon } from "../icons/Icon";
+import { AlignGrid } from "../atoms/AlignGrid";
 import type { Project } from "../../types";
 import { posActive } from "../../model/bbox";
-
-const ALIGN: Record<number, string> = {
-  1: "Bottom-Left (1)", 2: "Bottom-Center (2)", 3: "Bottom-Right (3)",
-  4: "Mid-Left (4)",    5: "Center (5)",         6: "Mid-Right (6)",
-  7: "Top-Left (7)",    8: "Top-Center (8)",      9: "Top-Right (9)",
-};
 
 export interface ControlsRailProps {
   project: Project;
@@ -46,12 +41,7 @@ export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos }:
       </div>
       <div className="ctl">
         <label>Alignment</label>
-        <select className="select" aria-label="Alignment" value={pl.align}
-                onChange={(e) => onSetGlobal("align", Number(e.target.value))}>
-          {Object.entries(ALIGN).map(([n, label]) => (
-            <option key={n} value={n}>{label}</option>
-          ))}
-        </select>
+        <AlignGrid value={pl.align} onPick={(n) => onSetGlobal("align", n)} />
       </div>
       <div className="ctl">
         <label>Free placement (\pos)</label>

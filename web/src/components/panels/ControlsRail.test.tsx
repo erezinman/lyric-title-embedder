@@ -28,10 +28,13 @@ describe("ControlsRail", () => {
     expect(screen.queryByText(/group lyrics by/i)).not.toBeInTheDocument();
   });
 
-  it("alignment select dispatches onSetGlobal", () => {
+  it("alignment grid dispatches onSetGlobal when a cell is clicked", () => {
     const onSetGlobal = vi.fn();
     render(<ControlsRail project={proj()} projectName="p" onSetGlobal={onSetGlobal} onTogglePos={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText(/alignment/i), { target: { value: "8" } });
+    // Open the grid via the trigger button
+    fireEvent.click(screen.getByLabelText(/alignment/i));
+    // Click Top-Center (8)
+    fireEvent.click(screen.getByRole("button", { name: "Top-Center (8)" }));
     expect(onSetGlobal).toHaveBeenCalledWith("align", 8);
   });
 
