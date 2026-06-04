@@ -22,6 +22,10 @@ export async function getState(): Promise<Project> {
   return jsonOrThrow<Project>(await fetch("/api/state"));
 }
 
+export async function getEnv(): Promise<{ same_host: boolean }> {
+  return jsonOrThrow<{ same_host: boolean }>(await fetch("/api/env"));
+}
+
 export async function getRender(): Promise<unknown> {
   return jsonOrThrow(await fetch("/api/render"));
 }
@@ -40,8 +44,9 @@ export const projects = {
   list: async (): Promise<string[]> => jsonOrThrow<string[]>(await fetch("/api/projects")),
   open: async (name: string): Promise<void> => { await postJson("/api/projects/open", { name }); },
   save: async (name: string): Promise<void> => { await postJson("/api/projects/save", { name }); },
-  create: async (name: string, lyrics_path: string): Promise<void> => {
-    await postJson("/api/projects/new", { name, lyrics_path });
+  create: async (form: FormData): Promise<{ opened: string }> => {
+    const res = await fetch("/api/projects/create", { method: "POST", body: form });
+    return jsonOrThrow<{ opened: string }>(res);
   },
 };
 

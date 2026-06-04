@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { call, getFrameUrl, projects, burn } from "./client";
+import { call, getFrameUrl, projects, burn, getEnv } from "./client";
 
 beforeEach(() => { vi.restoreAllMocks(); });
 
@@ -46,5 +46,32 @@ describe("burn", () => {
 describe("getFrameUrl", () => {
   it("builds a frame url for t", () => {
     expect(getFrameUrl(13.5)).toBe("/api/frame?t=13.5");
+  });
+});
+
+describe("getEnv", () => {
+  it("returns same_host flag", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ same_host: true }), { status: 200 })));
+    expect(await getEnv()).toEqual({ same_host: true });
+  });
+});
+
+describe("projects.create", () => {
+  it("posts FormData to /api/projects/create and returns opened", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify({ opened: "x" }), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    const fd = new FormData();
+    fd.set("name", "x"); fd.set("source", "srt");
+    const r = await projects.create(fd);
+    expect(r).toEqual({ opened: "x" });
+    const call0 = spy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(call0[0]).toBe("/api/projects/create");
+    expect(call0[1].method).toBe("POST");
+    expect(call0[1].body).toBeInstanceOf(FormData);
+  });
+
+  it("throws the daemon error message", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "boom" }), { status: 409 })));
+    await expect(projects.create(new FormData())).rejects.toThrow("boom");
   });
 });
