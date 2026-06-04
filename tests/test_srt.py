@@ -55,6 +55,39 @@ def t_parse_bad_timecode_raises():
     except ValueError:
         return (True, "raised")
 
+def t_to_lyrics_shape_and_shared_timing():
+    cues = srt.parse_srt(SAMPLE)
+    doc = srt.srt_to_lyrics(cues)
+    e0 = doc["aligned_lyrics"][0]
+    shared = all(abs(w["start_s"] - e0["start_s"]) < 1e-9 and abs(w["end_s"] - e0["end_s"]) < 1e-9
+                 for w in e0["words"])
+    return (len(doc["aligned_lyrics"]) == 2 and len(e0["words"]) == 3
+            and e0["section"] == "Subtitles" and shared), json.dumps(e0)
+
+def _roundtrip_words(doc):
+    fd, path = tempfile.mkstemp(suffix=".json")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh: json.dump(doc, fh)
+        p = engine.make_project({"json_path": path, "group_by": "section", "skip_dashes": True})
+        return p["words"]
+    finally:
+        os.remove(path)
+
+def t_roundtrip_atom_count_and_text():
+    cues = srt.parse_srt(SAMPLE)
+    words = _roundtrip_words(srt.srt_to_lyrics(cues))
+    texts = [w["text"].strip() for w in words]
+    return (len(words) == 6 and texts == ["Hello", "there", "world", "second", "cue", "here"]), str(texts)
+
+def t_roundtrip_lowercase_leading_cue_stays_distinct():
+    # cue 2 starts lowercase -> reconstruct_lines line-merges it into cue 1; atoms must stay split
+    txt = ("1\n00:00:00,000 --> 00:00:01,000\nHello world\n\n"
+           "2\n00:00:01,000 --> 00:00:02,000\nlittle words here\n")
+    words = _roundtrip_words(srt.srt_to_lyrics(srt.parse_srt(txt)))
+    return (len(words) == 5
+            and [w["text"].strip() for w in words] == ["Hello", "world", "little", "words", "here"]), \
+           str([w["text"] for w in words])
+
 _active = {n: f for n, f in list(globals().items()) if n.startswith("t_") and callable(f)}
 for n, f in sorted(_active.items()): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)

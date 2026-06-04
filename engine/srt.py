@@ -41,3 +41,16 @@ def parse_srt(text):
     if not cues:
         raise ValueError("no SRT cues found")
     return cues
+
+
+def srt_to_lyrics(cues):
+    """Suno-shaped aligned-lyrics dict: one entry per cue, each word a separate atom
+    (leading space defeats sub-word merging) sharing the cue's timing."""
+    entries = []
+    for c in cues:
+        wj = [{"text": " " + w, "start_s": c.start, "end_s": c.end} for w in c.words]
+        entries.append({"text": " ".join(c.words), "start_s": c.start, "end_s": c.end,
+                        "section": "Subtitles", "words": wj})
+    if entries:  # the very first atom needn't carry a leading space (it's first in its line group)
+        entries[0]["words"][0]["text"] = entries[0]["words"][0]["text"].lstrip()
+    return {"aligned_lyrics": entries}
