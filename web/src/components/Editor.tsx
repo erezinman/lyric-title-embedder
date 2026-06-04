@@ -581,7 +581,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                   onClearStyle={clearStyle}
                   onSetFade={setFade}
                 />
-                {(finTag || foutTag) && (
+                {P.layout[sel.gi] && (
                   <FadeGroupPanel
                     project={P}
                     gi={sel.gi}

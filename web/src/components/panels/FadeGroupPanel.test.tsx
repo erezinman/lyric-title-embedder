@@ -34,6 +34,21 @@ const finTag = { ids: [0], trigger: null };
 const foutTag = { ids: [0], trigger: null };
 
 describe("FadeGroupPanel — Global defaults section", () => {
+  it("renders the Global defaults tier even when there are NO fade tags", () => {
+    render(
+      <FadeGroupPanel
+        project={proj()}
+        gi={0}
+        finTag={null}
+        foutTag={null}
+        onSet={vi.fn()}
+        onClear={vi.fn()}
+        onSetDefault={vi.fn()}
+      />
+    );
+    expect(screen.getByText(/Global defaults/i)).toBeTruthy();
+  });
+
   it("renders a 'Global defaults' section showing current values from project.globals", () => {
     const p = proj();
     render(

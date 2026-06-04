@@ -65,8 +65,8 @@ function FadeRow({
 }
 
 export function FadeGroupPanel({ project, gi, finTag, foutTag, onSet, onClear, onSetDefault }: FadeGroupPanelProps) {
-  if (!finTag && !foutTag) return null;
-
+  // Rendered even with no fade tags: the per-tag rows are conditional, but the
+  // global-defaults tier below must stay reachable in tag-less projects.
   const resolved = resolveFade(project, gi);
   const g = project.layout[gi];
   const inDurMs = resolved.fade_in_ms;
