@@ -175,7 +175,7 @@ def t_get_project_minimal_shape():
     keys = set(pj.keys())
     ok = (keys == {"words", "layout", "fin_tags", "fout_tags", "globals", "global_style", "placement", "video"}
           and set(pj["global_style"].keys()) == set(STYLE_KEYS)
-          and "use_pos" not in pj["placement"]
+          and "use_pos" in pj["placement"]   # exposed so clients can't misreport \pos state
           and "pos" in pj["placement"]
           and "fade" in pj["layout"][0] and "style" in pj["layout"][0]
           and set(pj["layout"][0]["lines"][0]["toks"][0].keys()) == {"ids", "sep", "del", "style"})
