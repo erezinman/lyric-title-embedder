@@ -61,9 +61,11 @@ export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos }:
           <div className="knob" />
         </div>
       </div>
-      <p className="wf-note" style={{ textAlign: "left", marginTop: 2, marginBottom: 2, lineHeight: 1.5 }}>
-        Drag the dashed box on the preview to move/resize. With \pos on, the box
-        pins an absolute coordinate; off, it sets the margins.
+      <p className="rail-note">
+        <Icon name="align" size={11} />
+        {posOn
+          ? "Pin coordinate comes from dragging the preview box."
+          : "Margins come from dragging the preview box edges."}
       </p>
 
       <div className="sec-t spacer disabled-sec">

@@ -17,12 +17,37 @@ function setup(pl: PlacementState = placement) {
   const stage = r.container.querySelector(".stage") as HTMLElement;
   vi.spyOn(stage, "getBoundingClientRect").mockReturnValue(
     { left: 0, top: 0, width: 960, height: 540, right: 960, bottom: 540, x: 0, y: 0, toJSON: () => ({}) } as DOMRect);
-  const box = r.container.querySelector(".bbox") as HTMLElement;
-  return { onPlacement, box, stage };
+  const box = r.container.querySelector(".bbox, .pinbox") as HTMLElement;
+  return { onPlacement, box, stage, container: r.container };
 }
 
 describe("PreviewStage drag", () => {
   beforeEach(() => vi.restoreAllMocks());
+
+  it("renders .bbox + .bbox-tag and NOT .pinbox in margin mode", () => {
+    const { container } = setup();
+    expect(container.querySelector(".bbox")).toBeTruthy();
+    expect(container.querySelector(".bbox-tag")).toBeTruthy();
+    expect(container.querySelector(".pinbox")).toBeNull();
+  });
+
+  it("renders .pinbox and NOT .bbox in pin mode", () => {
+    const { container } = setup({ ...placement, pos: [960, 1020], use_pos: true });
+    expect(container.querySelector(".pinbox")).toBeTruthy();
+    expect(container.querySelector(".bbox")).toBeNull();
+  });
+
+  it("shows .drag-readout (L/R/V) while dragging in margin mode, gone after release", () => {
+    const { box, container } = setup();
+    expect(container.querySelector(".drag-readout")).toBeNull();
+    fireEvent.pointerDown(box, { clientX: 200, clientY: 400, button: 0 });
+    fireEvent.pointerMove(window, { clientX: 250, clientY: 400 });
+    const readout = container.querySelector(".drag-readout") as HTMLElement;
+    expect(readout).toBeTruthy();
+    expect(readout.textContent).toMatch(/L \d+ · R \d+ · V \d+/);
+    fireEvent.pointerUp(window, { clientX: 250, clientY: 400 });
+    expect(container.querySelector(".drag-readout")).toBeNull();
+  });
 
   it("body drag dispatches margins once on release (margin mode)", () => {
     const { onPlacement, box } = setup();
@@ -41,7 +66,7 @@ describe("PreviewStage drag", () => {
   });
 
   it("pos mode dispatches a new pos", () => {
-    const { onPlacement, box } = setup({ ...placement, pos: [960, 1020] });
+    const { onPlacement, box } = setup({ ...placement, pos: [960, 1020], use_pos: true });
     fireEvent.pointerDown(box, { clientX: 480, clientY: 300, button: 0 });
     fireEvent.pointerMove(window, { clientX: 480, clientY: 250 });   // -50px => -100 canvas y
     fireEvent.pointerUp(window, { clientX: 480, clientY: 250 });

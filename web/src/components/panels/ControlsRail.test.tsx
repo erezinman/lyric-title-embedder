@@ -46,4 +46,14 @@ describe("ControlsRail", () => {
     fireEvent.click(screen.getByRole("switch", { name: /free placement/i }));
     expect(onTogglePos).toHaveBeenCalledWith(true);
   });
+
+  it("note text reflects pin mode when pos is active", () => {
+    render(<ControlsRail project={proj({ pos: [960, 540], use_pos: true })} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} />);
+    expect(screen.getByText("Pin coordinate comes from dragging the preview box.")).toBeInTheDocument();
+  });
+
+  it("note text reflects margin mode when pos is off", () => {
+    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} />);
+    expect(screen.getByText("Margins come from dragging the preview box edges.")).toBeInTheDocument();
+  });
 });
