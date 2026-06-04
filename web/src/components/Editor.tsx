@@ -400,19 +400,32 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
 
   function mergeWords() {
     if (!P) return;
-    const sortedIds = [...selectedWords].sort((a, b) => a - b);
-    if (sortedIds.length !== 2) return; // multi-merge unsafe against a stale snapshot; restrict to 2 for now (TODO: multi-merge follow-up)
-    for (let gi = 0; gi < P.layout.length; gi++) {
-      const g = P.layout[gi];
-      for (let li = 0; li < g.lines.length; li++) {
-        for (let ti = 1; ti < g.lines[li].toks.length; ti++) {
-          if (g.lines[li].toks[ti].ids.includes(sortedIds[1])) {
-            dispatch("merge_words", { gi, li, ti, sep: " " });
-            return;
+    const ids = [...selectedWords].sort((a, b) => a - b);
+    if (ids.length < 2) return;
+    // map each selected word to its token coordinates in the current snapshot
+    const locs: { gi: number; li: number; ti: number }[] = [];
+    for (const wid of ids) {
+      let found = false;
+      for (let gi = 0; gi < P.layout.length && !found; gi++) {
+        const g = P.layout[gi];
+        for (let li = 0; li < g.lines.length && !found; li++) {
+          for (let ti = 0; ti < g.lines[li].toks.length; ti++) {
+            if (g.lines[li].toks[ti].ids.includes(wid)) { locs.push({ gi, li, ti }); found = true; break; }
           }
         }
       }
+      if (!found) return;
     }
+    const { gi, li } = locs[0];
+    if (!locs.every((l) => l.gi === gi && l.li === li)) {
+      setErrMsg("merge needs adjacent words on one line"); return;
+    }
+    const tis = [...new Set(locs.map((l) => l.ti))].sort((a, b) => a - b);
+    const ti_first = tis[0], ti_last = tis[tis.length - 1];
+    if (ti_last === ti_first || ti_last - ti_first !== tis.length - 1) {
+      setErrMsg("merge needs adjacent words on one line"); return;
+    }
+    dispatch("merge_word_span", { gi, li, ti_first, ti_last, sep: " " });
   }
 
   function mergeEvents() {
