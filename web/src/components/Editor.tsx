@@ -582,6 +582,8 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
             onSelectWord={selectWordByWid}
             playW={P.placement.play_w}
             playH={P.placement.play_h}
+            placement={P.placement}
+            onPlacement={(partial) => dispatch("set_globals", { partial })}
           />
         </main>
       </div>

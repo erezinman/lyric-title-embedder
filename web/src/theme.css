@@ -441,3 +441,13 @@ svg.lucide { display: block; }
 
 select.select { appearance: none; background: var(--surface-3); color: var(--text-1);
   border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 10px; font: inherit; }
+
+/* live bounding-box (drag/resize) */
+.bbox.live { pointer-events: auto; cursor: grab; }
+.bbox.live:active { cursor: grabbing; }
+.bbox.live i { pointer-events: auto; }
+.bbox.live .nw, .bbox.live .se { cursor: nwse-resize; }
+.bbox.live .ne, .bbox.live .sw { cursor: nesw-resize; }
+.bbox.live .n, .bbox.live .s { cursor: ns-resize; }
+.bbox.live .e, .bbox.live .w { cursor: ew-resize; }
+.bbox.dragging { border-color: var(--accent); opacity: 1; }
