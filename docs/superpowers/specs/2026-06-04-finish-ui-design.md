@@ -79,8 +79,10 @@ if nothing else imports them.
 
 - **Box from state:** `left = margin_l`, `right = play_w − margin_r`; vertical by alignment row:
   bottom-row (1/2/3) → `bottom = play_h − margin_v`, `top = bottom − 0.18·play_h`; top-row
-  (7/8/9) → `top = margin_v`, `bottom = top + 0.18·play_h`; middle (4/5/6) → a centered band
-  `±0.09·play_h`. When `pos != null`, the box is anchored so that its alignment anchor point sits
+  (7/8/9) → `top = margin_v`, `bottom = top + 0.18·play_h`; middle (4/5/6) → **as built:**
+  `top = margin_v`, `bottom = play_h − margin_v` (deliberate divergence from Tk's fixed
+  `±0.09·play_h` band: it makes margins→box→margins an identity for middle alignment too;
+  cosmetic either way, since libass ignores MarginV for middle alignment). When `pos != null`, the box is anchored so that its alignment anchor point sits
   at `pos` (same box size).
 - **Anchor point** (for `pos` derivation): x = left/center/right edge for align column 1/2/3 of
   the numpad; y = bottom/middle/top edge for align row. Exactly Tk's `_anchor_xy_playres`.
