@@ -28,5 +28,6 @@ export interface Globals { fade_in_ms: number; fade_out_ms: number; linger: numb
 export interface Project {
   words: Word[]; layout: LayoutGroup[]; fin_tags: FadeTag[]; fout_tags: FadeTag[];
   globals: Globals; global_style: GlobalStyle; placement: Placement;
+  video: string | null;
 }
 export type FadeKind = "in" | "out";

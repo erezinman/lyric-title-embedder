@@ -38,6 +38,7 @@ function proj(): Project {
       outline_w: 3, shadow: 0, border_style: 1,
     },
     placement: { align: 2, play_w: 1920, play_h: 1080, margin_l: 60, margin_r: 60, margin_v: 60, pos: null },
+    video: null,
   };
 }
 

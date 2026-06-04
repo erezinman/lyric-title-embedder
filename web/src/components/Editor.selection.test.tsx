@@ -53,6 +53,7 @@ function projectTwoCues(): Project {
       align: 2, play_w: 1920, play_h: 1080,
       margin_l: 60, margin_r: 60, margin_v: 60, pos: null,
     },
+    video: null,
   };
 }
 
