@@ -109,7 +109,8 @@ def get_project(ctx):
                 "fin_tags": mk("fin_tags"), "fout_tags": mk("fout_tags"),
                 "globals": dict(p["globals"]),
                 "global_style": {k: g[k] for k in STYLE_KEYS},
-                "placement": {k: g.get(k) for k in _PLACE_KEYS}}
+                "placement": {k: g.get(k) for k in _PLACE_KEYS},
+                "video": ctx.video_path()}
     return ctx.run(f)
 
 
@@ -173,6 +174,10 @@ def break_line(ctx, gi, li, ti, after=True):
 
 def merge_words(ctx, gi, li, ti, sep=""):
     _do(ctx, "merge_prev_word", gi, li, ti, sep); return ctx.run(lambda: _event_view(ctx, gi))
+
+def merge_word_span(ctx, gi, li, ti_first, ti_last, sep=""):
+    _do(ctx, "merge_token_span", gi, li, ti_first, ti_last, sep)
+    return ctx.run(lambda: _event_view(ctx, gi))
 
 def delete_words(ctx, word_ids):
     _do(ctx, "toggle_word_del", set(word_ids), True); return ctx.run(lambda: [_word_view(ctx, w) for w in word_ids])

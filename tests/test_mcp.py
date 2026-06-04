@@ -173,7 +173,7 @@ def t_get_project_minimal_shape():
     ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
     pj = tools.get_project(ctx)
     keys = set(pj.keys())
-    ok = (keys == {"words", "layout", "fin_tags", "fout_tags", "globals", "global_style", "placement"}
+    ok = (keys == {"words", "layout", "fin_tags", "fout_tags", "globals", "global_style", "placement", "video"}
           and set(pj["global_style"].keys()) == set(STYLE_KEYS)
           and "use_pos" not in pj["placement"]
           and "pos" in pj["placement"]
