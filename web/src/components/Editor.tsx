@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useProjectStore } from "../api/useProjectStore";
 import { burn } from "../api/client";
 import { TopBar } from "./TopBar";
+import { ExportMenu } from "./ExportMenu";
 import { Icon } from "./icons/Icon";
 import { resolveStyle, eventWindow, wordSchedule } from "../model/resolve";
 import { computeMove, computeResize } from "../model/edit";
@@ -62,6 +63,9 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
 
   // error surfacing
   const [errMsg, setErrMsg] = useState<string | null>(null);
+
+  // export menu
+  const [exportOpen, setExportOpen] = useState(false);
 
   const dispatch = useCallback((tool: string, args: Record<string, unknown>) => {
     store.call(tool, args).catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)));
@@ -521,12 +525,19 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
         onPlay={() => setPlaying((p) => !p)}
         onSeekRel={(d) => setTime((t) => Math.max(0, Math.min(dur, t + d)))}
         onHome={onHome}
-        onExport={() => { burn(`${projectName}_subbed.mp4`).catch((e) => setErrMsg(e instanceof Error ? e.message : String(e))); }}
+        onExport={() => setExportOpen((o) => !o)}
         onUndo={() => store.undo().catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)))}
         onRedo={() => store.redo().catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)))}
         canUndo
         canRedo
       />
+      {exportOpen && (
+        <ExportMenu
+          projectName={projectName}
+          onClose={() => setExportOpen(false)}
+          onBurn={(out, videoIn) => { burn(out, videoIn).catch((e) => setErrMsg(e instanceof Error ? e.message : String(e))); }}
+        />
+      )}
       {store.connected && <span className="ai-pill">AI agent · live</span>}
       <div className="body">
         <aside className="rail">

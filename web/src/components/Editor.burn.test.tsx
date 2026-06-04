@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor } from "./Editor";
+import * as client from "../api/client";
 import type { Project } from "../types";
 
 class FakeWS {
@@ -24,6 +25,7 @@ beforeEach(() => {
   vi.spyOn(globalThis, "fetch").mockResolvedValue(
     new Response(JSON.stringify({ result: {}, job_id: "j1" }), { status: 200, headers: { "Content-Type": "application/json" } }) as Response
   );
+  vi.spyOn(client, "getEnv").mockResolvedValue({ same_host: false });
 });
 
 describe("Editor burn", () => {
@@ -33,6 +35,8 @@ describe("Editor burn", () => {
     await waitFor(() => expect(FakeWS.last).toBeTruthy());
     act(() => FakeWS.last!.emit({ type: "state", state: proj() }));
     await userEvent.click(await screen.findByText(/Export/i));
+    // menu opens — click "Burn video" to trigger the burn POST
+    await userEvent.click(await screen.findByRole("button", { name: /burn video/i }));
     expect((f.mock.calls as any[]).some((c) => String(c[0]).includes("/api/burn"))).toBe(true);
     act(() => FakeWS.last!.emit({ type: "burn", job: { frac: 0.5, done: false, ok: false, err: null, out: "o.mp4" } }));
     await waitFor(() => screen.getByText(/50%|rendering|burn/i));
