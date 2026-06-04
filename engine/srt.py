@@ -54,3 +54,41 @@ def srt_to_lyrics(cues):
     if entries:  # the very first atom needn't carry a leading space (it's first in its line group)
         entries[0]["words"][0]["text"] = entries[0]["words"][0]["text"].lstrip()
     return {"aligned_lyrics": entries}
+
+
+def _line_index_groups(words, line_break, n_words, cue_word_counts):
+    n = len(words)
+    if n == 0:
+        return []
+    if line_break == "none":
+        return [list(range(n))]
+    if line_break == "per_cue":
+        groups, i = [], 0
+        for cnt in (cue_word_counts or [n]):
+            if cnt > 0:
+                groups.append(list(range(i, i + cnt))); i += cnt
+        return groups
+    if line_break == "every_n":
+        step = max(1, int(n_words))
+        return [list(range(i, min(i + step, n))) for i in range(0, n, step)]
+    if line_break == "punctuation":
+        groups, cur = [], []
+        for i in range(n):
+            cur.append(i)
+            if words[i]["text"].rstrip().endswith(_PUNCT):
+                groups.append(cur); cur = []
+        if cur:
+            groups.append(cur)
+        return groups
+    raise ValueError(f"unknown line_break {line_break!r}")
+
+
+def build_srt_layout(words, line_break="none", n_words=5, cue_word_counts=None):
+    """One layout event ('Subtitles') whose lines follow the break strategy.
+    `words` is the canonical word list (only `text` is read, for punctuation)."""
+    groups = _line_index_groups(words, line_break, n_words, cue_word_counts)
+    lines = [{"toks": [{"ids": [i], "sep": "", "del": False, "style": {}} for i in g]}
+             for g in groups]
+    return [{"label": "Subtitles", "lines": lines, "accumulate": "words",
+             "win_start": None, "win_end": None, "linger": None,
+             "del": False, "style": {}, "fade": {}}]

@@ -88,6 +88,37 @@ def t_roundtrip_lowercase_leading_cue_stays_distinct():
             and [w["text"].strip() for w in words] == ["Hello", "world", "little", "words", "here"]), \
            str([w["text"] for w in words])
 
+def _words(texts):
+    return [{"text": t, "start": 0.0, "end": 1.0} for t in texts]
+
+def _line_lens(layout):
+    return [len(ln["toks"]) for ln in layout[0]["lines"]]
+
+def t_layout_none_single_line():
+    lay = srt.build_srt_layout(_words(["a", "b", "c", "d"]), line_break="none")
+    return (len(lay) == 1 and lay[0]["label"] == "Subtitles" and _line_lens(lay) == [4]
+            and lay[0]["lines"][0]["toks"][0] == {"ids": [0], "sep": "", "del": False, "style": {}}), str(_line_lens(lay))
+
+def t_layout_every_n():
+    lay = srt.build_srt_layout(_words(["a"] * 7), line_break="every_n", n_words=3)
+    return (_line_lens(lay) == [3, 3, 1]), str(_line_lens(lay))
+
+def t_layout_per_cue():
+    lay = srt.build_srt_layout(_words(["a"] * 5), line_break="per_cue", cue_word_counts=[2, 3])
+    return (_line_lens(lay) == [2, 3]), str(_line_lens(lay))
+
+def t_layout_punctuation():
+    lay = srt.build_srt_layout(_words(["Hello", "world,", "this", "ends."]), line_break="punctuation")
+    return (_line_lens(lay) == [2, 2]), str(_line_lens(lay))
+
+def t_layout_ids_are_global_sequential():
+    lay = srt.build_srt_layout(_words(["a", "b", "c"]), line_break="every_n", n_words=2)
+    ids = [t["ids"][0] for ln in lay[0]["lines"] for t in ln["toks"]]
+    return (ids == [0, 1, 2]), str(ids)
+
+def t_export_via_engine_namespace():
+    return (hasattr(engine, "srt") and callable(engine.srt.build_srt_layout)), "engine.srt present"
+
 _active = {n: f for n, f in list(globals().items()) if n.startswith("t_") and callable(f)}
 for n, f in sorted(_active.items()): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)
