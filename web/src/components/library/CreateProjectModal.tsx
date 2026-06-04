@@ -56,11 +56,11 @@ export function CreateProjectModal({
     }
   };
 
-  const ModeSwitch = ({ mode, set, pathLabel }: { mode: Provide; set: (m: Provide) => void; pathLabel: string }) => (
+  const ModeSwitch = ({ mode, set }: { mode: Provide; set: (m: Provide) => void }) => (
     <div className="seg2" role="group">
       <button type="button" className={"seg-btn" + (mode === "upload" ? " on" : "")} onClick={() => set("upload")}>Upload</button>
       {sameHost && (
-        <button type="button" className={"seg-btn" + (mode === "path" ? " on" : "")} onClick={() => set("path")}>{pathLabel}</button>
+        <button type="button" className={"seg-btn" + (mode === "path" ? " on" : "")} onClick={() => set("path")}>Server path</button>
       )}
     </div>
   );
@@ -88,7 +88,7 @@ export function CreateProjectModal({
 
         <div className="fld">
           <span>Lyrics</span>
-          <ModeSwitch mode={lyricsMode} set={setLyricsMode} pathLabel="Server path" />
+          <ModeSwitch mode={lyricsMode} set={setLyricsMode} />
           {lyricsMode === "upload" ? (
             <input type="file" aria-label="Lyrics file" accept={source === "srt" ? ".srt,text/plain" : ".json,application/json"}
                    onChange={(e) => setLyricsFile(e.target.files?.[0] ?? null)} />
@@ -99,7 +99,7 @@ export function CreateProjectModal({
 
         <div className="fld">
           <span>Video (optional)</span>
-          <ModeSwitch mode={videoMode} set={setVideoMode} pathLabel="Path on server" />
+          <ModeSwitch mode={videoMode} set={setVideoMode} />
           {videoMode === "upload" ? (
             <input type="file" aria-label="Video file" accept="video/*" onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)} />
           ) : (

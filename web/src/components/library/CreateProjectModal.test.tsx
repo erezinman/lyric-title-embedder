@@ -28,9 +28,10 @@ describe("CreateProjectModal", () => {
     expect(screen.queryByRole("button", { name: /server path/i })).not.toBeInTheDocument();
   });
 
-  it("shows the server-path option when same-host", async () => {
+  it("shows the server-path option (lyrics + video) when same-host", async () => {
     setup(true);
-    expect(await screen.findByRole("button", { name: /server path/i })).toBeInTheDocument();
+    const btns = await screen.findAllByRole("button", { name: /server path/i });
+    expect(btns).toHaveLength(2);
   });
 
   it("shows the N field only for the every-N strategy", async () => {
