@@ -82,5 +82,10 @@ def make_routes(ctx, hub):
             return _err(str(e))
         return JSONResponse({"saved": b["name"]})
 
+    async def env(request):
+        client = request.client
+        same = bool(client and client.host in ("127.0.0.1", "::1", "localhost", "testclient"))
+        return JSONResponse({"same_host": same})
+
     return call, state, render, ass, ws_endpoint, frame, burn, burn_status, \
-           projects_list, projects_new, projects_open, projects_save
+           projects_list, projects_new, projects_open, projects_save, env
