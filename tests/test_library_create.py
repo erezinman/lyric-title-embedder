@@ -97,6 +97,45 @@ def t_video_path_referenced_not_copied():
         return (doc.get("video") == os.path.abspath(ext.name) and no_copy), str(doc.get("video"))
     finally: shutil.rmtree(d, ignore_errors=True)
 
+def t_srt_dash_cue_per_cue_ids_in_range():
+    # Regression: a dash-only SRT cue must NOT be dash-skipped (Suno-only option),
+    # or per_cue word counts overflow the loaded word list (out-of-range token ids).
+    srt_txt = ("1\n00:00:00,000 --> 00:00:01,000\nHello world\n\n"
+               "2\n00:00:01,000 --> 00:00:02,000\n--\n\n"
+               "3\n00:00:02,000 --> 00:00:03,000\nBye now\n")
+    d = _tmp()
+    try:
+        ctx = _ctx()
+        library.create_project(ctx, d, "dash", source="srt",
+                               lyrics_bytes=srt_txt.encode("utf-8"), line_break="per_cue")
+        proj = ctx.session.project
+        ids = [t["ids"][0] for ln in proj["layout"][0]["lines"] for t in ln["toks"]]
+        n = len(proj["words"])
+        return (n == 5 and max(ids) == n - 1
+                and [len(l["toks"]) for l in proj["layout"][0]["lines"]] == [2, 1, 2]), \
+               f"nwords={n} ids={ids}"
+    finally: shutil.rmtree(d, ignore_errors=True)
+
+def t_missing_lyrics_input_raises():
+    d = _tmp()
+    try:
+        try:
+            library.create_project(_ctx(), d, "x", source="suno_json")
+            return (False, "no raise")
+        except ValueError as e:
+            return ("lyrics" in str(e) and not os.path.exists(os.path.join(d, "x"))), str(e)
+    finally: shutil.rmtree(d, ignore_errors=True)
+
+def t_bad_lyrics_path_raises():
+    d = _tmp()
+    try:
+        try:
+            library.create_project(_ctx(), d, "x", source="srt", lyrics_path="/no/such.srt")
+            return (False, "no raise")
+        except ValueError as e:
+            return ("not found" in str(e)), str(e)
+    finally: shutil.rmtree(d, ignore_errors=True)
+
 def t_srt_timings_roundtrip():
     d = _tmp()
     try:

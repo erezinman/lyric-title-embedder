@@ -117,8 +117,10 @@ def make_routes(ctx, hub):
         return JSONResponse({"saved": b["name"]})
 
     async def env(request):
+        # same_host gates the server-path inputs in the web UI: only a client
+        # connecting from loopback can name files on the daemon's filesystem.
         client = request.client
-        same = bool(client and client.host in ("127.0.0.1", "::1", "localhost", "testclient"))
+        same = bool(client and client.host in ("127.0.0.1", "::1"))
         return JSONResponse({"same_host": same})
 
     return call, state, render, ass, ws_endpoint, frame, burn, burn_status, \

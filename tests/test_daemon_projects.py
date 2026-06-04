@@ -14,16 +14,24 @@ def check(name, fn):
     except Exception as e:
         import traceback; results.append((False, name, f"EXC {type(e).__name__}: {e}\n{traceback.format_exc()}"))
 
-def _client():
+def _client(addr=None):
     d = tempfile.mkdtemp(prefix="kss_dproj_")
     app = build_app(DaemonContext(Hub()), Hub(), token=None, projects_dir=d)
-    return TestClient(app), d
+    kw = {"client": addr} if addr else {}
+    return TestClient(app, **kw), d
 
 def t_env_same_host_loopback():
-    c, d = _client()
+    c, d = _client(addr=("127.0.0.1", 50000))
     try:
         r = c.get("/api/env")
         return (r.status_code == 200 and r.json().get("same_host") is True), r.text
+    finally: shutil.rmtree(d, ignore_errors=True)
+
+def t_env_remote_not_same_host():
+    c, d = _client(addr=("10.0.0.5", 50000))
+    try:
+        r = c.get("/api/env")
+        return (r.status_code == 200 and r.json().get("same_host") is False), r.text
     finally: shutil.rmtree(d, ignore_errors=True)
 
 SRT = ("1\n00:00:01,000 --> 00:00:03,000\nHello world\n\n"
@@ -74,6 +82,21 @@ def t_create_bad_srt_400():
         r = c.post("/api/projects/create", data={"name": "z", "source": "srt"},
                    files={"lyrics_file": ("x.srt", io.BytesIO(b"   "), "text/plain")})
         return (r.status_code == 400 and "error" in r.json()), r.text
+    finally: shutil.rmtree(d, ignore_errors=True)
+
+def t_create_missing_lyrics_400():
+    c, d = _client()
+    try:
+        r = c.post("/api/projects/create", data={"name": "nofile", "source": "suno_json"})
+        return (r.status_code == 400 and "lyrics" in r.json().get("error", "")), r.text
+    finally: shutil.rmtree(d, ignore_errors=True)
+
+def t_create_bad_lyrics_path_400():
+    c, d = _client()
+    try:
+        r = c.post("/api/projects/create",
+                   data={"name": "nopath", "source": "suno_json", "lyrics_path": "/no/such/file.json"})
+        return (r.status_code == 400 and "not found" in r.json().get("error", "")), r.text
     finally: shutil.rmtree(d, ignore_errors=True)
 
 def t_legacy_new_still_works():

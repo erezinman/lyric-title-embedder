@@ -31,18 +31,27 @@ def create_project(ctx, projects_dir, name, *, source,
         raise FileExistsError(f"a project named {name!r} already exists")
 
     # 1. Resolve + validate the lyrics source BEFORE creating the folder.
+    if lyrics_bytes is None and not lyrics_path:
+        raise ValueError("provide a lyrics file or a server-side lyrics path")
+    if lyrics_bytes is None and not os.path.isfile(lyrics_path):
+        raise ValueError(f"lyrics path not found: {lyrics_path}")
     cues = None
     if source == "suno_json":
-        raw = lyrics_bytes if lyrics_bytes is not None else open(lyrics_path, "rb").read()
+        if lyrics_bytes is None:
+            with open(lyrics_path, "rb") as fh:
+                lyrics_bytes = fh.read()
         try:
-            lyrics_doc = json.loads(raw.decode("utf-8"))
+            lyrics_doc = json.loads(lyrics_bytes.decode("utf-8"))
         except Exception as e:
             raise ValueError(f"lyrics is not valid JSON: {e}")
         if not isinstance(lyrics_doc.get("aligned_lyrics"), list) or not lyrics_doc["aligned_lyrics"]:
             raise ValueError("JSON has no non-empty 'aligned_lyrics'")
     elif source == "srt":
-        text = (lyrics_bytes.decode("utf-8") if lyrics_bytes is not None
-                else open(lyrics_path, encoding="utf-8").read())
+        if lyrics_bytes is None:
+            with open(lyrics_path, encoding="utf-8") as fh:
+                text = fh.read()
+        else:
+            text = lyrics_bytes.decode("utf-8")
         cues = engine.srt.parse_srt(text)
         lyrics_doc = engine.srt.srt_to_lyrics(cues)
     else:
@@ -64,14 +73,19 @@ def create_project(ctx, projects_dir, name, *, source,
                 raise ValueError(f"video path not found: {video_path}")
             vpath = os.path.abspath(video_path)
 
-        ctx.load_lyrics(os.path.join(folder, "lyrics.json"),
-                        group_by=group_by, skip_dashes=skip_dashes)
         if source == "srt":
+            # Every SRT atom must survive: dash-skipping and grouping are
+            # Suno-only options, and build_srt_layout's cue_word_counts assume
+            # the full word list (dropped atoms would shift/overflow token ids).
+            ctx.load_lyrics(os.path.join(folder, "lyrics.json"), skip_dashes=False)
             proj = ctx.session.project
             proj["layout"] = engine.srt.build_srt_layout(
                 proj["words"], line_break=line_break, n_words=n_words,
                 cue_word_counts=[len(c.words) for c in cues])
             ctx.session.set_project(proj)
+        else:
+            ctx.load_lyrics(os.path.join(folder, "lyrics.json"),
+                            group_by=group_by, skip_dashes=skip_dashes)
         if vpath:
             ctx.set_video(vpath)
         save_project(ctx, projects_dir, name)
@@ -93,7 +107,8 @@ def open_project(ctx, projects_dir, name):
     ctx.load_lyrics(os.path.join(folder, "lyrics.json"))
     pj = os.path.join(folder, "project.json")
     if os.path.isfile(pj):
-        d = json.load(open(pj, encoding="utf-8"))
+        with open(pj, encoding="utf-8") as fh:
+            d = json.load(fh)
         if d.get("globals_style"):
             ctx.set_globals(d["globals_style"])
         engine.apply_cues(ctx.session.project, d.get("cues_v2") or {})

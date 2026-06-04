@@ -32,6 +32,10 @@ export function CreateProjectModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const canCreate =
+    name.trim() !== "" &&
+    (lyricsMode === "upload" ? lyricsFile !== null : lyricsPath.trim() !== "");
+
   useEffect(() => { void getEnv().then((e) => setSameHost(e.same_host)).catch(() => setSameHost(false)); }, []);
 
   const submit = async () => {
@@ -148,7 +152,7 @@ export function CreateProjectModal({
 
         <div className="modal-foot">
           <button className="btn ghost" onClick={onClose} disabled={busy}>Cancel</button>
-          <button className="btn primary" onClick={() => void submit()} disabled={busy}>Create</button>
+          <button className="btn primary" onClick={() => void submit()} disabled={busy || !canCreate}>Create</button>
         </div>
       </div>
     </div>
