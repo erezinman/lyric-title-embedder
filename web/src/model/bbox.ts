@@ -8,7 +8,13 @@ export interface PlacementState {
   align: number; play_w: number; play_h: number;
   margin_l: number; margin_r: number; margin_v: number;
   pos: [number, number] | null;
+  use_pos?: boolean;   // engine renders \pos only when use_pos AND pos are set
 }
+
+/** True when the engine would actually render with \pos: use_pos AND a pos
+ * coordinate. `use_pos` absent (old payloads/fixtures) falls back to pos-only. */
+export const posActive = (p: PlacementState): boolean =>
+  p.pos != null && (p.use_pos ?? true);
 
 const BAND = 0.18;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -37,7 +43,7 @@ export function boxFromState(p: PlacementState): Box {
   else if (row === "top") { t = p.margin_v; b = Math.min(H, t + H * BAND); }
   else { t = p.margin_v; b = H - p.margin_v; }
   let box: Box = { l, t, r, b };
-  if (p.pos) {
+  if (p.pos && posActive(p)) {
     const [ax, ay] = anchorXY(box, p.align);
     box = applyMove(box, p.pos[0] - ax, p.pos[1] - ay, W, H);
   }

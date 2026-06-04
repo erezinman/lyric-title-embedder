@@ -2,6 +2,7 @@
 // \pos toggle) + disabled animation presets (engine lacks them).
 import { Icon } from "../icons/Icon";
 import type { Project } from "../../types";
+import { posActive } from "../../model/bbox";
 
 const ALIGN: Record<number, string> = {
   1: "Bottom-Left (1)", 2: "Bottom-Center (2)", 3: "Bottom-Right (3)",
@@ -19,7 +20,7 @@ export interface ControlsRailProps {
 export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos }: ControlsRailProps) {
   const pl = project.placement;
   const videoName = project.video ? project.video.split("/").pop() : "—";
-  const posOn = pl.pos != null;
+  const posOn = posActive(pl);
   return (
     <div>
       <div className="sec-t"><Icon name="film" size={13} />Source &amp; output</div>

@@ -22,7 +22,7 @@ export function ExportMenu({
       const a = document.createElement("a");
       a.href = url; a.download = `${projectName}.ass`;
       document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 0);   // defer: revoking synchronously races the download in some engines
       onClose();
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));

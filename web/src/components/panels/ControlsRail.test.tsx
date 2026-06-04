@@ -35,6 +35,11 @@ describe("ControlsRail", () => {
     expect(onSetGlobal).toHaveBeenCalledWith("align", 8);
   });
 
+  it("pos toggle shows OFF when use_pos is false even though pos is set", () => {
+    render(<ControlsRail project={proj({ pos: [960, 540], use_pos: false })} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} />);
+    expect(screen.getByRole("switch", { name: /free placement/i })).toHaveAttribute("aria-checked", "false");
+  });
+
   it("pos toggle fires onTogglePos", () => {
     const onTogglePos = vi.fn();
     render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={onTogglePos} />);

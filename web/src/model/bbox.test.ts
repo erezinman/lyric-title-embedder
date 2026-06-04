@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { boxFromState, marginsFromBox, anchorXY, applyMove, applyResize } from "./bbox";
+import { boxFromState, marginsFromBox, anchorXY, applyMove, applyResize, posActive } from "./bbox";
 import type { PlacementState } from "./bbox";
 
 const base: PlacementState = { align: 2, play_w: 1920, play_h: 1080,
@@ -30,6 +30,19 @@ describe("bbox geometry", () => {
     expect(anchorXY(b, 2)).toEqual([300, 400]);   // bottom-center
     expect(anchorXY(b, 7)).toEqual([100, 200]);   // top-left
     expect(anchorXY(b, 6)).toEqual([500, 300]);   // mid-right
+  });
+
+  it("posActive requires use_pos (when present) AND a pos", () => {
+    expect(posActive(base)).toBe(false);                                        // no pos
+    expect(posActive({ ...base, pos: [1, 2] })).toBe(true);                     // use_pos absent -> pos decides
+    expect(posActive({ ...base, pos: [1, 2], use_pos: true })).toBe(true);
+    expect(posActive({ ...base, pos: [1, 2], use_pos: false })).toBe(false);    // agent disabled \pos
+  });
+
+  it("boxFromState ignores a stale pos when use_pos is false", () => {
+    const margins = boxFromState(base);
+    const stale = boxFromState({ ...base, pos: [10, 10], use_pos: false });
+    expect(stale).toEqual(margins);
   });
 
   it("pos pins the anchor", () => {

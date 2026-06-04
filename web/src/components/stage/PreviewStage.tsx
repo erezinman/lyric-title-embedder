@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { getFrameUrl } from "../../api/client";
-import { boxFromState, marginsFromBox, anchorXY, applyMove, applyResize } from "../../model/bbox";
+import { boxFromState, marginsFromBox, anchorXY, applyMove, applyResize, posActive } from "../../model/bbox";
 import type { Box, PlacementState } from "../../model/bbox";
 
 export interface CapWord {
@@ -113,7 +113,7 @@ export function PreviewStage({
       if (d.moved && !d.cancelled) {
         const final = compute(e2);
         const pl2 = placementRef.current;
-        if (pl2.pos != null) {
+        if (posActive(pl2)) {
           onPlacementRef.current({ pos: anchorXY(final, pl2.align) });
         } else {
           onPlacementRef.current(marginsFromBox(final, pl2));

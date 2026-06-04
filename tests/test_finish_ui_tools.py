@@ -38,6 +38,11 @@ def t_get_project_video_null_then_set():
     return ("video" in p0 and p0["video"] is None
             and p1["video"] == "/tmp/some_clip.mp4"), str(p1.get("video"))
 
+def t_get_project_exposes_use_pos():
+    c = _ctx()
+    p0 = tools.get_project(c)
+    return ("use_pos" in p0["placement"]), str(sorted(p0["placement"].keys()))
+
 def t_registered_in_server():
     import inspect
     from mcp_server import server

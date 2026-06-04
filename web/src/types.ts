@@ -23,6 +23,7 @@ export interface FadeTag { ids: number[]; trigger: number | null; }
 export interface Placement {
   align: number; play_w: number; play_h: number;
   margin_l: number; margin_r: number; margin_v: number; pos: [number, number] | null;
+  use_pos?: boolean;
 }
 export interface Globals { fade_in_ms: number; fade_out_ms: number; linger: number; }
 export interface Project {
