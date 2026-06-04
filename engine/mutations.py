@@ -114,6 +114,19 @@ def merge_prev_word(project, gi, li, ti, sep=""):
         toks[ti - 1:ti + 1] = [{"ids": ids, "sep": sep, "del": toks[ti - 1].get("del", False),
                                 "style": dict(toks[ti - 1].get("style") or {})}]  # preserves left token's style (legacy AppV2 dropped it)
 
+def merge_token_span(project, gi, li, ti_first, ti_last, sep=""):
+    """Collapse tokens [ti_first..ti_last] of one line into a single token.
+    ids concatenate in order; keeps the LEFT token's style and del flag
+    (same semantics as merge_prev_word). One call = one undo step."""
+    toks = project["layout"][gi]["lines"][li]["toks"]
+    if not (0 <= ti_first < ti_last < len(toks)):
+        raise ValueError(f"invalid token span [{ti_first}..{ti_last}] "
+                         f"for a line of {len(toks)} tokens")
+    ids = [i for t in toks[ti_first:ti_last + 1] for i in t["ids"]]
+    toks[ti_first:ti_last + 1] = [{"ids": ids, "sep": sep,
+                                   "del": toks[ti_first].get("del", False),
+                                   "style": dict(toks[ti_first].get("style") or {})}]
+
 def layout_merge(project, gidxs):
     idx = sorted(set(gidxs))
     if len(idx) < 2 or idx != list(range(idx[0], idx[-1] + 1)):
