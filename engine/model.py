@@ -5,8 +5,12 @@ import core
 BUILTIN = {"fade_in_ms": 250, "fade_out_ms": 1000, "linger": 0.0}
 
 STYLE_KEYS = ["font", "fontsize", "bold", "primary", "outline", "back",
-              "back_alpha", "outline_w", "shadow", "border_style"]
-CUE_STYLE_KEYS = [k for k in STYLE_KEYS if k != "border_style"]   # C1: box-mode group-only
+              "back_alpha", "outline_w", "shadow", "border_style", "align"]
+# Group-only keys (cue cannot override): border_style has no inline per-cue tag
+# within one Dialogue (C1); align (\an) applies to a whole event, so a per-cue
+# value is physically meaningless.
+GROUP_ONLY_STYLE_KEYS = ("border_style", "align")
+CUE_STYLE_KEYS = [k for k in STYLE_KEYS if k not in GROUP_ONLY_STYLE_KEYS]
 
 FADE_KEYS = ["fade_in_ms", "fade_out_ms"]
 
@@ -54,12 +58,12 @@ def _tag_of(tags, wid):
 
 def resolve_style(token, group, gctx):
     """Resolve effective style for a token: cue -> group -> global (gctx).
-    border_style resolves group -> global only (cue cannot override it, C1)."""
+    Group-only keys (border_style C1, align) resolve group -> global only."""
     ts = (token or {}).get("style") or {}
     gs = (group or {}).get("style") or {}
     out = {}
     for k in STYLE_KEYS:
-        if k != "border_style" and ts.get(k) is not None:
+        if k not in GROUP_ONLY_STYLE_KEYS and ts.get(k) is not None:
             out[k] = ts[k]
         elif gs.get(k) is not None:
             out[k] = gs[k]

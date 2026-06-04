@@ -1,14 +1,15 @@
-export const STYLE_KEYS = ["font","fontsize","bold","primary","outline","back","back_alpha","outline_w","shadow","border_style"] as const;
-export const CUE_STYLE_KEYS = STYLE_KEYS.filter((k) => k !== "border_style");
+export const STYLE_KEYS = ["font","fontsize","bold","primary","outline","back","back_alpha","outline_w","shadow","border_style","align"] as const;
+export const CUE_STYLE_KEYS = STYLE_KEYS.filter((k) => k !== "border_style" && k !== "align");   // group-only keys
 export const FADE_KEYS = ["fade_in_ms","fade_out_ms"] as const;
 
 export type StyleKey = (typeof STYLE_KEYS)[number];
 export interface GlobalStyle {
   font: string; fontsize: number; bold: boolean; primary: string; outline: string;
   back: string; back_alpha: string; outline_w: number; shadow: number; border_style: number;
+  align: number;
 }
 export type StyleOverrides = Partial<GlobalStyle>;
-export type CueStyleOverrides = Omit<Partial<GlobalStyle>, "border_style">;
+export type CueStyleOverrides = Omit<Partial<GlobalStyle>, "border_style" | "align">;
 export interface FadeOverrides { fade_in_ms?: number; fade_out_ms?: number; }
 
 export interface Word { text: string; start: number; end: number; }

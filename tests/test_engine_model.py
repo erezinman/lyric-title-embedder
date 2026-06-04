@@ -23,7 +23,7 @@ CFG2 = dict(CFG, group_by="line", skip_dashes=False)
 GCTX = {
     "font": "Arial", "fontsize": 12, "bold": False, "primary": "#FF0000",
     "outline": "#000000", "back": "#000000", "back_alpha": "80",
-    "outline_w": 2, "shadow": 0, "border_style": 1,
+    "outline_w": 2, "shadow": 0, "border_style": 1, "align": 2,
 }
 
 # ---------------------------------------------------------------------------
@@ -44,19 +44,20 @@ def check(name, fn):
 # STYLE_KEYS / CUE_STYLE_KEYS membership
 # ===========================================================================
 
-def t_style_keys_exact_10():
-    """STYLE_KEYS has exactly 10 entries, all expected names present."""
+def t_style_keys_exact_11():
+    """STYLE_KEYS has exactly 11 entries, all expected names present (align added: group-only)."""
     expected = {"font", "fontsize", "bold", "primary", "outline", "back",
-                "back_alpha", "outline_w", "shadow", "border_style"}
-    ok = set(engine.STYLE_KEYS) == expected and len(engine.STYLE_KEYS) == 10
+                "back_alpha", "outline_w", "shadow", "border_style", "align"}
+    ok = set(engine.STYLE_KEYS) == expected and len(engine.STYLE_KEYS) == 11
     return ok, f"got {engine.STYLE_KEYS}"
 
 
 def t_cue_style_keys_exact_9():
-    """CUE_STYLE_KEYS has exactly 9 entries; border_style is absent."""
+    """CUE_STYLE_KEYS has exactly 9 entries; group-only keys (border_style, align) absent."""
     ok = (len(engine.CUE_STYLE_KEYS) == 9
           and "border_style" not in engine.CUE_STYLE_KEYS
-          and set(engine.CUE_STYLE_KEYS) == set(engine.STYLE_KEYS) - {"border_style"})
+          and "align" not in engine.CUE_STYLE_KEYS
+          and set(engine.CUE_STYLE_KEYS) == set(engine.STYLE_KEYS) - {"border_style", "align"})
     return ok, f"CUE={engine.CUE_STYLE_KEYS}"
 
 

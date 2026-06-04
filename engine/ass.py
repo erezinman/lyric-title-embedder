@@ -10,7 +10,7 @@ def _gctx(cfg):
             "primary": cfg["primary_color"], "outline": cfg["outline_color"],
             "back": cfg["back_color"], "back_alpha": cfg["back_alpha"],
             "outline_w": cfg["outline_w"], "shadow": cfg["shadow"],
-            "border_style": cfg["border_style"]}
+            "border_style": cfg["border_style"], "align": cfg["align"]}
 
 def _resolve(word_style, group_style, gctx):
     return resolve_style({"style": word_style}, {"style": group_style}, gctx)
@@ -44,7 +44,12 @@ def build_ass(cfg, groups):
     gctx = _gctx(cfg)
 
     def ev_text(g):
-        ev = g["start"]; parts = [pos_tag]
+        ev = g["start"]
+        # group-level alignment override: \an applies to the whole event, so it is
+        # emitted once here (group -> global only; never per cue).
+        ga = (g.get("group_style") or {}).get("align")
+        an_tag = f"{{\\an{int(ga)}}}" if ga is not None and int(ga) != int(gctx["align"]) else ""
+        parts = [an_tag, pos_tag]
         baseline = dict(gctx)            # Style provides global; reset per event
         cur = dict(baseline)
         for li, line in enumerate(g["lines"]):

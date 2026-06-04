@@ -18,6 +18,14 @@ const STYLE_META: Record<string, { label: string; kind: string; fmt: (v: unknown
   outline_w:    { label: "Outline w",   kind: "step",   fmt: v => v + " px", step: 1, min: 0 },
   shadow:       { label: "Shadow",      kind: "step",   fmt: v => v + " px", step: 1, min: 0 },
   border_style: { label: "Border mode", kind: "mode",   fmt: v => (v === 3 ? "Opaque box" : "Outline") },
+  align:        { label: "Alignment",   kind: "step",   fmt: v => `${ALIGN_SHORT[Number(v)] ?? "?"} (${v})`, step: 1, min: 1, max: 9 },
+};
+
+// numpad anchor short names (1..9)
+const ALIGN_SHORT: Record<number, string> = {
+  1: "Bot-Left", 2: "Bot-Center", 3: "Bot-Right",
+  4: "Mid-Left", 5: "Center", 6: "Mid-Right",
+  7: "Top-Left", 8: "Top-Center", 9: "Top-Right",
 };
 
 const COLOR_OPTS = ["#FFFFFF", "#FF3DA6", "#8A5BFF", "#3DE0FF", "#000000", "#4DE0C2", "#FFC24D"];
