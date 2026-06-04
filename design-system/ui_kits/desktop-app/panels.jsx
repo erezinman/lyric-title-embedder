@@ -15,23 +15,36 @@ const STYLE_META = {
   border_style:{ label: "Border mode", kind: "mode",   fmt: v => (v === 3 ? "Opaque box" : "Outline") },
 };
 
-function ControlsRail({ placement }) {
+function ControlsRail({ placement, onPlacement, meta }) {
   const pl = placement || {};
-  const ALIGN = { 1:"Bottom-Left (1)",2:"Bottom-Center (2)",3:"Bottom-Right (3)",4:"Mid-Left (4)",5:"Center (5)",6:"Mid-Right (6)",7:"Top-Left (7)",8:"Top-Center (8)",9:"Top-Right (9)" };
+  const [agOpen, setAgOpen] = React.useState(false);
+  const ALIGN = { 1:"Bottom-Left", 2:"Bottom-Center", 3:"Bottom-Right", 4:"Mid-Left", 5:"Center", 6:"Mid-Right", 7:"Top-Left", 8:"Top-Center", 9:"Top-Right" };
+  const cur = pl.align || 2;
   return (
     <div>
       <div className="sec-t"><Icon name="film" size={13} />Source &amp; output</div>
-      <div className="ctl"><label>Lyrics</label><div className="text-inp" style={{ maxWidth: 168 }}><span className="path">bleating_obsession.json</span></div></div>
-      <div className="ctl"><label>Video</label><div className="text-inp" style={{ maxWidth: 168 }}><span className="path">bleating_master.mp4</span></div></div>
-      <div className="ctl"><label>Group lyrics by</label><Select value="section" /></div>
+      <div className="ctl"><label>Lyrics</label><div className="text-inp" style={{ maxWidth: 168 }}><span className="path">{meta.lyrics}</span></div></div>
+      <div className="ctl"><label>Video</label><div className="text-inp" style={{ maxWidth: 168 }}><span className="path">{meta.video || "—"}</span></div></div>
 
       <div className="sec-t spacer"><Icon name="align" size={13} />Placement (global)</div>
       <div className="ctl"><label>Canvas</label><div className="text-inp mono" style={{ maxWidth: 120, justifyContent: "center" }}>{pl.play_w || 1920}×{pl.play_h || 1080}</div></div>
-      <div className="ctl"><label>Alignment</label><Select value={ALIGN[pl.align || 2]} /></div>
-      <div className="ctl"><label>Free placement (\pos)</label><Toggle on={!!pl.use_pos} /></div>
-      <p className="wf-note" style={{ textAlign: "left", marginTop: 2, marginBottom: 2, lineHeight: 1.5 }}>
-        Placement &amp; canvas are <b>global</b> — edited via <span className="mono">set_globals</span>, not project state.
-      </p>
+      <div className="ctl"><label>Alignment</label>
+        <div className="ag-wrap">
+          <button className="kit-sel" onClick={() => setAgOpen(o => !o)}>{ALIGN[cur]} ({cur})<Icon name="chevDown" size={14} /></button>
+          {agOpen && (
+            <>
+              <div className="ag-back" onClick={() => setAgOpen(false)} />
+              <div className="ag-grid">
+                {[7,8,9,4,5,6,1,2,3].map(n => (
+                  <button key={n} className={"ag-cell" + (cur === n ? " on" : "")} title={ALIGN[n] + " (" + n + ")"} onClick={() => { onPlacement({ align: n }); setAgOpen(false); }}><span /></button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="ctl"><label>Free placement (\pos)</label><span onClick={() => onPlacement({ use_pos: !pl.use_pos })}><Toggle on={!!pl.use_pos} /></span></div>
+      <p className="rail-note"><Icon name="align" size={11} />{pl.use_pos ? "Pin coordinate comes from dragging the preview box." : "Margins come from dragging the preview box edges."}</p>
 
       <div className="sec-t spacer disabled-sec"><Icon name="sparkles" size={13} />Animation preset<span className="soon">Coming soon</span></div>
       <div className="chips disabled">

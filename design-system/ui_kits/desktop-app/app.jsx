@@ -29,7 +29,9 @@ function Editor({ projectId, onHome }) {
   const [pvMode, setPvMode] = useState("live");
   const [toast, setToast] = useState(null);
   const [aiHot, setAiHot] = useState(null); // {key, tier}
+  const [exportOpen, setExportOpen] = useState(false);
   const raf = useRef(null);
+  const meta = { lyrics: "bleating_obsession.json", video: "bleating_master.mp4" };
 
   const dur = totalDuration(P);
 
@@ -142,6 +144,9 @@ function Editor({ projectId, onHome }) {
     setToast({ msg: "Ungrouped event into solo cues" }); setTimeout(() => setToast(null), 2000);
   };
   const setLayoutProp = (patch) => H.set(p => { const np = clone(p); Object.assign(np.layout[sel.gi], patch); return np; });
+  // placement is engine-global (cfg); in the kit we store on the project for the demo.
+  const setPlacement = (patch) => H.set(p => { const np = clone(p); np.placement = { ...np.placement, ...patch }; return np; });
+  const setFadeDefaults = (patch) => H.set(p => { const np = clone(p); np.globals = { ...np.globals, ...patch }; return np; });
   const splitEvent = () => {
     const gi = sel.gi; if (gi == null) return; const g = P.layout[gi]; if (!g || g.lines.length < 2) return;
     H.set(p => { const np = clone(p); const ev = np.layout[gi]; const at = 1; // split after first line
@@ -164,7 +169,9 @@ function Editor({ projectId, onHome }) {
       np.layout.forEach(g => g.lines.forEach(l => l.toks.forEach(t => { if (t.ids.some(id => ids.includes(id))) t.del = anyLive; }))); return np; });
   };
   const toggleCollapse = (gi) => setCollapsed(c => { const n = new Set(c); n.has(gi) ? n.delete(gi) : n.add(gi); return n; });
-  const doExport = () => { setToast({ msg: "Burned → " + (PROJ_NAMES[projectId] || "project").toLowerCase().replace(/\s+/g, "_") + "_subbed.mp4" }); setTimeout(() => setToast(null), 2600); };
+  const doBurn = (out) => { setExportOpen(false); setToast({ msg: "Burning → " + out + " · 0%" });
+    setTimeout(() => setToast({ msg: "Burned → " + out }), 1400); setTimeout(() => setToast(null), 3400); };
+  const doDownload = () => { setExportOpen(false); setToast({ msg: "Saved → " + (PROJ_NAMES[projectId] || "project").toLowerCase().replace(/\s+/g, "_") + ".ass" }); setTimeout(() => setToast(null), 2400); };
 
   // ── derived: caption + timeline ──
   const activeGi = (() => { let idx = 0; P.layout.forEach((g, gi) => { const [s] = eventWindow(P, gi); if (s <= time) idx = gi; }); return idx; })();
@@ -198,7 +205,8 @@ function Editor({ projectId, onHome }) {
     <div className="app">
       <TopBar project={PROJ_NAMES[projectId] || "Untitled"} time={time} dur={dur} playing={playing} aiConnected={true}
         onPlay={() => setPlaying(p => !p)} onSeekRel={(d) => setTime(t => Math.max(0, Math.min(dur, t + d)))}
-        onHome={onHome} onExport={doExport} onUndo={H.undo} onRedo={H.redo} canUndo={H.canUndo} canRedo={H.canRedo} />
+        exportOpen={exportOpen} onHome={onHome} onExport={() => setExportOpen(o => !o)} onUndo={H.undo} onRedo={H.redo} canUndo={H.canUndo} canRedo={H.canRedo} />
+      {exportOpen && <ExportPopover projectName={PROJ_NAMES[projectId]} onBurn={doBurn} onDownload={doDownload} onClose={() => setExportOpen(false)} />}
 
       <div className="body">
         <aside className="rail">
@@ -208,11 +216,12 @@ function Editor({ projectId, onHome }) {
           </div>
           <div className="rail-body">
             {railTab === "style"
-              ? <ControlsRail placement={P.placement} />
+              ? <ControlsRail placement={P.placement} onPlacement={setPlacement} meta={meta} />
               : <>
                   <StyleWaterfall project={P} sel={{ scope: sel.scope, gi: sel.gi, tok: curTok }} aiTier={aiHot && aiHot.key === "g" + sel.gi ? aiHot.tier : null}
                     onSelectTier={selectTier} onSetStyle={setStyle} onClearStyle={clearStyle} />
                   {(finOf || foutOf) && <FadeGroupPanel finOf={finOf} foutOf={foutOf} globals={P.globals} palette={P.palette} onSet={setFadeProps} onClear={clearFade} />}
+                  <FadeDefaultsPanel globals={P.globals} onSet={setFadeDefaults} />
                   {curTok && <TimingPanel tok={curTok} project={P} />}
                 </>}
           </div>
@@ -221,6 +230,7 @@ function Editor({ projectId, onHome }) {
         <main className="center">
           <div className="stage-pad">
             <PreviewStage capWords={capWords} time={time} mode={pvMode} onMode={setPvMode}
+              placement={P.placement} onPlacement={setPlacement}
               onSelectWord={selectWordByWid} onRenderExact={() => { setToast({ msg: "Rendered exact libass frame @ " + time.toFixed(2) + "s" }); setTimeout(() => setToast(null), 1800); }} />
           </div>
         </main>
@@ -255,6 +265,33 @@ function Editor({ projectId, onHome }) {
       </section>
 
       {toast && <div className={"toast" + (toast.ai ? " ai" : "")}><Icon name={toast.ai ? "sparkles" : "check"} size={15} />{toast.msg}{toast.ai && <button className="toast-undo" onClick={H.undo}>Undo</button>}</div>}
+    </div>
+  );
+}
+
+// global fade defaults — always shown in the inspector (project-wide setting).
+function FadeDefaultsPanel({ globals, onSet }) {
+  const Step = ({ lab, k, unit, step, min }) => {
+    const round = (n) => Math.round(n / step) * step;
+    const disp = unit === " s" ? (globals[k] ?? 0).toFixed(1) : globals[k];
+    return (
+      <div className="fd-row">
+        <span className="fd-l">{lab}</span>
+        <span className="pv-step sm">
+          <span className="pm" onClick={() => onSet({ [k]: Math.max(min ?? 0, round((globals[k] ?? 0) - step)) })}>−</span>
+          <span className="v">{disp}{unit}</span>
+          <span className="pm" onClick={() => onSet({ [k]: round((globals[k] ?? 0) + step) })}>+</span>
+        </span>
+      </div>
+    );
+  };
+  return (
+    <div className="fg-panel defaults">
+      <div className="fg-head"><Icon name="clock" size={13} />Fade defaults<span className="fg-hint">project-wide · global</span></div>
+      <Step lab="Fade-in" k="fade_in_ms" unit=" ms" step={50} />
+      <Step lab="Fade-out" k="fade_out_ms" unit=" ms" step={50} />
+      <Step lab="Linger" k="linger" unit=" s" step={0.1} />
+      <p className="fd-note">Per-group fade rows inherit these unless overridden (the “global” source tag).</p>
     </div>
   );
 }
