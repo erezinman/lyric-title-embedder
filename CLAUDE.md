@@ -91,6 +91,10 @@ tkinter dependency and can be imported in headless environments.
   new **`set_group_style(project, gi, partial)`** and **`set_cue_style(project, ids, partial)`**.
 - **`engine/ffmpeg.py`** — `burn_cmd`, `frame_cmd`, `probe_duration`, and a headless
   `run(cmd, progress_cb)` that parses `-progress` and calls `progress_cb(frac)` — no tkinter.
+- **`engine/srt.py`** — SRT import: `parse_srt`, `srt_to_lyrics` (one word-atom per SRT word,
+  all sharing the cue's `[start,end]`; each word gets a leading space so `merge_subwords` keeps
+  atoms distinct through the real loader), `build_srt_layout` (line-break strategies
+  `none`/`every_n`/`punctuation`/`per_cue`, default `none`; single "Subtitles" seed group).
 
 ### controller.py — UI-free undo/redo
 
@@ -136,12 +140,17 @@ See `docs/superpowers/specs/2026-06-03-engine-daemon-design.md` for the full des
   `loop.call_soon_threadsafe` and fires the async broadcast.
 - **`daemon/api.py`** — Starlette route factories: `POST /api/call` (dispatches to
   `mcp_server/tools.py` by name), `GET /api/state|render|ass`, `GET /api/frame?t=` (PNG),
-  `POST /api/burn` + `GET /api/burn/{job_id}`, project library routes.
+  `POST /api/burn` + `GET /api/burn/{job_id}`, `GET /api/env` (same-host loopback flag that
+  gates the web UI's server-path inputs), and project library routes incl.
+  `POST /api/projects/create` (multipart create/import; legacy `/new` is a thin shim over it).
 - **`daemon/app.py`** — `build_app(ctx, hub)` assembles the Starlette app: co-mounts
   `build_server(ctx).sse_app(mount_path="/mcp")`, adds the `/api` routes and `/ws` WebSocket
   endpoint, optional bearer-token middleware on `/api`, CORS.
 - **`daemon/library.py`** — project library: self-contained folders under a projects dir
-  (`<name>/lyrics.json` + `<name>/project.json`).
+  (`<name>/lyrics.json` + `<name>/project.json`, which also persists a `video` reference —
+  folder-relative when uploaded, absolute when a server path). `create_project` is the single
+  create path: Suno JSON written verbatim or SRT converted via `engine/srt.py`; bytes or
+  server-side path; atomic (no folder left on failure).
 - **`daemon/__main__.py`** — CLI entry: `python -m daemon [--port 8770] [--projects-dir projects]
   [--json aligned_lyrics.json]`; loopback-only; `KSS_MCP_TOKEN` guards `/api`.
 

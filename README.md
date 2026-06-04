@@ -320,7 +320,7 @@ engine `Session`**:
 | Endpoint | What it does |
 |----------|-------------|
 | **`/mcp`** | The existing FastMCP SSE server (AI clients) — co-mounted on the same uvicorn process, sharing the daemon's `Session`. |
-| **`/api/*`** | A web HTTP API — `POST /api/call {tool, args}` (the full `mcp_server/tools.py` surface), `GET /api/state`, `GET /api/render`, `GET /api/ass`, `GET /api/frame?t=` (PNG), `POST /api/burn` + `GET /api/burn/{job_id}`, and a project library (`GET /api/projects`, `POST /api/projects/new|open|save`). |
+| **`/api/*`** | A web HTTP API — `POST /api/call {tool, args}` (the full `mcp_server/tools.py` surface), `GET /api/state`, `GET /api/render`, `GET /api/ass`, `GET /api/frame?t=` (PNG), `POST /api/burn` + `GET /api/burn/{job_id}`, `GET /api/env` (same-host flag), and a project library (`GET /api/projects`, `POST /api/projects/create` — multipart create/import from a Suno JSON or SRT upload/server-path with optional video — plus `POST /api/projects/new|open|save`). |
 | **`/ws`** | A WebSocket that pushes full state (`{type:"state", state}`) to every connected client on every `Session.on_change` — so AI (MCP) and web-UI edits broadcast to all clients (shared undo/redo timeline). |
 
 ### Run
