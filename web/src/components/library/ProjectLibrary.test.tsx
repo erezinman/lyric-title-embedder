@@ -1,16 +1,20 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ProjectLibrary } from "./ProjectLibrary";
 import * as client from "../../api/client";
 
+beforeEach(() => {
+  vi.restoreAllMocks();
+  vi.spyOn(client.projects, "list").mockResolvedValue([]);
+  vi.spyOn(client, "getEnv").mockResolvedValue({ same_host: false });
+});
+
 describe("ProjectLibrary", () => {
-  it("lists projects from the API and opens on click", async () => {
-    vi.spyOn(client.projects, "list").mockResolvedValue(["song1", "song2"]);
+  it("opens the create modal instead of calling onOpen('')", async () => {
     const onOpen = vi.fn();
     render(<ProjectLibrary onOpen={onOpen} />);
-    await waitFor(() => screen.getByText("song1"));
-    await userEvent.click(screen.getByText("song1"));
-    expect(onOpen).toHaveBeenCalledWith("song1");
+    fireEvent.click(screen.getAllByRole("button", { name: /new project/i })[0]);
+    await waitFor(() => expect(screen.getByRole("heading", { name: /new project/i })).toBeInTheDocument());
+    expect(onOpen).not.toHaveBeenCalled();
   });
 });

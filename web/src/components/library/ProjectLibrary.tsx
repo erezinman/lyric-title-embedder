@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { projects } from "../../api/client";
 import { Icon } from "../icons/Icon";
 import logo from "../../assets/logo-mark.svg";
+import { CreateProjectModal } from "./CreateProjectModal";
 
 function ProjectThumb() {
   return (
@@ -13,6 +14,7 @@ function ProjectThumb() {
 
 export function ProjectLibrary({ onOpen }: { onOpen: (name: string) => void }) {
   const [names, setNames] = useState<string[]>([]);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     void projects.list().then(setNames).catch(() => setNames([]));
@@ -28,7 +30,7 @@ export function ProjectLibrary({ onOpen }: { onOpen: (name: string) => void }) {
         </div>
         <div className="flex" />
         <div className="lib-search"><Icon name="search" size={15} />Search projects…</div>
-        <button className="btn primary" onClick={() => onOpen("")}><Icon name="plus" size={15} />New project</button>
+        <button className="btn primary" onClick={() => setCreating(true)}><Icon name="plus" size={15} />New project</button>
       </div>
       <div className="lib-inner">
         <div className="lib-hero">
@@ -38,7 +40,7 @@ export function ProjectLibrary({ onOpen }: { onOpen: (name: string) => void }) {
           </div>
         </div>
         <div className="lib-grid">
-          <div className="proj new" onClick={() => onOpen("")}>
+          <div className="proj new" onClick={() => setCreating(true)}>
             <div className="plus"><Icon name="plus" size={22} /></div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14 }}>New project</div>
             <div className="ks-small" style={{ color: "var(--text-3)" }}>Import lyrics + video</div>
@@ -53,6 +55,12 @@ export function ProjectLibrary({ onOpen }: { onOpen: (name: string) => void }) {
           ))}
         </div>
       </div>
+      {creating && (
+        <CreateProjectModal
+          onClose={() => setCreating(false)}
+          onCreated={(name) => { setCreating(false); onOpen(name); }}
+        />
+      )}
     </div>
   );
 }
