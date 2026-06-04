@@ -61,12 +61,46 @@ def make_routes(ctx, hub):
     async def projects_new(request):
         b = await request.json()
         try:
-            library.new_project(request.app.state.projects_dir, b["name"], b["lyrics_path"])
-            library.open_project(ctx, request.app.state.projects_dir, b["name"])
-            library.save_project(ctx, request.app.state.projects_dir, b["name"])  # persist project.json so it is listable immediately
+            opened = library.create_project(ctx, request.app.state.projects_dir, b["name"],
+                                             source="suno_json", lyrics_path=b["lyrics_path"])
+        except FileExistsError as e:
+            return _err(str(e), 409)
         except ValueError as e:
             return _err(str(e))
-        return JSONResponse({"opened": b["name"]})
+        return JSONResponse({"opened": opened})
+
+    async def projects_create(request):
+        form = await request.form()
+        def g(k, default=None):
+            v = form.get(k)
+            return v if (v is not None and v != "") else default
+        try:
+            kwargs = dict(
+                source=g("source", "suno_json"),
+                group_by=g("group_by", "section"),
+                skip_dashes=(g("skip_dashes", "true") == "true"),
+                line_break=g("line_break", "none"),
+                n_words=int(g("n_words", "5")),
+            )
+            lf = form.get("lyrics_file")
+            if lf is not None and hasattr(lf, "read"):
+                kwargs["lyrics_bytes"] = await lf.read()
+            else:
+                kwargs["lyrics_path"] = g("lyrics_path")
+            vf = form.get("video_file")
+            if vf is not None and hasattr(vf, "read"):
+                kwargs["video_bytes"] = await vf.read()
+                kwargs["video_name"] = getattr(vf, "filename", "video.mp4")
+            elif g("video_path"):
+                kwargs["video_path"] = g("video_path")
+            opened = library.create_project(ctx, request.app.state.projects_dir, g("name"), **kwargs)
+        except FileExistsError as e:
+            return _err(str(e), 409)
+        except ValueError as e:
+            return _err(str(e), 400)
+        except Exception as e:
+            return _err(f"{type(e).__name__}: {e}", 422)
+        return JSONResponse({"opened": opened})
     async def projects_open(request):
         b = await request.json()
         try:
@@ -88,4 +122,4 @@ def make_routes(ctx, hub):
         return JSONResponse({"same_host": same})
 
     return call, state, render, ass, ws_endpoint, frame, burn, burn_status, \
-           projects_list, projects_new, projects_open, projects_save, env
+           projects_list, projects_new, projects_open, projects_save, env, projects_create

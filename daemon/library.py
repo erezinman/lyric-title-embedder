@@ -87,11 +87,6 @@ def list_projects(projects_dir):
     return sorted(n for n in os.listdir(projects_dir)
                   if os.path.isfile(os.path.join(projects_dir, n, "project.json")))
 
-def new_project(projects_dir, name, lyrics_path):
-    name = _safe(name)
-    dst = os.path.join(projects_dir, name); os.makedirs(dst, exist_ok=True)
-    shutil.copyfile(lyrics_path, os.path.join(dst, "lyrics.json"))
-
 def open_project(ctx, projects_dir, name):
     name = _safe(name)
     folder = os.path.join(projects_dir, name)
