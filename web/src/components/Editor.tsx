@@ -589,6 +589,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                     foutTag={foutTag}
                     onSet={setFadeTrigger}
                     onClear={clearFade}
+                    onSetDefault={(key, value) => dispatch("set_fade_defaults", { [key]: value })}
                   />
                 )}
                 {tok && <TimingPanel key={sel.tok ? `${sel.gi}-${sel.tok.li}-${sel.tok.ti}` : "none"} tok={tok} project={P} unlocked={timingsUnlocked} onToggleLock={() => setTimingsUnlocked((u) => !u)} onSetTime={setCueTime} onSetText={setCueText} />}
