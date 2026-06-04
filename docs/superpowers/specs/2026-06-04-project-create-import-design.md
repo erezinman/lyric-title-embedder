@@ -158,10 +158,22 @@ Both "New project" controls open the modal (state in `App` or library), not `onO
 ## 6. Testing
 
 **Python (stdlib `assert` scripts under `tests/`, run via `.venv/bin/python tests/<f>.py`):**
-- `engine/srt.py`: parse well-formed SRT (indices, `hh:mm:ss,mmm` → seconds, multi-line cue text);
-  word-split + shared cue timing (every atom of a cue has the cue's start/end); leading-space atom
-  boundary survives a lowercase-leading cue (stays a distinct atom); each line-break strategy
-  produces the expected line layout; default is "no breaks" (single line); malformed SRT → `ValueError`.
+- `engine/srt.py` (TDD, test-first — not deferred):
+  - **Parse:** well-formed SRT (sequential indices, `hh:mm:ss,mmm` → seconds with ms precision,
+    multi-line cue text joined), blank-line cue separation, trailing/leading whitespace tolerance.
+  - **Word-split + shared timing:** each cue's text splits into words; every resulting atom carries
+    that cue's `[start, end]` (assert exact equality across a cue's atoms).
+  - **Atom-count fidelity:** total atoms == total words across all cues (no accidental merges/drops);
+    punctuation stays attached to its word.
+  - **make_project round-trip (critical):** feed the generated `lyrics.json` through the *real*
+    `engine.make_project` and assert `len(words) == expected` and `words[i].text` matches — i.e. the
+    leading-space atom boundary survives `reconstruct_lines` + `merge_subwords`, including a
+    **lowercase-leading cue** (which `reconstruct_lines` would line-merge) where the atoms must still
+    stay distinct.
+  - **Line-break strategies:** each of No-breaks (default → single line), Every-N-words (respects N),
+    On-punctuation (breaks at `,.!?;:`), One-line-per-cue produces the expected line layout; seed
+    group label is `"Subtitles"`.
+  - **Errors:** malformed SRT (bad timecode, missing arrow, empty file) → `ValueError`.
 - `library.create_project`: suno_json from bytes and from path; srt from bytes; optional video
   (path → referenced, bytes → copied into folder); name collision → `FileExistsError`; failure
   leaves no folder; `save`→`open` round-trip restores video and (for SRT) the exact word timings +
