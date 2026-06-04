@@ -1,5 +1,4 @@
 import React from "react";
-import { Icon } from "../icons/Icon";
 
 export function Toggle({ on, onClick }: { on: boolean; onClick?: () => void }) {
   return (
@@ -19,23 +18,6 @@ export function Stepper({ value }: { value: string | number }) {
   );
 }
 
-export function Select({ value }: { value: string }) {
-  return (
-    <div className="select">
-      {value}
-      <Icon name="chevDown" size={14} />
-    </div>
-  );
-}
-
-export function Combo({ value }: { value: string }) {
-  return (
-    <div className="combo">
-      {value}
-      <Icon name="chevDown" size={14} />
-    </div>
-  );
-}
 
 export function Swatches({ colors }: { colors: string[] }) {
   return (

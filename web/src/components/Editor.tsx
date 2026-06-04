@@ -5,6 +5,7 @@ import { TopBar } from "./TopBar";
 import { Icon } from "./icons/Icon";
 import { resolveStyle, eventWindow, wordSchedule } from "../model/resolve";
 import { computeMove, computeResize } from "../model/edit";
+import { boxFromState, anchorXY } from "../model/bbox";
 import type { Token } from "../types";
 
 // Panels
@@ -531,7 +532,20 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
             </button>
           </div>
           <div className="rail-body">
-            {railTab === "project" && <ControlsRail project={P} />}
+            {railTab === "project" && (
+              <ControlsRail
+                project={P}
+                projectName={projectName}
+                onSetGlobal={(key, value) => dispatch("set_globals", { partial: { [key]: value } })}
+                onTogglePos={(on) => {
+                  const box = boxFromState(P.placement);
+                  const partial = on
+                    ? { use_pos: true, pos: anchorXY(box, P.placement.align) }
+                    : { use_pos: false, pos: null };
+                  dispatch("set_globals", { partial });
+                }}
+              />
+            )}
             {railTab === "inspector" && (
               <>
                 <StyleWaterfall

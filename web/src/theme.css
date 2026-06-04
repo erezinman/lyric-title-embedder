@@ -438,3 +438,6 @@ svg.lucide { display: block; }
 .seg2 .seg-btn.on { background: var(--accent); color: var(--text-on-accent); font-weight: 600; }
 .form-err { background: rgba(255,61,61,.12); border: 1px solid rgba(255,61,61,.5);
   color: #ffb4b4; border-radius: 8px; padding: 8px 10px; font-size: 13px; margin-top: 8px; }
+
+select.select { appearance: none; background: var(--surface-3); color: var(--text-1);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 10px; font: inherit; }
