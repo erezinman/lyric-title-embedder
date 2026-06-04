@@ -17,6 +17,7 @@ import { WordTrack } from "./stage/WordTrack";
 import type { TrackWord } from "./stage/WordTrack";
 import { StyleWaterfall } from "./panels/StyleWaterfall";
 import { FadeGroupPanel } from "./panels/FadeGroupPanel";
+import { FadeDefaultsPanel } from "./panels/FadeDefaultsPanel";
 import { TimingPanel } from "./panels/TimingPanel";
 import { CueLanes } from "./panels/CueLanes";
 import { OpsToolbar } from "./panels/OpsToolbar";
@@ -589,9 +590,12 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                     foutTag={foutTag}
                     onSet={setFadeTrigger}
                     onClear={clearFade}
-                    onSetDefault={(key, value) => dispatch("set_fade_defaults", { [key]: value })}
                   />
                 )}
+                <FadeDefaultsPanel
+                  globals={P.globals}
+                  onSet={(key, value) => dispatch("set_fade_defaults", { [key]: value })}
+                />
                 {tok && <TimingPanel key={sel.tok ? `${sel.gi}-${sel.tok.li}-${sel.tok.ti}` : "none"} tok={tok} project={P} unlocked={timingsUnlocked} onToggleLock={() => setTimingsUnlocked((u) => !u)} onSetTime={setCueTime} onSetText={setCueText} />}
               </>
             )}

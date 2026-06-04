@@ -15,7 +15,6 @@ export interface FadeGroupPanelProps {
   foutTag: FadeTag | null;
   onSet: (kind: "in" | "out", trigger: number | null) => void;
   onClear: (kind: "in" | "out") => void;
-  onSetDefault: (key: "fade_in_ms" | "fade_out_ms" | "linger", value: number) => void;
 }
 
 function FadeRow({
@@ -64,9 +63,10 @@ function FadeRow({
   );
 }
 
-export function FadeGroupPanel({ project, gi, finTag, foutTag, onSet, onClear, onSetDefault }: FadeGroupPanelProps) {
-  // Rendered even with no fade tags: the per-tag rows are conditional, but the
-  // global-defaults tier below must stay reachable in tag-less projects.
+export function FadeGroupPanel({ project, gi, finTag, foutTag, onSet, onClear }: FadeGroupPanelProps) {
+  // Membership editor: only meaningful when the selection sits in a fade group.
+  // The global fade defaults now live in their own always-visible FadeDefaultsPanel.
+  if (!finTag && !foutTag) return null;
   const resolved = resolveFade(project, gi);
   const g = project.layout[gi];
   const inDurMs = resolved.fade_in_ms;
@@ -100,22 +100,6 @@ export function FadeGroupPanel({ project, gi, finTag, foutTag, onSet, onClear, o
           onClear={onClear}
         />
       )}
-      <div className="sec-t spacer">Global defaults</div>
-      {([["fade_in_ms", "Fade-in", 50, "ms"], ["fade_out_ms", "Fade-out", 50, "ms"],
-         ["linger", "Linger", 0.1, "s"]] as const).map(([key, label, step, unit]) => {
-        const cur = project.globals[key] ?? 0;
-        const next = (d: number) => Math.max(0, Math.round((cur + d) * 1000) / 1000);
-        return (
-          <div className="prow" key={key}>
-            <span className="pl">{label}</span>
-            <span className="pv-step">
-              <span className="pm" onClick={() => onSetDefault(key, next(-step))}>−</span>
-              <span className="v">{cur}{unit}</span>
-              <span className="pm" onClick={() => onSetDefault(key, next(step))}>+</span>
-            </span>
-          </div>
-        );
-      })}
     </div>
   );
 }

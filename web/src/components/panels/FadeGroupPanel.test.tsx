@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { FadeGroupPanel } from "./FadeGroupPanel";
 import type { Project } from "../../types";
 
@@ -33,9 +32,9 @@ function proj(): Project {
 const finTag = { ids: [0], trigger: null };
 const foutTag = { ids: [0], trigger: null };
 
-describe("FadeGroupPanel — Global defaults section", () => {
-  it("renders the Global defaults tier even when there are NO fade tags", () => {
-    render(
+describe("FadeGroupPanel", () => {
+  it("returns null when there are no fade tags", () => {
+    const { container } = render(
       <FadeGroupPanel
         project={proj()}
         gi={0}
@@ -43,103 +42,24 @@ describe("FadeGroupPanel — Global defaults section", () => {
         foutTag={null}
         onSet={vi.fn()}
         onClear={vi.fn()}
-        onSetDefault={vi.fn()}
       />
     );
-    expect(screen.getByText(/Global defaults/i)).toBeTruthy();
+    expect(container.querySelector(".fg-panel")).toBeNull();
   });
 
-  it("renders a 'Global defaults' section showing current values from project.globals", () => {
-    const p = proj();
+  it("renders fade rows when tags exist", () => {
     render(
       <FadeGroupPanel
-        project={p}
+        project={proj()}
         gi={0}
         finTag={finTag}
         foutTag={foutTag}
         onSet={vi.fn()}
         onClear={vi.fn()}
-        onSetDefault={vi.fn()}
       />
     );
-    const heading = screen.getByText(/Global defaults/i);
-    expect(heading).toBeTruthy();
-    // The global defaults rows are siblings after the heading; scope via closest container
-    const panel = heading.closest(".fg-panel") as HTMLElement;
-    // fade_in_ms = 250ms — at least one .v span should show it
-    const fadeInRow = within(panel).getAllByText("Fade-in").find(el => el.closest(".prow"))!.closest(".prow") as HTMLElement;
-    expect(within(fadeInRow).getByText("250ms")).toBeTruthy();
-    const fadeOutRow = within(panel).getAllByText("Fade-out").find(el => el.closest(".prow"))!.closest(".prow") as HTMLElement;
-    expect(within(fadeOutRow).getByText("1000ms")).toBeTruthy();
-    // linger = 0s
-    const lingerRow = within(panel).getByText("Linger").closest(".prow") as HTMLElement;
-    expect(within(lingerRow).getByText("0s")).toBeTruthy();
-  });
-
-  it("clicking fade-in + calls onSetDefault('fade_in_ms', 300)", async () => {
-    const onSetDefault = vi.fn();
-    const p = proj();
-    render(
-      <FadeGroupPanel
-        project={p}
-        gi={0}
-        finTag={finTag}
-        foutTag={foutTag}
-        onSet={vi.fn()}
-        onClear={vi.fn()}
-        onSetDefault={onSetDefault}
-      />
-    );
-    // Scope to the Global defaults section container
-    const globSection = screen.getByText(/Global defaults/i).closest(".fg-panel") as HTMLElement;
-    // Find the Fade-in row (inside .prow) in the global defaults
-    const fadeInRows = within(globSection).getAllByText("Fade-in");
-    // the one inside a .prow (global defaults row, not fg-k)
-    const fadeInRow = fadeInRows.find(el => el.closest(".prow"))!.closest(".prow") as HTMLElement;
-    const plusBtn = within(fadeInRow).getByText("+");
-    await userEvent.click(plusBtn);
-    expect(onSetDefault).toHaveBeenCalledWith("fade_in_ms", 300);
-  });
-
-  it("clicking linger + calls onSetDefault('linger', 0.1)", async () => {
-    const onSetDefault = vi.fn();
-    const p = proj();
-    render(
-      <FadeGroupPanel
-        project={p}
-        gi={0}
-        finTag={finTag}
-        foutTag={foutTag}
-        onSet={vi.fn()}
-        onClear={vi.fn()}
-        onSetDefault={onSetDefault}
-      />
-    );
-    const lingerRow = screen.getByText("Linger").closest(".prow") as HTMLElement;
-    const plusBtn = within(lingerRow).getByText("+");
-    await userEvent.click(plusBtn);
-    expect(onSetDefault).toHaveBeenCalledWith("linger", 0.1);
-  });
-
-  it("clicking fade-out − calls onSetDefault('fade_out_ms', 950)", async () => {
-    const onSetDefault = vi.fn();
-    const p = proj();
-    render(
-      <FadeGroupPanel
-        project={p}
-        gi={0}
-        finTag={finTag}
-        foutTag={foutTag}
-        onSet={vi.fn()}
-        onClear={vi.fn()}
-        onSetDefault={onSetDefault}
-      />
-    );
-    // Find the Fade-out row that is inside a .prow (global defaults), not .fg-k
-    const fadeOutEls = screen.getAllByText("Fade-out");
-    const fadeOutRow = fadeOutEls.find(el => el.closest(".prow"))!.closest(".prow") as HTMLElement;
-    const minusBtn = within(fadeOutRow).getByText("−");
-    await userEvent.click(minusBtn);
-    expect(onSetDefault).toHaveBeenCalledWith("fade_out_ms", 950);
+    expect(screen.getByText(/Fade group/i)).toBeTruthy();
+    expect(screen.getByText("Fade-in")).toBeTruthy();
+    expect(screen.getByText("Fade-out")).toBeTruthy();
   });
 });

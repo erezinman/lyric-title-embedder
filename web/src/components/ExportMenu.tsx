@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getAss, getEnv } from "../api/client";
+import { Icon } from "./icons/Icon";
 
 export function ExportMenu({
   projectName, onBurn, onClose,
@@ -30,23 +31,33 @@ export function ExportMenu({
   };
 
   return (
-    <div className="export-pop" onClick={(e) => e.stopPropagation()}>
-      <div className="ep-row head">Export</div>
-      <label className="ep-row">
-        <span>Output file</span>
-        <input className="text-inp" aria-label="Output file" value={out} onChange={(e) => setOut(e.target.value)} />
-      </label>
-      {sameHost && (
-        <label className="ep-row">
-          <span>Input video (optional override)</span>
-          <input className="text-inp" aria-label="Input video" placeholder="project video"
-                 value={videoIn} onChange={(e) => setVideoIn(e.target.value)} />
-        </label>
-      )}
-      {err && <div className="form-err" role="alert">{err}</div>}
-      <div className="ep-actions">
-        <button className="btn ghost" onClick={() => void downloadAss()}>Download .ass</button>
-        <button className="btn primary" onClick={() => { onBurn(out, videoIn || undefined); onClose(); }}>Burn video</button>
+    <div className="export-pop" role="dialog" onClick={(e) => e.stopPropagation()}>
+      <div className="exp-h">Export</div>
+      <div className="exp-sec">
+        <label className="exp-l" htmlFor="exp-out">Output filename</label>
+        <input id="exp-out" className="exp-inp mono" aria-label="Output file"
+               value={out} onChange={(e) => setOut(e.target.value)} />
+        {sameHost && (
+          <>
+            <label className="exp-l" htmlFor="exp-vid">Input video <span className="exp-opt">optional · same-host path · defaults to project video</span></label>
+            <input id="exp-vid" className="exp-inp mono" aria-label="Input video" placeholder="project video"
+                   value={videoIn} onChange={(e) => setVideoIn(e.target.value)} />
+          </>
+        )}
+        {err && <div className="form-err" role="alert">{err}</div>}
+        <button className="btn primary exp-burn" onClick={() => { onBurn(out, videoIn || undefined); onClose(); }}>
+          <Icon name="film" size={15} />Burn video
+        </button>
+      </div>
+      <div className="exp-div" />
+      <div className="exp-row" role="button" tabIndex={0} aria-label="Download .ass"
+           onClick={() => void downloadAss()}
+           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void downloadAss(); } }}>
+        <span className="exp-row-i"><Icon name="download" size={16} /></span>
+        <span className="exp-row-t">
+          <b>Download .ass</b>
+          <span className="exp-row-s">Subtitle file only — no render</span>
+        </span>
       </div>
     </div>
   );
