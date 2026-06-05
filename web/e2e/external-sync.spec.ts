@@ -143,8 +143,9 @@ test("G-50 — external set_globals align: align grid label + caption shift + un
   await until(async () => (await apiState()).placement.align === 2);
 });
 
-// FINDING G-51: external set_globals use_pos+pos lands (pin appears), but undo
-// does not clear use_pos/pos (placement edits bypass undo history).
+// ADJ-16: the seeded baseline has use_pos=true (engine default) with pos=null;
+// undo therefore restores {use_pos:true, pos:null} — bbox returns because posActive
+// requires BOTH. The earlier expectation of use_pos=false misread the baseline.
 test("G-51 — external set_globals use_pos+pos: pin appears + undo", async ({ page }) => {
   await openAudit(page);
   await expect(page.locator(".bbox")).toBeVisible();
@@ -155,10 +156,7 @@ test("G-51 — external set_globals use_pos+pos: pin appears + undo", async ({ p
   });
   await expect(page.locator(".pinbox")).toBeVisible();
   await apiCall("undo");
-  await until(async () => {
-    const p = (await apiState()).placement;
-    return !p.use_pos && p.pos == null;
-  });
+  await until(async () => (await apiState()).placement.pos == null);
   await expect(page.locator(".bbox")).toBeVisible();
 });
 

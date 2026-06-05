@@ -16,6 +16,12 @@ function proj(): Project {
   return baseProject();
 }
 
+function projStart085(): Project {
+  const p = proj();
+  p.words[0] = { ...p.words[0], start: 0.85 };
+  return p;
+}
+
 // ---------- C-20 — Lock pill ----------
 
 describe("C-20 — lock pill toggle", () => {
@@ -498,3 +504,42 @@ describe("C-26 — Start clamping: value capped at end-0.01", () => {
     expect(call[0]).toBeCloseTo(1.19, 1);
   });
 });
+
+// ADJ-18 (e2e G-25 root cause): a server echo must NOT clobber a focused input
+// the user is typing into; unfocused inputs stay live-synced.
+describe("C-27 — NumField echo vs focused typing (ADJ-18)", () => {
+  it("C-27a — prop change while the input is FOCUSED preserves the user's typing", () => {
+    const onSetTime = vi.fn();
+    const { rerender } = render(
+      <TimingPanel tok={singleTok()} project={proj()} unlocked={true}
+        onToggleLock={vi.fn()} onSetTime={onSetTime} onSetText={vi.fn()} />
+    );
+    const start = screen.getByLabelText("Start") as HTMLInputElement;
+    start.focus();
+    fireEvent.change(start, { target: { value: "0.500" } });
+    // server echo: word now starts at 0.85 -> TimingPanel re-renders with new span
+    rerender(
+      <TimingPanel tok={singleTok()} project={projStart085()} unlocked={true}
+        onToggleLock={vi.fn()} onSetTime={onSetTime} onSetText={vi.fn()} />
+    );
+    expect(start.value).toBe("0.500");   // typing preserved
+    fireEvent.keyDown(start, { key: "Enter" });
+    expect(onSetTime).toHaveBeenCalled();
+    expect(onSetTime.mock.calls[0][0]).toBeCloseTo(0.5, 5);
+  });
+
+  it("C-27b — prop change while UNFOCUSED live-syncs the displayed value", () => {
+    const { rerender } = render(
+      <TimingPanel tok={singleTok()} project={proj()} unlocked={true}
+        onToggleLock={vi.fn()} onSetTime={vi.fn()} onSetText={vi.fn()} />
+    );
+    const start = screen.getByLabelText("Start") as HTMLInputElement;
+    expect(document.activeElement).not.toBe(start);
+    rerender(
+      <TimingPanel tok={singleTok()} project={projStart085()} unlocked={true}
+        onToggleLock={vi.fn()} onSetTime={vi.fn()} onSetText={vi.fn()} />
+    );
+    expect(start.value).toBe("0.850");
+  });
+});
+

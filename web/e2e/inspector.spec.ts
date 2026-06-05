@@ -141,7 +141,9 @@ test("G-25 — TimingPanel numeric commit + arrow-step + revert by typing origin
   await startInput.press("Enter");
   await until(async () => Math.abs((await startOf()) - 0.8) < 0.01);
 
-  // arrow-step up by 0.05
+  // arrow-step up by 0.05 (ADJ-17: re-focus first — pressing during the post-Enter
+  // echo re-render can drop the keystroke; behavior verified correct manually)
+  await startInput.click();
   await startInput.press("ArrowUp");
   await until(async () => Math.abs((await startOf()) - 0.85) < 0.01);
 

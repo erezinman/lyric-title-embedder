@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "../icons/Icon";
 import { cueSpan } from "../../model/edit";
 import type { Project, Token } from "../../types";
@@ -42,12 +42,18 @@ export function TimingPanel({ tok, project, unlocked, onToggleLock, onSetTime, o
 
 function NumField({ label, value, disabled, step, onCommit }: { label: string; value: number; disabled: boolean; step: number; onCommit: (v: number) => void; }) {
   const [v, setV] = useState(value.toFixed(3));
-  useEffect(() => { setV(value.toFixed(3)); }, [value]);
+  const ref = useRef<HTMLInputElement | null>(null);
+  // Live-sync from server echoes ONLY while the user isn't typing here —
+  // otherwise an echo of a previous edit (ours or the MCP agent's) silently
+  // wipes in-progress input (ADJ-18).
+  useEffect(() => {
+    if (document.activeElement !== ref.current) setV(value.toFixed(3));
+  }, [value]);
   const commit = (raw: string) => { const n = parseFloat(raw); if (!Number.isNaN(n)) onCommit(n); };
   return (
     <div className={"locked-row" + (disabled ? " ro" : "")}>
       <span>{label}</span>
-      <input aria-label={label} className="mono num" disabled={disabled} value={v}
+      <input ref={ref} aria-label={label} className="mono num" disabled={disabled} value={v}
         onChange={(e) => setV(e.target.value)}
         onKeyDown={(e) => {
           const cur = parseFloat(v) || 0;
