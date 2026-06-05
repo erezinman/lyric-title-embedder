@@ -23,6 +23,7 @@ import { CueLanes } from "./panels/CueLanes";
 import { OpsToolbar } from "./panels/OpsToolbar";
 import { EventStrip } from "./panels/EventStrip";
 import { ControlsRail } from "./panels/ControlsRail";
+import { Splitter } from "./atoms/Splitter";
 
 // ---- selection state ----
 interface SelState {
@@ -67,6 +68,18 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
 
   // export menu
   const [exportOpen, setExportOpen] = useState(false);
+
+  // resizable panes (persisted)
+  const loadPane = (k: string, def: number) => {
+    try { const v = Number(localStorage.getItem(k)); return Number.isFinite(v) && v >= 100 ? v : def; }
+    catch { return def; }
+  };
+  const [railW, setRailW] = useState(() => loadPane("kss.railW", 320));
+  const [dockH, setDockH] = useState(() => loadPane("kss.dockH", 252));
+  const setPane = (k: "kss.railW" | "kss.dockH", set: (v: number) => void) => (v: number) => {
+    set(v);
+    try { localStorage.setItem(k, String(v)); } catch { /* private mode etc. */ }
+  };
 
   const dispatch = useCallback((tool: string, args: Record<string, unknown>) => {
     store.call(tool, args).catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)));
@@ -541,7 +554,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
       )}
       {store.connected && <span className="ai-pill">AI agent · live</span>}
       <div className="body">
-        <aside className="rail">
+        <aside className="rail" style={{ width: railW, flex: `0 0 ${railW}px` }}>
           <div className="rail-tabs">
             <button
               className={"rail-tab" + (railTab === "project" ? " on" : "")}
@@ -601,6 +614,8 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
             )}
           </div>
         </aside>
+        <Splitter orientation="vertical" value={railW} min={240} max={560} defaultValue={320}
+          onChange={setPane("kss.railW", setRailW)} label="Resize side panel" />
         <main className="center">
           <PreviewStage
             capWords={capWords}
@@ -616,7 +631,9 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
           />
         </main>
       </div>
-      <section className="dock">
+      <Splitter orientation="horizontal" value={dockH} min={140} max={520} defaultValue={252}
+        onChange={setPane("kss.dockH", setDockH)} label="Resize timeline dock" />
+      <section className="dock" style={{ flex: `0 0 ${dockH}px` }}>
         <div className="dock-tabs">
           <button
             className={"dock-tab" + (dockTab === "timeline" ? " on" : "")}
