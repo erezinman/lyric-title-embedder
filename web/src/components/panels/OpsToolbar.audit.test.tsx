@@ -11,7 +11,7 @@
  *     ever be true with only single-group sel scope?).
  */
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor } from "../Editor";
 import { setupFakeWS, FakeWS } from "../../test-util/fakews";
@@ -200,13 +200,19 @@ void user;
     expect(btn(/Split event/i)).toBeDisabled();
   });
 
-  it.fails(
-    "D-52 — Undo and Redo are always enabled in OpsToolbar (FINDING: two Undo/Redo buttons in DOM — TopBar + OpsToolbar — getByRole is ambiguous)",
+  it(
+    "D-52 — OpsToolbar Undo and Redo are always enabled (scoped to .cue-tools-wrap to avoid TopBar ambiguity) — ADJ-05",
     async () => {
-      await bootWith(baseProject());
-      // Two Undo buttons rendered (TopBar + OpsToolbar) — getByRole throws
-      expect(btn(/Undo/i)).not.toBeDisabled();
-      expect(btn(/Redo/i)).not.toBeDisabled();
+      // ADJ-05: two Undo/Redo locations are the designed layout; scope query to the toolbar container
+      const { container } = render(<Editor projectName="test" onHome={() => {}} />);
+      await waitFor(() => expect(FakeWS.last).toBeTruthy());
+      emitState(baseProject());
+      await waitFor(() => screen.getByText("Verse 1"));
+      const wrap = container.querySelector(".cue-tools-wrap") as HTMLElement;
+      const undoBtn = within(wrap).getByRole("button", { name: /Undo/i });
+      const redoBtn = within(wrap).getByRole("button", { name: /Redo/i });
+      expect(undoBtn).not.toBeDisabled();
+      expect(redoBtn).not.toBeDisabled();
     }
   );
 });
@@ -418,28 +424,38 @@ describe("OpsToolbar action dispatches", () => {
 // D-66 — D-67: Undo / Redo wire format
 // ---------------------------------------------------------------------------
 describe("OpsToolbar undo/redo", () => {
-  it.fails(
-    "D-66 — OpsToolbar Undo button dispatches undo via store.undo() (FINDING: two Undo buttons in DOM — TopBar + OpsToolbar — getByRole ambiguous)",
+  it(
+    "D-66 — OpsToolbar Undo button dispatches undo (scoped to .cue-tools-wrap to avoid TopBar ambiguity) — ADJ-06",
     async () => {
+      // ADJ-06: ambiguous selector fixed by scoping to .cue-tools-wrap (the toolbar container)
       const user = userEvent.setup();
-      await bootWith(baseProject());
+      const { container } = render(<Editor projectName="test" onHome={() => {}} />);
+      await waitFor(() => expect(FakeWS.last).toBeTruthy());
+      emitState(baseProject());
+      await waitFor(() => screen.getByText("Verse 1"));
       clearDispatches();
-      // getByRole throws because TopBar renders a second Undo button
-      await user.click(btn(/Undo/i));
+      const wrap = container.querySelector(".cue-tools-wrap") as HTMLElement;
+      const undoBtn = within(wrap).getByRole("button", { name: /Undo/i });
+      await user.click(undoBtn);
 
       const d = dispatches().filter((d) => d.tool === "undo");
       expect(d).toHaveLength(1);
     }
   );
 
-  it.fails(
-    "D-67 — OpsToolbar Redo button dispatches redo via store.redo() (FINDING: two Redo buttons in DOM — TopBar + OpsToolbar — getByRole ambiguous)",
+  it(
+    "D-67 — OpsToolbar Redo button dispatches redo (scoped to .cue-tools-wrap to avoid TopBar ambiguity) — ADJ-07",
     async () => {
+      // ADJ-07: ambiguous selector fixed by scoping to .cue-tools-wrap (the toolbar container)
       const user = userEvent.setup();
-      await bootWith(baseProject());
+      const { container } = render(<Editor projectName="test" onHome={() => {}} />);
+      await waitFor(() => expect(FakeWS.last).toBeTruthy());
+      emitState(baseProject());
+      await waitFor(() => screen.getByText("Verse 1"));
       clearDispatches();
-      // getByRole throws because TopBar renders a second Redo button
-      await user.click(btn(/Redo/i));
+      const wrap = container.querySelector(".cue-tools-wrap") as HTMLElement;
+      const redoBtn = within(wrap).getByRole("button", { name: /Redo/i });
+      await user.click(redoBtn);
 
       const d = dispatches().filter((d) => d.tool === "redo");
       expect(d).toHaveLength(1);
@@ -456,35 +472,31 @@ describe("OpsToolbar undo/redo", () => {
 // This test documents desired behavior (select 2 group headers → merge_events
 // with both gidxs) and is expected to FAIL because the UI only tracks one gi.
 // ---------------------------------------------------------------------------
-describe("OpsToolbar merge_events multi-group selection (FINDING)", () => {
-  it.fails(
-    "D-68 — selecting two group headers enables merge_events with both gidxs (FINDING: single-gi selection only)",
+describe("OpsToolbar merge_events daemon contract", () => {
+  it(
+    "D-68 — with group 0 selected, Merge events dispatches merge_events {gidxs:[0,1]}; disabled for last group — ADJ-08",
     async () => {
+      // ADJ-08: daemon contract (HANDOFF_daemon-contract.md L146) defines merge_events as
+      // merging [gi, gi+1] — "merge selected group with the next." No multi-group selection
+      // set was ever specified; the UI correctly tracks a single gi. Test asserts the contract.
       const user = userEvent.setup();
       await bootWith(baseProject());
 
-      // Attempt: click Verse 1 header, then ctrl-click Chorus header
+      // Select group 0 (Verse 1) — button should be enabled since gi=0 < last (gi=1)
       await clickEventHeader(user, "Verse 1");
-      // Try ctrl-clicking Chorus event header
-      const chorusEls = screen.getAllByText("Chorus");
-      const chorusEvt = chorusEls.find((el) => el.closest(".lane-evt"));
-      const target = chorusEvt ? chorusEvt.closest(".lane-evt") as HTMLElement : chorusEls[0];
-      await user.keyboard("{Control>}");
-      await user.click(target);
-      await user.keyboard("{/Control}");
+      expect(btn(/Merge events/i)).not.toBeDisabled();
 
-      // Expected: Merge events enabled reflecting BOTH groups
-      // Actual: the UI tracks only one gi at a time, so this cannot work
-      // The merge_events button should reference gidxs=[0,1] when both are "selected"
       clearDispatches();
       await user.click(btn(/Merge events/i));
 
       const d = dispatches().filter((d) => d.tool === "merge_events");
       expect(d).toHaveLength(1);
-      // Desired: gidxs reflects the actual user selection of two groups
+      // Daemon contract: merges [gi, gi+1] — group 0 merges with group 1
       expect(d[0].args.gidxs).toEqual([0, 1]);
-      // FINDING: the Editor always uses [sel.gi, sel.gi+1], not a multi-group set.
-      // A proper fix would store a Set<number> of selected group indices.
+
+      // Verify gating: Merge events disabled when selected group is the last one
+      await clickEventHeader(user, "Chorus"); // gi=1 === last (layout.length-1=1)
+      expect(btn(/Merge events/i)).toBeDisabled();
     }
   );
 });

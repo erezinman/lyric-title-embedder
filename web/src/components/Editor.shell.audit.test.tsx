@@ -654,17 +654,14 @@ void dock;
 // A-19  Play in Exact mode switches preview to Live
 // ---------------------------------------------------------------------------
 describe("A-19 — play in Exact mode switches preview to Live", () => {
-  it.fails("A-19a — when pvMode=exact and play is clicked, live badge appears (no .libass-badge)", async () => {
-    // This checks that clicking play while in exact mode sets pvMode="live"
-    // which should show a live-mode indicator and hide the libass-badge.
-    // We look for the PreviewStage mode badge.
+  it("A-19a — when pvMode=exact and play is clicked, live badge appears (no .libass-badge)", async () => {
+    // ADJ-01: selector fixed — mode toggles are .seg-btn inside .stage-mode-bar;
+    // the second .seg-btn is "Exact" (PreviewStage.tsx L209–220). Assertion intent unchanged.
     const { container } = await renderEditor();
 
-    // Switch to exact mode first by finding the preview stage mode button
-    // (this depends on how PreviewStage exposes its mode toggle)
-    const exactBtn = container.querySelector("[data-mode='exact'], .mode-btn") as HTMLElement | null;
-    // If the exact mode button doesn't exist by this selector, the test can't proceed as expected.
-    // We document the failure.
+    // Switch to exact mode: second .seg-btn in .stage-mode-bar is "Exact"
+    const segBtns = container.querySelectorAll(".stage-mode-bar .seg-btn");
+    const exactBtn = segBtns[1] as HTMLElement | undefined;
     expect(exactBtn).toBeTruthy();
 
     fireEvent.click(exactBtn!);

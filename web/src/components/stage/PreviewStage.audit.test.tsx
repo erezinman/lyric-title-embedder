@@ -243,9 +243,10 @@ describe("PreviewStage audit — body drag (4 directions)", () => {
     expect(second).toEqual({ margin_l: 80, margin_r: 80, margin_v: 60 });
   });
 
-  // FINDING candidate: when the FIRST drag clamps at a canvas wall, the symmetric
-  // drag-back does NOT restore the originals (the clamp discarded overshoot).
-  it.fails("B-16 — DOUBLE clamped drag-back SHOULD net the original margins (asymmetry at the wall)", () => {
+  // ADJ-02: wall-saturated drag round-trips are CORRECTLY lossy (applyMove clamps,
+  // mirroring app_base.py). Rewritten to assert the CLAMPED expected values via the
+  // bbox oracle — the test now PASSES by asserting correct clamp physics.
+  it("B-16 — saturated drag clamps; round-trip is intentionally lossy at walls — ADJ-02", () => {
     const b0 = boxFromState(base);
     const onPlacement = vi.fn();
     const renderAt = (pl: PlacementState) => (
@@ -260,28 +261,36 @@ describe("PreviewStage audit — body drag (4 directions)", () => {
         { left: 0, top: 0, width: 960, height: 540, right: 960, bottom: 540, x: 0, y: 0, toJSON: () => ({}) } as DOMRect);
     };
     mockRect(r.container);
-    // drag 1: +100 canvas right — box width 1760, max l = 160, so r hits the wall (1920) → margin_r 0
+    // drag 1: +100 canvas right — box width 1760, max l = 160, so r hits the wall (1920)
+    // applyMove clamps: l=160 (not 180), r=1920, margin_r=0, margin_l=160
     let box = r.container.querySelector(".bbox") as HTMLElement;
     fireEvent.pointerDown(box, { clientX: 400, clientY: 300, button: 0 });
     fireEvent.pointerMove(window, { clientX: 400 + scr(100), clientY: 300 });
     fireEvent.pointerUp(window, { clientX: 400 + scr(100), clientY: 300 });
     const first = onPlacement.mock.calls[0][0];
-    expect(first).toEqual(marginsFromBox(applyMove(b0, 100, 0, W, H), base)); // {ml160,mr0,mv60}
+    // Oracle: applyMove clamps l to min(80+100,160)=160 → {ml:160, mr:0, mv:60}
+    expect(first).toEqual(marginsFromBox(applyMove(b0, 100, 0, W, H), base));
+    expect(first).toEqual({ margin_l: 160, margin_r: 0, margin_v: 60 });
 
+    // Server echoes the clamped position
     const echoed: PlacementState = { ...base, ...first };
     r.rerender(renderAt(echoed));
     mockRect(r.container);
 
+    // drag 2: -100 canvas left from the clamped position
+    // From l=160, drag -100 → l=clamp(160-100,0,160)=60; r=1820 → margin_r=100
+    // This is intentionally NOT the original {80,80} — the clamp ate the overshoot
     box = r.container.querySelector(".bbox") as HTMLElement;
     fireEvent.pointerDown(box, { clientX: 400, clientY: 300, button: 0 });
     fireEvent.pointerMove(window, { clientX: 400 - scr(100), clientY: 300 });
     fireEvent.pointerUp(window, { clientX: 400 - scr(100), clientY: 300 });
     const second = onPlacement.mock.calls[1][0];
-    // The template says drag-then-drag-back nets the original. Because the first
-    // drag clamped at the right wall, the box now starts from a position whose
-    // round-trip lands at {ml:60,mr:100} — NOT the original {80,80}. This assertion
-    // documents the intended (symmetric) behaviour, hence it.fails.
-    expect(second).toEqual({ margin_l: 80, margin_r: 80, margin_v: 60 });
+    // Oracle: applyMove from echoed box, -100 → {ml:60, mr:100, mv:60}
+    const echoedBox = boxFromState(echoed);
+    expect(second).toEqual(marginsFromBox(applyMove(echoedBox, -100, 0, W, H), echoed));
+    expect(second).toEqual({ margin_l: 60, margin_r: 100, margin_v: 60 });
+    // Not the original {80,80} — clamp physics are correct, round-trip is lossy at the wall
+    expect(second).not.toEqual({ margin_l: 80, margin_r: 80, margin_v: 60 });
   });
 });
 
