@@ -30,7 +30,6 @@ async function pickAlign(page: Page, n: number, label: string) {
 // FINDING G-01: set_globals placement changes are NOT undoable. The forward
 // align change lands, but apiCall("undo") leaves align unchanged (stays 8).
 test("G-01 — align grid: pick Top-Center updates placement.align + reverts via undo", async ({ page }) => {
-  test.fail();
   await openAudit(page);
   const base = await placement();
   expect(base.align).toBe(2); // seeded Bottom-Center
@@ -81,7 +80,6 @@ test("G-02 — free-placement toggle on adds use_pos+pos (pin replaces bbox); of
 // but the revert (apiCall("undo")) does NOT restore margins — placement edits
 // via set_globals are not captured in the undo history.
 test("G-03 — box body drag changes margins in state + caption position on screen; drag-back restores", async ({ page }) => {
-  test.fail();
   await openAudit(page);
   const base = await placement();
   const cap0 = await page.locator(".cap").boundingBox();

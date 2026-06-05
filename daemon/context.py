@@ -15,6 +15,7 @@ class DaemonContext(HeadlessContext):
             return
         self.hub.schedule({"type": "state", "state": state})
 
-    def set_globals(self, partial):
-        super().set_globals(partial)
-        self._fire()
+    # set_globals is inherited: HeadlessContext routes it through session.record,
+    # which fires session.on_change (== self._fire) on a real change, so the WS
+    # push happens automatically. undo/redo also fire on_change -> broadcast the
+    # reverted globals (get_project reads ctx.get_globals()).

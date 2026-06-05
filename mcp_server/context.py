@@ -26,18 +26,24 @@ class EngineContext:
 
 class HeadlessContext(EngineContext):
     def __init__(self):
-        self.session = controller.Session()
         self._g = dict(DEFAULT_GLOBALS)
         self._g["primary"] = self._g.pop("primary_color")
         self._g["outline"] = self._g.pop("outline_color")
         self._g["back"] = self._g.pop("back_color")
         self._g["pos"] = None
+        # Register _g as the session's auxiliary state so set_globals edits
+        # (align/margins/pos/use_pos/style) join the shared undo timeline.
+        self.session = controller.Session(aux_get=self._aux_get, aux_set=self._aux_set)
         self._video = None
+    def _aux_get(self): return self._g
+    def _aux_set(self, g): self._g = g
     def run(self, fn): return fn()
     def get_globals(self): return dict(self._g)
     def set_globals(self, partial):
-        for k, v in partial.items():
-            if k in GLOBAL_KEYS: self._g[k] = v
+        def apply():
+            for k, v in partial.items():
+                if k in GLOBAL_KEYS: self._g[k] = v
+        self.session.record(apply)
     def set_video(self, path): self._video = path or None
     def video_path(self): return self._video
     def cfg(self):

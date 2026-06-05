@@ -134,7 +134,6 @@ test("G-49 — external set_fade_defaults: FadeDefaults panel value + undo", asy
 // FINDING G-50: external set_globals align lands and the UI reflects it, but
 // undo does not revert align (placement edits bypass undo history).
 test("G-50 — external set_globals align: align grid label + caption shift + undo", async ({ page }) => {
-  test.fail();
   await openAudit(page);
   await page.locator(".rail-tab", { hasText: "Project" }).click();
   await apiCall("set_globals", { partial: { align: 8 } });
@@ -147,7 +146,6 @@ test("G-50 — external set_globals align: align grid label + caption shift + un
 // FINDING G-51: external set_globals use_pos+pos lands (pin appears), but undo
 // does not clear use_pos/pos (placement edits bypass undo history).
 test("G-51 — external set_globals use_pos+pos: pin appears + undo", async ({ page }) => {
-  test.fail();
   await openAudit(page);
   await expect(page.locator(".bbox")).toBeVisible();
   await apiCall("set_globals", { partial: { use_pos: true, pos: [960, 540] } });
