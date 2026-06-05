@@ -9,7 +9,7 @@ const placement: PlacementState = { align: 2, play_w: 1920, play_h: 1080,
 function setup(pl: PlacementState = placement) {
   const onPlacement = vi.fn();
   const r = render(
-    <PreviewStage capWords={[{ wid: 0, text: "hi", live: true, pending: false, sel: false, fill: null }]}
+    <PreviewStage capWords={[{ wid: 0, li: 0, text: "hi", live: true, pending: false, sel: false, fill: null, scale: 1, bold: null }]}
       time={0} mode="live" onMode={() => {}}
       onRenderExact={() => {}} onSelectWord={() => {}}
       playW={pl.play_w} playH={pl.play_h}
@@ -49,6 +49,39 @@ describe("caption follows placement", () => {
     expect(cap.style.left).toBe(pctOf(140, 1920));   // 80 + 60
     fireEvent.keyDown(window, { key: "Escape" });
     fireEvent.pointerUp(window, { clientX: 230, clientY: 400 });
+  });
+});
+
+describe("caption line breaks", () => {
+  it("renders one caption line per li (\\N structure visible)", () => {
+    const onPlacement = vi.fn();
+    const r = render(
+      <PreviewStage capWords={[
+        { wid: 0, li: 0, text: "hello", live: false, pending: false, sel: false, fill: null, scale: 1, bold: null },
+        { wid: 1, li: 0, text: "world", live: false, pending: false, sel: false, fill: null, scale: 1, bold: null },
+        { wid: 2, li: 1, text: "second", live: false, pending: false, sel: false, fill: null, scale: 1, bold: null },
+      ]} time={0} mode="live" onMode={() => {}} onRenderExact={() => {}} onSelectWord={() => {}}
+        playW={1920} playH={1080} placement={placement} onPlacement={onPlacement} />
+    );
+    const cap = r.container.querySelector(".cap") as HTMLElement;
+    const lines = cap.querySelectorAll(":scope > div");
+    expect(lines).toHaveLength(2);
+    expect(lines[0].textContent).toContain("hello");
+    expect(lines[1].textContent).toContain("second");
+  });
+});
+
+describe("caption reflects resolved cue style", () => {
+  it("applies scale and bold to a word span", () => {
+    const r = render(
+      <PreviewStage capWords={[
+        { wid: 0, li: 0, text: "big", live: false, pending: false, sel: false, fill: null, scale: 1.5, bold: false },
+      ]} time={0} mode="live" onMode={() => {}} onRenderExact={() => {}} onSelectWord={() => {}}
+        playW={1920} playH={1080} placement={placement} onPlacement={vi.fn()} />
+    );
+    const w = r.container.querySelector(".cap .w") as HTMLElement;
+    expect(w.style.fontSize).toBe("1.5em");
+    expect(w.style.fontWeight).toBe("400");
   });
 });
 

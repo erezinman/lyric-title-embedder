@@ -175,6 +175,10 @@ def break_line(ctx, gi, li, ti, after=True):
 def merge_words(ctx, gi, li, ti, sep=""):
     _do(ctx, "merge_prev_word", gi, li, ti, sep); return ctx.run(lambda: _event_view(ctx, gi))
 
+def join_lines(ctx, gi, li):
+    _do(ctx, "remove_break", gi, li); return ctx.run(lambda: _event_view(ctx, gi))
+
+
 def merge_word_span(ctx, gi, li, ti_first, ti_last, sep=""):
     _do(ctx, "merge_token_span", gi, li, ti_first, ti_last, sep)
     return ctx.run(lambda: _event_view(ctx, gi))

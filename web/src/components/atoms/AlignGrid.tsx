@@ -18,9 +18,10 @@ const NUMPAD_ORDER = [7, 8, 9, 4, 5, 6, 1, 2, 3];
 export interface AlignGridProps {
   value: number;
   onPick: (n: number) => void;
+  disabled?: boolean;
 }
 
-export function AlignGrid({ value, onPick }: AlignGridProps) {
+export function AlignGrid({ value, onPick, disabled = false }: AlignGridProps) {
   const [open, setOpen] = React.useState(false);
   const cur = value || 2;
   const label = `${ALIGN[cur]} (${cur})`;
@@ -41,7 +42,7 @@ export function AlignGrid({ value, onPick }: AlignGridProps) {
     <div className="ag-wrap">
       <button
         className="kit-sel"
-        aria-label="Alignment"
+        aria-label="Alignment" disabled={disabled}
         aria-haspopup="true"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}

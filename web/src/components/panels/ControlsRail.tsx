@@ -41,7 +41,7 @@ export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos }:
       </div>
       <div className="ctl">
         <label>Alignment</label>
-        <AlignGrid value={pl.align} onPick={(n) => onSetGlobal("align", n)} />
+        <AlignGrid value={pl.align} onPick={(n) => onSetGlobal("align", n)} disabled={posOn} />
       </div>
       <div className="ctl">
         <label>Free placement (\pos)</label>

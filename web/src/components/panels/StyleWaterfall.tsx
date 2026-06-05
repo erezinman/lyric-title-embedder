@@ -3,6 +3,7 @@
 
 import React from "react";
 import { Icon } from "../icons/Icon";
+import { AlignGrid } from "../atoms/AlignGrid";
 import { STYLE_KEYS, CUE_STYLE_KEYS } from "../../types";
 import type { Project, Token } from "../../types";
 
@@ -18,7 +19,7 @@ const STYLE_META: Record<string, { label: string; kind: string; fmt: (v: unknown
   outline_w:    { label: "Outline w",   kind: "step",   fmt: v => v + " px", step: 1, min: 0 },
   shadow:       { label: "Shadow",      kind: "step",   fmt: v => v + " px", step: 1, min: 0 },
   border_style: { label: "Border mode", kind: "mode",   fmt: v => (v === 3 ? "Opaque box" : "Outline") },
-  align:        { label: "Alignment",   kind: "step",   fmt: v => `${ALIGN_SHORT[Number(v)] ?? "?"} (${v})`, step: 1, min: 1, max: 9 },
+  align:        { label: "Alignment",   kind: "align",  fmt: v => `${ALIGN_SHORT[Number(v)] ?? "?"} (${v})` },
 };
 
 // numpad anchor short names (1..9)
@@ -111,6 +112,10 @@ function PropRow({ pkey, isGlobal, inheritFrom, overridden, onSet, onClear }: Pr
           <button className={val === 3 ? "on" : ""} onClick={() => onSet(pkey, 3)}>Box</button>
         </span>
       );
+    }
+    if (meta.kind === "align") {
+      // same 3x3 numpad selector as the Project tab
+      return <AlignGrid value={Number(val) || 2} onPick={(n) => onSet(pkey, n)} />;
     }
     // step / combo — render as stepper
     return (

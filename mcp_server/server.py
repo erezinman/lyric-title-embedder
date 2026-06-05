@@ -56,6 +56,8 @@ def build_server(ctx, name="karaoke-subtitle-studio"):
     @mcp.tool()
     def break_line(gi: int, li: int, ti: int, after: bool = True) -> dict: return tools.break_line(ctx, gi, li, ti, after)
     @mcp.tool()
+    def join_lines(gi: int, li: int) -> dict: return tools.join_lines(ctx, gi, li)
+    @mcp.tool()
     def merge_words(gi: int, li: int, ti: int, sep: str = "") -> dict: return tools.merge_words(ctx, gi, li, ti, sep)
     @mcp.tool()
     def merge_word_span(gi: int, li: int, ti_first: int, ti_last: int, sep: str = "") -> dict:

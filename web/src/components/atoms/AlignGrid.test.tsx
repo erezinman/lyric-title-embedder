@@ -74,4 +74,13 @@ describe("AlignGrid", () => {
     // Others should not have on class
     expect(cells[0]).not.toHaveClass("on");
   });
+
+  it("disabled: trigger is disabled and cannot open", () => {
+    const onPick = vi.fn();
+    const { container } = render(<AlignGrid value={2} onPick={onPick} disabled />);
+    const btn = container.querySelector(".kit-sel") as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    fireEvent.click(btn);
+    expect(container.querySelector(".ag-grid")).toBeNull();
+  });
 });

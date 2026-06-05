@@ -334,7 +334,8 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     if (!g) return [];
     const wid = selWid();
     const caps: CapWord[] = [];
-    for (const line of g.lines) {
+    for (let li = 0; li < g.lines.length; li++) {
+      const line = g.lines[li];
       for (const tok of line.toks) {
         if (tok.del) continue;
         const sched = wordSchedule(P, gi, tok.ids[0]);
@@ -345,9 +346,17 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
         const resolved = resolveStyle(P, gi, tok);
         const fillEntry = resolved["primary"];
         const fill = fillEntry && fillEntry.src !== "global" ? String(fillEntry.value) : null;
+        const fsEntry = resolved["fontsize"];
+        const scale = fsEntry && fsEntry.src !== "global" && P.global_style.fontsize
+          ? Number(fsEntry.value) / P.global_style.fontsize : 1;
+        const boldEntry = resolved["bold"];
+        const bold = boldEntry && boldEntry.src !== "global" ? Boolean(boldEntry.value) : null;
         const isSel = wid != null && tok.ids.includes(wid);
         caps.push({
           wid: tok.ids[0],
+          li,
+          scale,
+          bold,
           text: tok.ids.map((id) => P.words[id]?.text ?? "").join(tok.sep || " "),
           live,
           pending,
@@ -484,8 +493,16 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   }
 
   function breakLine() {
-    if (!sel.tok) return;
-    dispatch("break_line", { gi: sel.gi, li: sel.tok.li, ti: sel.tok.ti, after: true });
+    if (!P || !sel.tok) return;
+    const g = P.layout[sel.gi];
+    const { li, ti } = sel.tok;
+    const isLastInLine = ti === (g?.lines[li]?.toks.length ?? 0) - 1;
+    if (isLastInLine && li < g.lines.length - 1) {
+      // a break already follows this cue — toggle it off (join the next line)
+      dispatch("join_lines", { gi: sel.gi, li });
+    } else {
+      dispatch("break_line", { gi: sel.gi, li, ti, after: true });
+    }
   }
 
   function deleteSel() {

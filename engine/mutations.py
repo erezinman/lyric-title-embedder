@@ -107,6 +107,15 @@ def add_break(project, gi, li, ti, after=True):
     if 0 < pos < len(toks):
         project["layout"][gi]["lines"][li:li + 1] = [{"toks": toks[:pos]}, {"toks": toks[pos:]}]
 
+def remove_break(project, gi, li):
+    """Join line li with line li+1 of one event (the inverse of add_break)."""
+    lines = project["layout"][gi]["lines"]
+    if not (0 <= li < len(lines) - 1):
+        raise ValueError(f"no line break after line {li}")
+    lines[li]["toks"] += lines[li + 1]["toks"]
+    del lines[li + 1]
+
+
 def merge_prev_word(project, gi, li, ti, sep=""):
     toks = project["layout"][gi]["lines"][li]["toks"]
     if ti > 0:

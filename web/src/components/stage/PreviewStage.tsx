@@ -5,11 +5,14 @@ import type { Box, PlacementState } from "../../model/bbox";
 
 export interface CapWord {
   wid: number;
+  li: number;
   text: string;
   live: boolean;
   pending: boolean;
   sel: boolean;
   fill: string | null;
+  scale: number;          // resolved fontsize / global fontsize (1 = inherit)
+  bold: boolean | null;   // resolved bold when it differs from global, else null
 }
 
 interface PreviewStageProps {
@@ -224,8 +227,9 @@ export function PreviewStage({
           <>
             <div className="live-badge"><span className="pulse" />LIVE</div>
             <div className="cap" style={capStyle}>
-              <div style={capInnerStyle}>
-                {capWords.map((w) => {
+              {[...new Set(capWords.map((w) => w.li))].sort((a, b) => a - b).map((li) => (
+              <div key={li} style={capInnerStyle}>
+                {capWords.filter((w) => w.li === li).map((w) => {
                   const cls =
                     "w" +
                     (w.live ? " live" : "") +
@@ -235,7 +239,11 @@ export function PreviewStage({
                     <span
                       key={w.wid}
                       className={cls}
-                      style={w.fill ? { color: w.fill } : undefined}
+                      style={{
+                        ...(w.fill ? { color: w.fill } : null),
+                        ...(w.scale !== 1 ? { fontSize: `${w.scale}em` } : null),
+                        ...(w.bold != null ? { fontWeight: w.bold ? 700 : 400 } : null),
+                      }}
                       onClick={() => onSelectWord(w.wid)}
                     >
                       {w.text}
@@ -243,6 +251,7 @@ export function PreviewStage({
                   );
                 })}
               </div>
+              ))}
             </div>
             <div className="approx-badge">CSS approx</div>
           </>
