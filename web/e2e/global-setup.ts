@@ -1,7 +1,7 @@
 // e2e/global-setup.ts — spin up the REAL daemon (temp projects dir) + vite dev
 // on test ports, then seed the "audit" project from the committed fixture.
 import { spawn } from "node:child_process";
-import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -58,4 +58,10 @@ export default async function globalSetup(): Promise<void> {
     method: "POST", body: form,
   });
   if (!res.ok) throw new Error(`seeding the audit project failed: ${res.status} ${await res.text()}`);
+
+  // snapshot pristine project files — the daemon AUTOSAVES edits now, so the
+  // per-test reset restores these before re-opening (see helpers.resetProject)
+  const projDir = join(projectsDir, "audit");
+  copyFileSync(join(projDir, "project.json"), join(projDir, "project.json.pristine"));
+  copyFileSync(join(projDir, "lyrics.json"), join(projDir, "lyrics.json.pristine"));
 }

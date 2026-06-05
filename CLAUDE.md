@@ -146,6 +146,8 @@ See `docs/superpowers/specs/2026-06-03-engine-daemon-design.md` for the full des
 - **`daemon/app.py`** — `build_app(ctx, hub)` assembles the Starlette app: co-mounts
   `build_server(ctx).sse_app(mount_path="/mcp")`, adds the `/api` routes and `/ws` WebSocket
   endpoint, optional bearer-token middleware on `/api`, CORS.
+- **`daemon/autosave.py`** — debounced (400ms) autosave of the open project after every
+  change (web and MCP clients never call save explicitly); bound on open/create.
 - **`daemon/library.py`** — project library: self-contained folders under a projects dir
   (`<name>/lyrics.json` + `<name>/project.json`, which also persists a `video` reference —
   folder-relative when uploaded, absolute when a server path). `create_project` is the single

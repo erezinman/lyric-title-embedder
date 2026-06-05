@@ -1,5 +1,8 @@
 // e2e/helpers.ts — shared helpers for the audit e2e tier.
 import type { Page } from "@playwright/test";
+import { readFileSync, copyFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 export const DAEMON = "http://127.0.0.1:8799";
 
@@ -22,8 +25,19 @@ export async function apiCall(tool: string, args: Record<string, unknown> = {}):
   return data.result;
 }
 
-/** Reset the in-memory project by re-opening it from disk (discards edits). */
+/** Reset the project: wait out any pending autosave (the daemon persists edits
+ * now), restore the pristine snapshot taken at seed time, then re-open. */
 export async function resetProject(name = "audit"): Promise<void> {
+  await new Promise((r) => setTimeout(r, 600));   // > autosave debounce (400ms)
+  const pidfile = join(tmpdir(), "kss-e2e-pids.json");
+  if (existsSync(pidfile)) {
+    const { projectsDir } = JSON.parse(readFileSync(pidfile, "utf-8"));
+    const dir = join(projectsDir, name);
+    if (existsSync(join(dir, "project.json.pristine"))) {
+      copyFileSync(join(dir, "project.json.pristine"), join(dir, "project.json"));
+      copyFileSync(join(dir, "lyrics.json.pristine"), join(dir, "lyrics.json"));
+    }
+  }
   const r = await fetch(`${DAEMON}/api/projects/open`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

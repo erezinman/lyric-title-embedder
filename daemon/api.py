@@ -56,6 +56,9 @@ def make_routes(ctx, hub):
             return _err(str(e), 404)
 
     from daemon import library
+    from daemon.autosave import Autosaver
+    autosaver = Autosaver(ctx, None)         # projects_dir resolved per request below
+    ctx.after_change = autosaver.schedule
     async def projects_list(request):
         return JSONResponse(library.list_projects(request.app.state.projects_dir))
     async def projects_new(request):
@@ -67,6 +70,8 @@ def make_routes(ctx, hub):
             return _err(str(e), 409)
         except ValueError as e:
             return _err(str(e))
+        autosaver.projects_dir = request.app.state.projects_dir
+        autosaver.bind(opened)
         return JSONResponse({"opened": opened})
 
     async def projects_create(request):
@@ -100,6 +105,8 @@ def make_routes(ctx, hub):
             return _err(str(e), 400)
         except Exception as e:
             return _err(f"{type(e).__name__}: {e}", 422)
+        autosaver.projects_dir = request.app.state.projects_dir
+        autosaver.bind(opened)
         return JSONResponse({"opened": opened})
     async def projects_open(request):
         b = await request.json()
@@ -107,6 +114,8 @@ def make_routes(ctx, hub):
             library.open_project(ctx, request.app.state.projects_dir, b["name"])
         except ValueError as e:
             return _err(str(e))
+        autosaver.projects_dir = request.app.state.projects_dir
+        autosaver.bind(b["name"])
         return JSONResponse({"opened": b["name"]})
     async def projects_save(request):
         b = await request.json()

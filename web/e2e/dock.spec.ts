@@ -185,3 +185,20 @@ test("G-16 — timing lock gating: a locked WordTrack drag does nothing to state
   await page.waitForTimeout(300);
   expect((await apiState()).words[0].start).toBe(base);
 });
+
+// ADJ-19 (user-reported): edits must SURVIVE re-opening the project — the
+// daemon autosaves; before this, every edit lived only in memory.
+test("G-17 — a line break persists across project re-open (autosave)", async ({ page }) => {
+  await openAudit(page);
+  const n0 = (await apiState()).layout[0].lines.length;
+  await page.locator(".lane-row", { hasText: "bravo" }).first().click();
+  await page.getByRole("button", { name: "Break line" }).click();
+  await until(async () => (await apiState()).layout[0].lines.length === n0 + 1);
+  await new Promise((r) => setTimeout(r, 700));   // let the autosave land
+  // re-open WITHOUT restoring pristine (direct API, not resetProject)
+  await fetch("http://127.0.0.1:8799/api/projects/open", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "audit" }),
+  });
+  await until(async () => (await apiState()).layout[0].lines.length === n0 + 1);
+});
