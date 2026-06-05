@@ -41,6 +41,31 @@ describe("Editor shell", () => {
     await waitFor(() => screen.getByText("Verse 1"));
   });
 
+  it("play advances the clock and pause stops it", async () => {
+    const { container } = render(<Editor projectName="song1" onHome={() => {}} />);
+    await waitFor(() => expect(FakeWS.last).toBeTruthy());
+    act(() => FakeWS.last!.emit({ type: "state", state: projectWithEvent("Verse 1") }));
+    await waitFor(() => screen.getByText("Verse 1"));
+
+    const timeLabel = () => (container.querySelector(".time") as HTMLElement).textContent ?? "";
+    expect(timeLabel()).toContain("0:00.00");
+
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "performance"] });
+    const play = container.querySelector(".tbtn.play") as HTMLElement;
+    const { fireEvent } = await import("@testing-library/react");
+    fireEvent.click(play);
+    act(() => { vi.advanceTimersByTime(500); });   // ~30 rAF frames
+    const after = timeLabel();
+    expect(after).not.toContain("0:00.00");
+
+    fireEvent.click(play);                          // pause (one in-flight frame may still land)
+    act(() => { vi.advanceTimersByTime(100); });
+    const settled = timeLabel();
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(timeLabel()).toBe(settled);              // clock fully stopped
+    vi.useRealTimers();
+  });
+
   it("has resizable panes: dragging the rail splitter changes the rail width and persists it", async () => {
     const store = new Map<string, string>();
     vi.stubGlobal("localStorage", {

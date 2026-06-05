@@ -88,6 +88,31 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   // keep pRef in sync with P
   useEffect(() => { pRef.current = P; }, [P]);
 
+  // ---- playback ticker: Play advances the clock until the end of the song ----
+  const timeRef = useRef(0);
+  useEffect(() => { timeRef.current = time; }, [time]);
+  useEffect(() => {
+    if (!playing) return;
+    let raf = 0;
+    let last = performance.now();
+    const step = (now: number) => {
+      const project = pRef.current;
+      const dur = project ? Math.max(8, ...project.words.map((w) => w.end)) + 1.5 : 0;
+      const dt = (now - last) / 1000;
+      last = now;
+      const nt = timeRef.current + dt;
+      if (!project || nt >= dur) {
+        setTime(dur || 0);
+        setPlaying(false);
+        return;
+      }
+      setTime(nt);
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [playing]);
+
   // ---- cueList: every cue in layout order with its start time ----
   const cueList = useCallback(() => {
     const project = pRef.current;
@@ -536,7 +561,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
         time={time}
         dur={dur}
         playing={playing}
-        onPlay={() => setPlaying((p) => !p)}
+        onPlay={() => { if (!playing) setPvMode("live"); setPlaying(!playing); }}
         onSeekRel={(d) => setTime((t) => Math.max(0, Math.min(dur, t + d)))}
         onHome={onHome}
         onExport={() => setExportOpen((o) => !o)}
