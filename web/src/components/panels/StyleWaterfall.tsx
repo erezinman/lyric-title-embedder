@@ -85,8 +85,18 @@ function PropRow({ pkey, isGlobal, inheritFrom, overridden, onSet, onClear }: Pr
 
   const ctrl = () => {
     if (meta.kind === "toggle") {
+      // ADJ-12: toggling to a value that equals the inherited value clears the
+      // override (returns to inherited) instead of writing an explicit override,
+      // so toggle×2 round-trips back to inherited. Equality-clears applies ONLY
+      // to the toggle kind; steppers/colors keep explicit sets. The GLOBAL tier
+      // has no inherited source, so it always writes.
+      const next = !val;
+      const handleToggle = () => {
+        if (!isGlobal && next === inheritFrom.value) onClear(pkey);
+        else onSet(pkey, next);
+      };
       return (
-        <span className="pv-ctl" onClick={() => onSet(pkey, !val)}>
+        <span className="pv-ctl" onClick={handleToggle}>
           <Toggle on={!!val} />
         </span>
       );

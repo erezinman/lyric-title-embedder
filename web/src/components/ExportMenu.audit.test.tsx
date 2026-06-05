@@ -290,7 +290,7 @@ describe("E-58 — double-click Burn fires onBurn (documents actual behavior)", 
     expect(onClose.mock.calls.length).toBeGreaterThanOrEqual(1);
   });
 
-  it.fails("E-58b — FINDING: double-clicking Burn should fire onBurn exactly once (desired UX, no guard currently)", () => {
+  it("E-58b — double-clicking Burn fires onBurn exactly once (one-shot guard)", () => {
     // FINDING: The component calls onBurn synchronously on every click with no
     // debounce or disabled-after-click guard. In real usage the parent unmounts the
     // menu on onClose, preventing a second click. But callers that delay unmounting

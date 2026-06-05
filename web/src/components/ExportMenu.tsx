@@ -13,6 +13,7 @@ export function ExportMenu({
   const [videoIn, setVideoIn] = useState("");
   const [sameHost, setSameHost] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [burning, setBurning] = useState(false);
 
   useEffect(() => { void getEnv().then((e) => setSameHost(e.same_host)).catch(() => setSameHost(false)); }, []);
 
@@ -45,7 +46,8 @@ export function ExportMenu({
           </>
         )}
         {err && <div className="form-err" role="alert">{err}</div>}
-        <button className="btn primary exp-burn" onClick={() => { onBurn(out, videoIn || undefined); onClose(); }}>
+        <button className="btn primary exp-burn" disabled={burning}
+                onClick={() => { if (burning) return; setBurning(true); onBurn(out, videoIn || undefined); onClose(); }}>
           <Icon name="film" size={15} />Burn video
         </button>
       </div>

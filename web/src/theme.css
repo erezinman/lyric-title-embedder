@@ -71,6 +71,13 @@ svg.lucide { display: block; }
   background: radial-gradient(120% 80% at 50% 0%, #150f24 0%, var(--bg) 62%); }
 .stage-pad { flex: 1; min-height: 0; padding: 22px; display: flex; align-items: center; justify-content: center; container-type: size; }
 .stage-col { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; max-width: 100%; max-height: 100%; min-height: 0; }
+/* ADJ-13: the mode bar above the stage has a deterministic height so the cqh
+   chrome reserve below is exact. Two unstyled .seg-btn buttons otherwise vary by
+   UA default font metrics, making the reserve guesswork. */
+.stage-mode-bar { flex: 0 0 auto; height: 28px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.stage-mode-bar .seg-btn { height: 28px; padding: 0 14px; border: 1px solid var(--border); background: var(--surface-3);
+  color: var(--text-2); font-size: 12px; border-radius: var(--radius-sm); cursor: pointer; }
+.stage-mode-bar .seg-btn.active { background: var(--accent); color: var(--text-on-accent); font-weight: 600; }
 
 /* ===== Sections / controls ===== */
 .sec-t { font-family: var(--font-display); font-weight: 600; font-size: 12px; color: var(--text-1);
@@ -107,7 +114,24 @@ svg.lucide { display: block; }
 .chip.ghost { border-style: dashed; color: var(--text-3); }
 
 /* ===== Preview stage ===== */
-.stage { container-type: inline-size; width: min(100%, calc((100cqh - 78px) * (16 / 9))); aspect-ratio: 16/9; max-height: none; border-radius: var(--radius-lg);
+/* ADJ-13: keep the stage robustly 16:9 under ANY pane size.
+   Chrome reserve in the cqh formula (measured against the .stage-pad size
+   container, whose content height == 100cqh):
+     mode bar:   28px height + 10px margin-bottom        = 38px
+     stage-help: 12px margin-top + ~18px (11.5px × 1.5)   = 30px
+                                                    total  = 68px
+   We reserve 78px (10px slack for a help line that wraps) so the stage always
+   fits the column WITHOUT the flex layout having to shrink it.
+   The previous bug: .stage was a flex item with default flex-shrink:1, so when
+   the column was even slightly short the browser shrank the stage's HEIGHT below
+   width×9/16 (aspect-ratio yields to a definite width), giving the observed
+   ~2.85:1 squash. flex-shrink:0 forbids that — the height is now strictly
+   width×9/16, and BOTH dimensions derive from 100cqh so the ratio is preserved.
+   max-height clamps the height to the cqh budget so width can't blow past 100%. */
+.stage { container-type: inline-size; flex: 0 0 auto;
+  width: min(100cqw, calc((100cqh - 78px) * (16 / 9)));
+  height: calc(min(100cqw, calc((100cqh - 78px) * (16 / 9))) * 9 / 16);
+  aspect-ratio: 16/9; max-height: calc(100cqh - 78px); border-radius: var(--radius-lg);
   position: relative; overflow: hidden; border: 1px solid var(--border-strong);
   background: radial-gradient(125% 120% at 70% 6%, #241a36 0%, #0f0a18 48%, #060410 100%); box-shadow: var(--shadow-pop); }
 .stage::after { content: ""; position: absolute; inset: 0; background: radial-gradient(80% 60% at 50% 120%, rgba(0,0,0,.55), transparent 70%); pointer-events: none; }

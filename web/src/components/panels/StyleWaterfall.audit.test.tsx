@@ -430,8 +430,13 @@ describe("C-06 — bold toggle at group tier", () => {
     expect(onSetStyle).toHaveBeenCalledWith("group", "bold", false);
   });
 
-  it("C-06b — toggle from false fires true", async () => {
+  it("C-06b — ADJ-12: toggling an explicit override to the inherited value CLEARS it (not an explicit set)", async () => {
+    // ADJ-12: global bold is `true`. The group explicitly overrides it to `false`.
+    // Toggling flips to `true`, which equals the inherited (global) value — so the
+    // toggle clears the override (round-trips to inherited) instead of writing an
+    // explicit `bold: true`. Equality-clears applies only to the toggle kind.
     const onSetStyle = vi.fn();
+    const onClearStyle = vi.fn();
     const p = withGroupStyle(baseProject(), 0, { bold: false });
     render(
       <StyleWaterfall
@@ -440,14 +445,15 @@ describe("C-06 — bold toggle at group tier", () => {
         aiTier={null}
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
-        onClearStyle={vi.fn()}
+        onClearStyle={onClearStyle}
         onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
     const boldRow = within(groupTier).getByText(/^Bold$/).closest(".prow") as HTMLElement;
     await userEvent.click(boldRow.querySelector(".toggle, .pv-ctl") as Element);
-    expect(onSetStyle).toHaveBeenCalledWith("group", "bold", true);
+    expect(onClearStyle).toHaveBeenCalledWith("group", "bold");
+    expect(onSetStyle).not.toHaveBeenCalled();
   });
 });
 

@@ -66,7 +66,6 @@ test("G-21 — cue color swatch sets tok style.primary + caption span color; cle
 // `false` override and the second writes explicit `true` — never clearing the
 // override. Toggling an inherited boolean twice should return to inherited.
 test("G-22 — bold toggle twice = state reverted (back to inherited)", async ({ page }) => {
-  test.fail();
   await openAudit(page);
   await selectWord0(page);
   await inspector(page);

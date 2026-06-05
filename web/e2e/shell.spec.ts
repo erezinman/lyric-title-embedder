@@ -65,7 +65,6 @@ test("G-34 — dock tabs switch Timeline <-> Cue lanes", async ({ page }) => {
 // rendered box is NOT 16:9 (observed ~2.85:1) — the stage is stretched to fill
 // its column instead of being letterboxed to 16:9. This is the squash-bug class.
 test("G-35 — horizontal splitter drag changes stage size AND keeps 16:9", async ({ page }) => {
-  test.fail();
   await openAudit(page);
   const stage = page.locator(".stage");
   const before = (await stage.boundingBox())!;
