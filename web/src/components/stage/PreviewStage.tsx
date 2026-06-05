@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { getFrameUrl } from "../../api/client";
-import { boxFromState, marginsFromBox, anchorXY, applyMove, applyResize, posActive } from "../../model/bbox";
+import { boxFromState, marginsFromBox, anchorXY, applyMove, applyResize, posActive, alignRow, alignCol } from "../../model/bbox";
 import type { Box, PlacementState } from "../../model/bbox";
 
 export interface CapWord {
@@ -40,11 +40,30 @@ export function PreviewStage({
 }: PreviewStageProps) {
   const [preview, setPreview] = useState<Box | null>(null);
   const [readout, setReadout] = useState<{ x: number; y: number } | null>(null);
+  // Visual band height (canvas px), session-local. The model only persists the
+  // anchored margin; without this, resizing the non-anchored edge would snap
+  // back to the default 18% band as soon as the placement push lands.
+  const [bandH, setBandH] = useState<number | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
 
   const pinned = posActive(placement);
-  const box = preview ?? boxFromState(placement);
   const W = placement.play_w || 1920, H = placement.play_h || 1080;
+
+  const applyBandH = useCallback((b: Box, pl: PlacementState, bh: number | null): Box => {
+    if (bh == null || posActive(pl)) return b;
+    const Hc = pl.play_h || 1080;
+    const row = alignRow(pl.align);
+    if (row === "bottom") return { ...b, t: Math.max(0, b.b - bh) };
+    if (row === "top") return { ...b, b: Math.min(Hc, b.t + bh) };
+    const c = (b.t + b.b) / 2;
+    return { ...b, t: Math.max(0, c - bh / 2), b: Math.min(Hc, c + bh / 2) };
+  }, []);
+  const bandHRef = useRef(bandH);
+  bandHRef.current = bandH;
+  const applyBandHRef = useRef(applyBandH);
+  applyBandHRef.current = applyBandH;
+
+  const box = preview ?? applyBandH(boxFromState(placement), placement, bandH);
   const pct = (v: number, total: number) => `${(v / total) * 100}%`;
   const boxStyle: React.CSSProperties = {
     left: pct(box.l, W), top: pct(box.t, H),
@@ -53,6 +72,23 @@ export function PreviewStage({
   };
   const [ax, ay] = anchorXY(box, placement.align);
   const pinStyle: React.CSSProperties = { left: pct(ax, W), top: pct(ay, H) };
+
+  // The live caption tracks the SAME box the bbox/pin renders (preview during a
+  // drag), so the text moves with the drag and lands where libass will put it.
+  const capCol = alignCol(placement.align);
+  const capRow = alignRow(placement.align);
+  const capStyle: React.CSSProperties = {
+    left: pct(box.l, W), width: pct(box.r - box.l, W), right: "auto", padding: 0,
+    alignItems: capCol === "left" ? "flex-start" : capCol === "right" ? "flex-end" : "center",
+    ...(capRow === "bottom"
+      ? { top: "auto", bottom: pct(H - box.b, H) }
+      : capRow === "top"
+        ? { bottom: "auto", top: pct(box.t, H) }
+        : { bottom: "auto", top: pct((box.t + box.b) / 2, H), transform: "translateY(-50%)" }),
+  };
+  const capInnerStyle: React.CSSProperties = {
+    justifyContent: capCol === "left" ? "flex-start" : capCol === "right" ? "flex-end" : "center",
+  };
   const readoutText = pinned
     ? `pos ${ax}, ${ay}`
     : (() => { const m = marginsFromBox(box, placement);
@@ -90,7 +126,7 @@ export function PreviewStage({
     e.preventDefault();
     const pl = placementRef.current;
     const Wc = pl.play_w || 1920, Hc = pl.play_h || 1080;
-    const startBox = boxFromState(pl);
+    const startBox = applyBandHRef.current(boxFromState(pl), pl, bandHRef.current);
     const drag: DragState = {
       start: startBox, mode: m, x0: e.clientX, y0: e.clientY,
       moved: false, cancelled: false,
@@ -126,6 +162,9 @@ export function PreviewStage({
         if (posActive(pl2)) {
           onPlacementRef.current({ pos: anchorXY(final, pl2.align) });
         } else {
+          // remember the visual band height so the box doesn't snap back to the
+          // default band when the committed placement re-derives it
+          setBandH(final.b - final.t);
           onPlacementRef.current(marginsFromBox(final, pl2));
         }
       }
@@ -184,8 +223,8 @@ export function PreviewStage({
         {mode === "live" ? (
           <>
             <div className="live-badge"><span className="pulse" />LIVE</div>
-            <div className="cap">
-              <div>
+            <div className="cap" style={capStyle}>
+              <div style={capInnerStyle}>
                 {capWords.map((w) => {
                   const cls =
                     "w" +
