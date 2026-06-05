@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
-const DAEMON = "http://127.0.0.1:8770";
+const DAEMON = process.env.KSS_DAEMON_URL || "http://127.0.0.1:8770";
 
 export default defineConfig({
   plugins: [react()],
@@ -14,6 +14,7 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    exclude: ["e2e/**", "node_modules/**", "dist/**"],
     environment: "jsdom",
     setupFiles: ["./src/vitest.setup.ts"],
   },

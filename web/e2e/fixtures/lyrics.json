@@ -1,0 +1,73 @@
+{
+ "aligned_lyrics": [
+  {
+   "text": "Alpha bravo charlie delta",
+   "start_s": 0.5,
+   "end_s": 4.2,
+   "section": "Verse 1",
+   "words": [
+    {
+     "text": "alpha",
+     "start_s": 0.5,
+     "end_s": 1.2
+    },
+    {
+     "text": " bravo",
+     "start_s": 1.5,
+     "end_s": 2.2
+    },
+    {
+     "text": " charlie",
+     "start_s": 2.5,
+     "end_s": 3.2
+    },
+    {
+     "text": " delta",
+     "start_s": 3.5,
+     "end_s": 4.2
+    }
+   ]
+  },
+  {
+   "text": "Echo foxtrot golf",
+   "start_s": 4.5,
+   "end_s": 7.2,
+   "section": "Verse 1",
+   "words": [
+    {
+     "text": " echo",
+     "start_s": 4.5,
+     "end_s": 5.2
+    },
+    {
+     "text": " foxtrot",
+     "start_s": 5.5,
+     "end_s": 6.2
+    },
+    {
+     "text": " golf",
+     "start_s": 6.5,
+     "end_s": 7.2
+    }
+   ]
+  },
+  {
+   "text": "Hotel india",
+   "start_s": 7.5,
+   "end_s": 9.2,
+   "section": "Chorus",
+   "words": [
+    {
+     "text": " hotel",
+     "start_s": 7.5,
+     "end_s": 8.2
+    },
+    {
+     "text": " india",
+     "start_s": 8.5,
+     "end_s": 9.2
+    }
+   ]
+  }
+ ]
+}
