@@ -86,17 +86,19 @@ interface AnimTime {
 // already IS the fade-in: render.py computes an accumulate-resolved appear time
 // and ass.py gates visibility with an alpha animation at it (fade duration 0 →
 // visible from event start). The generalized model drops the `accumulate` field
-// entirely — what it used to choose is now just the ANCHOR of the group's
-// appearance (fade-in) animation:
-//     accumulate "words" ≡ appearance anim anchored cue_start  (per word)
-//     accumulate "lines" ≡ anchored line_start                 (per line)
-//     accumulate "off"   ≡ anchored event_start                (all at once)
-// Migration converts each group's accumulate value into that anchor. The
-// EventStrip's 3-way control can survive as sugar that re-anchors the
-// appearance animation (designer's call, Q3b). One rule stays explicit: a cue
-// with NO alpha animation covering it is visible for the whole event — exactly
-// today's zero-duration behavior. Sung-time animations (cue_start color sweeps)
-// compose freely with any appearance anchor.
+// entirely — accumulate was never anything but the TIMING MODE (question 5d)
+// of one particular animation, the group's appearance (fade-in) animation:
+//     accumulate "words" ≡ appearance anim in "Per cue" mode   (cue_start)
+//     accumulate "lines" ≡ "Per line" mode                     (line_start)
+//     accumulate "off"   ≡ "Together" mode                     (event_start)
+// Migration converts each group's accumulate value into that mode. The
+// EventStrip's 3-way control is REPLACED by the standard timing-mode picker on
+// the appearance animation row — and as a corollary the appearance animation
+// gains every other mode for free: cascade, chained (typewriter reveal),
+// reverse, jitter are all now legal ways for a group's words to appear.
+// One rule stays explicit: a cue with NO alpha animation covering it is visible
+// for the whole event — exactly today's zero-duration behavior. Sung-time
+// animations (cue_start color sweeps) compose freely with any appearance mode.
 
 // ---- one animation = one channel + chained segments ---------------------
 interface AnimSegment {
