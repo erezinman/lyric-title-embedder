@@ -50,7 +50,10 @@ type AnimChannel =
 
 // ---- timing: every endpoint is anchor + offset --------------------------
 interface AnimTime {
-  anchor: "cue_start" | "cue_end"      // each cue's OWN span → members stagger
+  anchor: "cue_start" | "cue_end"      // each cue's OWN span → members follow
+                                       //   the word rhythm
+        | "line_start" | "line_end"    // the member's LINE span → each line of
+                                       //   a group animates as a unit
         | "span_start" | "span_end"    // the owning scope's overall span (tag:
                                        // earliest start..latest end of its ids;
                                        // group: the event window) → members
@@ -88,8 +91,28 @@ interface Animation {
   segments: AnimSegment[];   // ordered, non-overlapping WITHIN one animation;
                              // chaining is first-class: e.g. alpha 0→50% in 20ms,
                              // then 50→100% in 80ms = two segments
+  stagger?: AnimStagger;     // optional per-member offset on top of the anchor
   enabled: boolean;          // soft on/off without deleting
 }
+
+// ---- stagger: computed per-member delay added to the anchor ---------------
+// The anchor sets the base clock; stagger shifts each member off it. The two
+// no-stagger defaults are "per cue" (cue_* anchors) and "together" (span_*).
+interface AnimStagger {
+  order: "index"             // cascade: member i starts i×step after the first —
+                             //   an EVEN wave, ignoring the actual word rhythm
+       | "reverse"           // same, last member first (great for exits)
+       | "center_out"        // ordered by distance from the line's middle (ripple)
+       | "random";           // deterministic jitter within ±step (seeded by word
+                             //   id → renders are stable)
+  step: { value: number; unit: "ms" | "frac" };   // per-member delay (frac of span)
+  chained?: boolean;         // step = previous member's animation duration
+                             //   (typewriter / domino) — overrides step.value
+}
+// All modes are compile-time arithmetic emitting ordinary \t tags — no renderer
+// cost or risk. PARKED (needs data we don't have): beat-grid stagger (members
+// snap to a BPM grid) — requires tempo metadata (bpm + downbeat) on the project;
+// flagged as a follow-up feature, the schema slot is reserved.
 
 // ---- scopes --------------------------------------------------------------
 interface AnimTag { ids: number[]; anims: Animation[]; suppress: string[]; }
@@ -152,6 +175,15 @@ to WASM — jassub). Consequences for your design:
   overlay outline/scrim on top of rendered text rather than restyling the text itself
   (question 11).
 - Smooth 60fps playback and instant scrub — no per-frame server round-trip in live mode.
+- **The edit→pixels loop:** every committed edit already broadcasts new state over WS; the
+  client then pulls the regenerated `.ass` and hands it to the renderer (`setTrack`).
+  Re-parsing is per-EDIT (single-digit ms at our file sizes), rendering is per-frame (~1–5ms),
+  so the authoring loop feels exactly like today — only truthful. Playback/scrub never
+  re-parses; the clock just moves.
+- **Continuous drags** (placement box, pin, word blocks): mutations dispatch on release, so the
+  rendered pixels update on release; *during* the drag the existing overlay ghosts (bbox, pin
+  crosshair, readout chip) remain the live feedback. Engineer decision for v1; live-truth
+  dragging via throttled speculative recompiles is a possible later upgrade.
 
 ### 1.6 The v1 preset shortlist (engineer proposal — react freely)
 
@@ -219,12 +251,18 @@ custom editing needs a face.
 - b. The ms-vs-fraction unit choice: explicit unit toggle, or infer (typed `%` vs `ms`)?
 - c. Multi-segment animations (the 0→50%-in-20ms-then-50→100%-in-80ms case): stacked segment
   rows, or drawn as a single mini-curve with draggable breakpoints?
-- d. **Together vs per-cue** (the `span_*` vs `cue_*` anchors): for group/selection animations
-  the user must choose whether members animate in unison or each on its own clock ("fade the
-  whole chorus in as one; color each word as it lands"). Engineer leaning: a simple
-  "Timing: together / per cue" toggle on the animation row, defaulting per preset (fades →
-  together, color/pop → per cue); the raw per-endpoint anchors stay an Advanced detail.
-  Agree, or surface the hybrid (start together / end per cue) in the simple view?
+- d. **Timing modes** (anchors + stagger, §1.2): for group/selection animations the user picks
+  how members relate in time. The full set: **Per cue** (each word on its own clock), **Per
+  line** (each line as a unit), **Together** (whole scope in unison), **Cascade** (even wave,
+  i×step), **Chained** (each starts as the previous ends — typewriter), **Reverse** (exits),
+  **Center-out** (ripple), **Jitter** (random sparkle). Engineer leaning: the "Timing" control
+  is a small mode picker on the animation row; a `step` field appears only for the
+  cascade-family; raw per-endpoint anchors (and hybrids like start-together/end-per-cue) stay
+  under Advanced. Defaults per preset (fades → together, color/pop → per cue).
+  - How should eight modes be presented without overwhelming the row — flat dropdown, grouped
+    dropdown (Follow words / As one / Wave…), or icon segmented control?
+  - Are all eight worth exposing in simple view, or should center-out/jitter live under
+    Advanced?
 
 ## 6. Lanes / timeline indication
 Cue lanes currently mark fade membership with dedicated columns; the word track shows blocks.
