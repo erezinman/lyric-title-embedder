@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>jassub-bench</title>
+<style>
+  body { margin:0; background:#000; }
+  #stage { position:relative; }
+  canvas { display:block; background:#000; }
+  /* DOM line for Spike B geometry compare */
+  @font-face { font-family:'spike'; src:url('./DejaVuSans.ttf'); }
+  #domline {
+    position:absolute; left:0; top:0;
+    font-family:'spike'; font-size:48px; line-height:normal;
+    white-space:pre; letter-spacing:0; color:#fff;
+    visibility:hidden; /* measured but not shown */
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c" width="1280" height="720"></canvas>
+  <div id="domline"></div>
+</div>
+<canvas id="readback" width="1280" height="720" style="display:none"></canvas>
+
+<script type="module">
+import JASSUB from './jassub.bundle.js';
+
+const canvas = document.getElementById('c');
+const readback = document.getElementById('readback');
+const rctx = readback.getContext('2d', { willReadFrequently: true });
+
+let instance = null;
+
+async function settle() {
+  await new Promise(r => setTimeout(r, 250));
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+}
+function snapshot() {
+  // The visible canvas had its control transferred to the worker (offscreen).
+  // We can still drawImage() it into a 2D canvas to read pixels back.
+  rctx.clearRect(0,0,1280,720);
+  rctx.drawImage(canvas, 0, 0);
+}
+
+async function boot(initialAss, dbg) {
+  instance = new JASSUB({
+    canvas,
+    subContent: initialAss,
+    debug: !!dbg,
+    workerUrl: './worker.bundle.js',
+    wasmUrl: './jassub-worker.wasm',
+    modernWasmUrl: './jassub-worker-modern.wasm',
+    availableFonts: { 'dejavu sans': './DejaVuSans.ttf' },
+    fonts: ['./DejaVuSans.ttf'],
+    defaultFont: 'dejavu sans',
+    queryFonts: false
+  });
+  await instance.ready;
+  return true;
+}
+
+async function render(t) {
+  // manualRender resolves after the worker completes _draw for this frame.
+  await instance.manualRender({
+    expectedDisplayTime: performance.now(),
+    width: 1280, height: 720,
+    mediaTime: t
+  });
+}
+
+window.bench = {
+  ready: false,
+  async init(ass, dbg) {
+    await boot(ass, dbg);
+    window.bench.ready = true;
+    return true;
+  },
+  async setTrackTimed(ass) {
+    const t0 = performance.now();
+    await instance.renderer.setTrack(ass);
+    const t1 = performance.now();
+    return t1 - t0;
+  },
+  async seekAndRender(t) {
+    const t0 = performance.now();
+    await render(t);
+    const t1 = performance.now();
+    return t1 - t0;
+  },
+  // Render then return the pixel region via 2D readback.
+  async getPixels(x, y, w, h) {
+    await settle();
+    snapshot();
+    const img = rctx.getImageData(x, y, w, h);
+    return { width: img.width, height: img.height, data: Array.from(img.data) };
+  },
+  // Count non-near-black pixels in a region (sanity).
+  async inkCount(x, y, w, h, thresh=30) {
+    await settle();
+    snapshot();
+    const d = rctx.getImageData(x, y, w, h).data;
+    let n = 0;
+    for (let i=0; i<d.length; i+=4) {
+      if (d[i]>thresh || d[i+1]>thresh || d[i+2]>thresh) n++;
+    }
+    return n;
+  },
+  // Spike B: classify ink pixels by dominant color into per-word bboxes.
+  // colors: array of {r,g,b}. Returns per-index bbox {minX,maxX,minY,maxY,count}.
+  async colorBoxes(x, y, w, h, colors) {
+    await settle();
+    snapshot();
+    const d = rctx.getImageData(x, y, w, h).data;
+    const boxes = colors.map(()=>({minX:1e9,maxX:-1,minY:1e9,maxY:-1,count:0}));
+    for (let py=0; py<h; py++) {
+      for (let px=0; px<w; px++) {
+        const i = (py*w+px)*4;
+        const r=d[i], g=d[i+1], b=d[i+2];
+        const mx = Math.max(r,g,b);
+        if (mx < 40) continue; // ignore near-black bg + low-alpha edge AA
+        // classify by nearest color direction (normalize brightness)
+        let best=-1, bestD=1e9;
+        for (let c=0;c<colors.length;c++){
+          const C=colors[c];
+          // distance in normalized chroma; scale target to pixel brightness
+          const dr=r-C.r, dg=g-C.g, db=b-C.b;
+          const dist=dr*dr+dg*dg+db*db;
+          if(dist<bestD){bestD=dist;best=c;}
+        }
+        if(best<0) continue;
+        // reject ambiguous (too far from any pure color)
+        if(bestD > 9000) continue;
+        const bx=boxes[best];
+        if(px<bx.minX)bx.minX=px; if(px>bx.maxX)bx.maxX=px;
+        if(py<bx.minY)bx.minY=py; if(py>bx.maxY)bx.maxY=py;
+        bx.count++;
+      }
+    }
+    return boxes.map((b,i)=>({
+      idx:i,
+      count:b.count,
+      minX: b.count?b.minX+x:null, maxX: b.count?b.maxX+x:null,
+      minY: b.count?b.minY+y:null, maxY: b.count?b.maxY+y:null,
+      width: b.count? b.maxX-b.minX+1 : 0
+    }));
+  },
+  // DOM measurement for Spike B
+  measureDom(words) {
+    const dl = document.getElementById('domline');
+    dl.style.fontWeight = 'normal';
+    dl.innerHTML = '';
+    const spans = [];
+    words.forEach((wd,i)=>{
+      const s=document.createElement('span');
+      s.textContent = wd;
+      dl.appendChild(s);
+      spans.push(s);
+      if(i<words.length-1) dl.appendChild(document.createTextNode(' '));
+    });
+    // force layout
+    void dl.offsetWidth;
+    const base = dl.getBoundingClientRect();
+    const out = spans.map(s=>{
+      const r=s.getBoundingClientRect();
+      return { left:r.left-base.left, width:r.width };
+    });
+    return { origin: base.left, spans: out, totalWidth: base.width };
+  },
+  async fontReady() {
+    await document.fonts.load('64px spike');
+    await document.fonts.ready;
+    return true;
+  }
+};
+window.__benchLoaded = true;
+</script>
+</body>
+</html>

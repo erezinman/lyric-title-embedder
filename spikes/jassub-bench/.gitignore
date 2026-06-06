@@ -1,0 +1,8 @@
+node_modules/
+*.wasm
+jassub-worker.js
+worker.bundle.js
+jassub.bundle.js
+DejaVuSans.ttf
+*.png
+*.log

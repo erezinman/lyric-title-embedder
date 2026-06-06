@@ -268,23 +268,34 @@ Sweep is the genre-defining karaoke effect (left-to-right fill as the word is su
 ASS's native `\kf` mechanism — the oldest, best-supported feature of the format. Its timing is
 intrinsically the cue's sung interval (no anchors/modes apply).
 
-### 1.7 Verification spikes (run before the engine spec is finalized)
+### 1.7 Verification spikes — ALL RUN, ALL PASS (2026-06-07)
 
-Cheap, isolated experiments answering the review's empirical questions:
+Full data: `spikes/libass/FINDINGS.md` (semantics, via ffmpeg+libass pixel analysis) and
+`spikes/jassub-bench/FINDINGS.md` (browser, jassub 2.5.5 headless). Verdicts:
 
-1. **Overlap semantics** — two overlapping `\t` on one property in jassub: compounding,
-   last-wins, or jump? Pins down the warning copy for Q8 and whether §1.3-4 needs hardening.
-2. **`\clip` interpolation** — does jassub animate `\clip(x1,y1,x2,y2)` under `\t`? Gates the
-   Wipe preset.
-3. **Full-song scale** — typewriter+stagger across all ~363 words: measure .ass size, jassub
-   `setTrack` parse time, and per-frame render time. Validates the "single-digit ms" claim at
-   worst case.
-4. **Geometry calibration** — same-font DOM layer vs rendered pixels across fontsize/bold/
-   spacing/scale variations; measure per-word bbox drift. Gates the §1.5 overlay plan.
-5. **`\kf` gap padding** — our words have silence gaps inside an event, so the compiler must
-   emit padding `\k` segments to keep the accumulated karaoke clock honest. Verify the
-   technique renders correctly in jassub (incl. fill color = primary over base). Gates the
-   Sweep preset.
+1. **Overlap semantics** ✅ — overlapping `\t` on one property: the **last-listed transform
+   wins, continuously** (smooth crossover at its start time; never compounds, never jumps;
+   a static tag after the `\t`s kills the animation). Compiler rule: emit global→group→tag
+   order so the narrowest scope is last. Q8's warning copy can say "the narrower animation
+   takes over smoothly".
+2. **`\clip` interpolation** ✅ — rectangular `\clip` under `\t` interpolates linearly,
+   pixel-accurate (~3px). Wipe preset is viable. (Vector `\clip`/`\iclip` drawings do NOT
+   interpolate — rect form only.) Clip endpoints must come from laid-out text bboxes.
+3. **Full-song scale** ✅ — 372 words × 2 chained `\t`: 27KB .ass, `setTrack` **1.1–1.5ms**,
+   steady-state render **0.1–0.6ms** (one-off 7–50ms shaping-cache warm-ups on first visit to
+   a dense event). Edit→pixels cost claims confirmed with margin.
+4. **Geometry calibration** ✅ — same-font DOM layout vs libass advances: after ONE uniform
+   scale (≈0.866 for DejaVu — libass's VSFilter-style sizing vs CSS px; a per-font constant,
+   identical for bold), cumulative drift across a full 1280px line is **max ~4.5px, mean
+   ~2.3px**. GO for the §1.5 overlay plan (4px-padded outlines, half-word hit-test tolerance).
+   Calibrate the scale once at runtime per font.
+5. **`\kf` gap padding** ✅ — padding `\k` segments advance the karaoke clock correctly; fills
+   land on real word times with smooth partial sweeps; unsung color = SecondaryColour.
+   Sweep preset is viable.
+
+Integration gotchas recorded in the jassub findings (workerUrl must be the bundled module
+worker — wrong file hangs `ready` forever silently; eager font preload; readback must wait for
+the placeholder canvas to composite).
 
 ---
 
