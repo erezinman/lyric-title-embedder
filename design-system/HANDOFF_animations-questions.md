@@ -50,10 +50,11 @@ type AnimChannel =
 
 // ---- timing: every endpoint is anchor + offset --------------------------
 interface AnimTime {
-  anchor: "cue_start" | "cue_end"      // each cue's OWN span → members follow
-                                       //   the word rhythm
-        | "line_start" | "line_end"    // the member's LINE span → each line of
-                                       //   a group animates as a unit
+  anchor: "cue_start" | "cue_end"      // the cue's sung interval. A cue is the
+                                       //   LOGICAL word (post-merge): span =
+                                       //   earliest start..latest end of its ids
+        | "line_start" | "line_end"    // the member's LINE sung span → each line
+                                       //   of a group animates as a unit
         | "span_start" | "span_end"    // the owning scope's overall span (tag:
                                        // earliest start..latest end of its ids;
                                        // group: the event window) → members
@@ -62,6 +63,12 @@ interface AnimTime {
   offset: number;            // signed, in `unit`
   unit: "ms" | "frac";       // frac = fraction of the anchor's span (0..1)
 }
+// NO ABSOLUTE-TIME ANCHOR (decided): all timing is relative to cue/line/span/
+// event. Consequence, accepted: today's fade-out "trigger" is stored as absolute
+// seconds; it migrates to a cue_end-anchored offset, so a migrated trigger now
+// FOLLOWS the words when they are retimed instead of staying at its wall-clock
+// moment. If an absolute use case materializes (timed title cards), a `project`
+// anchor is a pure-additive extension.
 // Examples:
 //   {anchor:"cue_start", offset:-200, unit:"ms"}  → 200ms BEFORE the word lights up
 //   {anchor:"cue_start", offset:0.5, unit:"frac"} → halfway through the word
@@ -74,12 +81,33 @@ interface AnimTime {
 // Edge: if a span-based animation starts before a member cue's event exists,
 // that cue appears already mid/past-animation (compiler clamps) — relevant only
 // for tags spanning multiple groups.
+//
+// ACCUMULATE IS GONE AS A CONCEPT (decided). In the current engine, appearance
+// already IS the fade-in: render.py computes an accumulate-resolved appear time
+// and ass.py gates visibility with an alpha animation at it (fade duration 0 →
+// visible from event start). The generalized model drops the `accumulate` field
+// entirely — what it used to choose is now just the ANCHOR of the group's
+// appearance (fade-in) animation:
+//     accumulate "words" ≡ appearance anim anchored cue_start  (per word)
+//     accumulate "lines" ≡ anchored line_start                 (per line)
+//     accumulate "off"   ≡ anchored event_start                (all at once)
+// Migration converts each group's accumulate value into that anchor. The
+// EventStrip's 3-way control can survive as sugar that re-anchors the
+// appearance animation (designer's call, Q3b). One rule stays explicit: a cue
+// with NO alpha animation covering it is visible for the whole event — exactly
+// today's zero-duration behavior. Sung-time animations (cue_start color sweeps)
+// compose freely with any appearance anchor.
 
 // ---- one animation = one channel + chained segments ---------------------
 interface AnimSegment {
   t0: AnimTime;
   t1: AnimTime;
-  from: number | string | number[] | null;   // null = "whatever the value is at t0"
+  from: number | string | number[] | null;
+  // null is PRECISELY defined: for the first segment it is the channel's STATIC
+  // resolved value from the style waterfall (global<group<cue), computed at
+  // compile time — NEVER the dynamic mid-value of some other animation. For
+  // segment k>0 it is the previous segment's `to`. Interaction between two
+  // animations on one channel is governed solely by the overlap rules (§1.3).
   to:   number | string | number[];
   accel: number;             // easing: power curve t^accel; 1 = linear (see §1.4)
 }
@@ -102,13 +130,19 @@ interface AnimStagger {
   order: "index"             // cascade: member i starts i×step after the first —
                              //   an EVEN wave, ignoring the actual word rhythm
        | "reverse"           // same, last member first (great for exits)
-       | "center_out"        // ordered by distance from the line's middle (ripple)
+       | "center_out"        // ordered by distance from the member-list midpoint
+                             //   (ripple)
        | "random";           // deterministic jitter within ±step (seeded by word
                              //   id → renders are stable)
   step: { value: number; unit: "ms" | "frac" };   // per-member delay (frac of span)
   chained?: boolean;         // step = previous member's animation duration
                              //   (typewriter / domino) — overrides step.value
 }
+// ORDERING BASIS (canonical): members are ordered by layout READING order
+// (group index, line index, token index) — not by time — so cascades are stable
+// under retiming and well-defined for multi-line and non-contiguous selections.
+// center_out measures distance from the midpoint of that ordered member list
+// (index space, no pixel metrics involved).
 // All modes are compile-time arithmetic emitting ordinary \t tags — no renderer
 // cost or risk. PARKED (needs data we don't have): beat-grid stagger (members
 // snap to a BPM grid) — requires tempo metadata (bpm + downbeat) on the project;
@@ -125,8 +159,9 @@ interface AnimTag { ids: number[]; anims: Animation[]; suppress: string[]; }
 //   anim_tags:             AnimTag[]                       (cue / selection scope;
 //                                                           tag.suppress mutes inherited
 //                                                           global+group anims for its ids)
-// fin_tags / fout_tags / group.fade / globals.fade_*_ms are MIGRATED into the above
-// and removed (existing projects auto-convert on open).
+// fin_tags / fout_tags / group.fade / globals.fade_*_ms AND layout[gi].accumulate
+// are MIGRATED into the above and removed (existing projects auto-convert on
+// open; accumulate becomes the appearance animation's anchor — see below).
 ```
 
 ### 1.3 Resolution semantics (what the user must be able to predict)
@@ -138,14 +173,19 @@ every tag containing it. Then:
    inherited global/group animations for its cues. Muted = not rendered for that scope, still
    visible (as "inherited, suppressed") in the UI.
 2. **Additivity** — everything that survives runs. Any number of animations per cue is legal.
-3. **Same-kind conflict rule** — two animations of the same `name` overlapping in time on the
-   same cue: the narrowest scope wins (cue/tag > group > global). E.g. a cue-level custom
-   fade-in replaces the global fade-in *during its overlap window* — practically, the inherited
-   one is dropped for that cue.
-4. **Different-kind, same-channel overlap** — e.g. a "pop" and a "stretch" both animating
-   `scale_x` at once: both are emitted; the renderer composes them sequentially, which is
-   well-defined but visually non-obvious. The compiler flags this as a **warning** (UI question
-   8 below).
+3. **Cross-scope conflict rule — keyed on channel + time-overlap, never on name** (names are
+   labels; two `custom` animations must not magically suppress each other). When animations
+   from *different scopes* touch the same channel of the same cue with overlapping time
+   windows: the narrowest scope wins and the wider-scope animation is dropped **entirely for
+   that cue** (no time-slicing — predictability over cleverness). E.g. a cue-level custom
+   fade-in beats the global fade-in. Non-overlapping same-channel animations all run —
+   chained-segment idioms stay first-class.
+4. **Same-scope, same-channel overlap** — e.g. a "pop" and a "stretch" both animating
+   `scale_x` at once at group level: both are emitted, and the renderer's behavior for
+   overlapping `\t` on one property is **implementation-defined compounding** (each `\t`
+   interpolates the accumulated value — it does NOT cleanly blend or last-win). The compiler
+   flags this as a **warning** (UI question 8 below); a verification spike (§1.7) pins down
+   the exact jassub behavior.
 
 ### 1.4 What the renderer can and cannot do (hard constraints on your design)
 
@@ -153,13 +193,17 @@ The export/preview renderer is libass (the industry ASS renderer; ffmpeg uses it
 
 - ✅ Every channel in §1.2 except `move` animates **per cue**, with arbitrary chained segments.
 - ⚠️ **Easing is a power curve only** (`t^accel`): linear / ease-in / ease-out / extreme
-  variants. No beziers, no bounce/elastic natively. (Future: fancy curves can be *approximated*
-  by auto-generated chained segments — schema already supports it, so designing easing as a
-  named-preset picker now is safe.)
+  variants. **One segment cannot do ease-in-out (S-curve)** — any preset implying an S-curve
+  auto-expands to two chained segments at compile time (invisible to the user). No beziers,
+  no bounce/elastic natively; fancy curves are likewise approximable by auto-generated chained
+  segments — schema already supports it, so designing easing as a named-preset picker is safe.
 - ⚠️ **`move` (position) is event-level, not per-cue**, and linear-only with a single
-  from→to. v1: a slide/drift applies to a whole group's rendered line block, not to one word.
-  (Future: per-cue motion is achievable by compiling cues into separate render events — a
-  known technique — but it is explicitly out of v1.)
+  from→to. This is enforced **at the model level**: the mutation layer rejects a `move`
+  animation on a tag (cue/selection) scope — it is only accepted at group/global. The UI
+  should disable rather than explain-after-the-fact (question 12). v1: a slide/drift applies
+  to a whole group's rendered line block, not to one word. (Future: per-cue motion is
+  achievable by compiling cues into separate render events — a known technique — but it is
+  explicitly out of v1.)
 - ❌ No per-glyph effects or particles in v1.
 
 ### 1.5 Preview: live mode becomes truthful (decided)
@@ -174,6 +218,17 @@ to WASM — jassub). Consequences for your design:
   but the *pixels* come from the renderer. Selection highlight must therefore be drawn as an
   overlay outline/scrim on top of rendered text rather than restyling the text itself
   (question 11).
+- **Per-word geometry is the top integration risk** (flagged in design review): libass exposes
+  no per-word boxes, so the overlay must reproduce the renderer's layout closely enough for
+  hit-testing and selection outlines. Mitigation plan: the overlay uses the SAME font file
+  (served by the daemon, loaded via @font-face) at PlayRes-scaled size — browsers and libass
+  both shape with HarfBuzz, so advances and break positions match closely for our simple
+  horizontal text, and decorations (\bord/\shad) don't shift advances. Plus: selection
+  outlines drawn with a few px of padding so residual error is invisible; event-level bounding
+  boxes extracted from the renderer's per-frame bitmap positions as a sanity clamp; an
+  explicit calibration spike (§1.7) BEFORE committing to this architecture. Hit-test tolerance
+  (clicks resolve to the nearest cue) absorbs small drift; pixel-perfect alignment is not
+  required, unlike the old Tk ink-ratio problem where the approximation WAS the pixels.
 - Smooth 60fps playback and instant scrub — no per-frame server round-trip in live mode.
 - **The edit→pixels loop:** every committed edit already broadcasts new state over WS; the
   client then pulls the regenerated `.ass` and hands it to the renderer (`setTrack`).
@@ -199,6 +254,20 @@ channels. Proposed v1 list:
 | Wipe in | clip_rect | direction (L→R/R→L/T→B), duration |
 | Blur in | blur | start blur px, duration |
 | Slide (group-level only) | move | direction, distance, duration |
+
+### 1.7 Verification spikes (run before the engine spec is finalized)
+
+Cheap, isolated experiments answering the review's empirical questions:
+
+1. **Overlap semantics** — two overlapping `\t` on one property in jassub: compounding,
+   last-wins, or jump? Pins down the warning copy for Q8 and whether §1.3-4 needs hardening.
+2. **`\clip` interpolation** — does jassub animate `\clip(x1,y1,x2,y2)` under `\t`? Gates the
+   Wipe preset.
+3. **Full-song scale** — typewriter+stagger across all ~363 words: measure .ass size, jassub
+   `setTrack` parse time, and per-frame render time. Validates the "single-digit ms" claim at
+   worst case.
+4. **Geometry calibration** — same-font DOM layer vs rendered pixels across fontsize/bold/
+   spacing/scale variations; measure per-word bbox drift. Gates the §1.5 overlay plan.
 
 ---
 
@@ -241,7 +310,8 @@ but still defined at their source.
   the narrow scope, which by rule 3 in §1.3 then wins)?
 
 ## 5. Timing editor (anchor + offset)
-Every animation endpoint is `anchor ∈ {cue start, cue end, event start, event end}` + signed
+Every animation endpoint is one of the **8 anchors** (cue / line / span / event × start / end,
+§1.2 — enough for a *grouped* picker, not a flat dropdown) + signed
 offset in **ms or fraction-of-cue**. Defaults do the right thing (fade-in = cue_start+0), but
 custom editing needs a face.
 - a. How literal do we get? Options: (i) two dropdown+number rows ("Start: cue start − 200 ms"),
@@ -302,8 +372,10 @@ panel will be these migrated rows.
 - a. Should migrated fades look exactly like any other animation, or keep a touch of their old
   identity (icon continuity with the current sparkles)?
 - b. FadeGroupPanel's "trigger" (absolute fade-out start time) maps to a `cue_end`-anchored
-  offset. The old UI exposed ±0.5s/auto buttons; keep that micro-UI inside the new animation
-  row, or generalize to the standard timing editor?
+  offset — decided (§1.2): no absolute anchor in v1, so a migrated trigger now *follows the
+  words* when retimed rather than staying at its wall-clock moment. The old UI exposed
+  ±0.5s/auto buttons; keep that micro-UI inside the new animation row, or generalize to the
+  standard timing editor?
 
 ## 11. Selection feedback over the rendered preview (consequence of §1.5)
 Today selecting a word restyles the DOM caption (accent fill). With pixels coming from the
