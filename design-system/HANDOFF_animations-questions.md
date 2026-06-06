@@ -50,14 +50,27 @@ type AnimChannel =
 
 // ---- timing: every endpoint is anchor + offset --------------------------
 interface AnimTime {
-  anchor: "cue_start" | "cue_end" | "event_start" | "event_end";
+  anchor: "cue_start" | "cue_end"      // each cue's OWN span → members stagger
+        | "span_start" | "span_end"    // the owning scope's overall span (tag:
+                                       // earliest start..latest end of its ids;
+                                       // group: the event window) → members
+                                       // animate IN UNISON
+        | "event_start" | "event_end"; // the rendered event window
   offset: number;            // signed, in `unit`
-  unit: "ms" | "frac";       // frac = fraction of the cue's own span (0..1)
+  unit: "ms" | "frac";       // frac = fraction of the anchor's span (0..1)
 }
 // Examples:
 //   {anchor:"cue_start", offset:-200, unit:"ms"}  → 200ms BEFORE the word lights up
 //   {anchor:"cue_start", offset:0.5, unit:"frac"} → halfway through the word
-// Merged cues: span = earliest start .. latest end of the merged words (existing rule).
+//   {anchor:"span_start", offset:0, unit:"ms"}    → all selected cues start together
+// Anchors are PER ENDPOINT, so one animation on a selection can fade the whole
+// selection in together (span_start..span_start+300ms) while another colors each
+// word on its own clock (cue_start..cue_end) — the "group fades as one, color
+// progresses per cue" case. Hybrids are legal too (start together, end per cue).
+// Merged cues: cue span = earliest start .. latest end of the merged words.
+// Edge: if a span-based animation starts before a member cue's event exists,
+// that cue appears already mid/past-animation (compiler clamps) — relevant only
+// for tags spanning multiple groups.
 
 // ---- one animation = one channel + chained segments ---------------------
 interface AnimSegment {
@@ -206,6 +219,12 @@ custom editing needs a face.
 - b. The ms-vs-fraction unit choice: explicit unit toggle, or infer (typed `%` vs `ms`)?
 - c. Multi-segment animations (the 0→50%-in-20ms-then-50→100%-in-80ms case): stacked segment
   rows, or drawn as a single mini-curve with draggable breakpoints?
+- d. **Together vs per-cue** (the `span_*` vs `cue_*` anchors): for group/selection animations
+  the user must choose whether members animate in unison or each on its own clock ("fade the
+  whole chorus in as one; color each word as it lands"). Engineer leaning: a simple
+  "Timing: together / per cue" toggle on the animation row, defaulting per preset (fades →
+  together, color/pop → per cue); the raw per-endpoint anchors stay an Advanced detail.
+  Agree, or surface the hybrid (start together / end per cue) in the simple view?
 
 ## 6. Lanes / timeline indication
 Cue lanes currently mark fade membership with dedicated columns; the word track shows blocks.
