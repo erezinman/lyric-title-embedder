@@ -21,7 +21,8 @@ export function TimingPanel({ tok, project, unlocked, onToggleLock, onSetTime, o
     <div className="timing">
       <div className="locked-h">
         <Icon name="clock" size={13} />Timing
-        <button className="lock-pill" onClick={onToggleLock} aria-label={unlocked ? "Lock timings" : "Unlock timings"} title={unlocked ? "Lock timings" : "Unlock timings"}>
+        <button className={"lock-pill" + (unlocked ? " on" : "")} aria-pressed={unlocked}
+          onClick={onToggleLock} aria-label={unlocked ? "Lock timings" : "Unlock timings"} title={unlocked ? "Lock timings" : "Unlock timings"}>
           <Icon name="settings" size={10} />{unlocked ? "unlocked" : "locked"}
         </button>
       </div>

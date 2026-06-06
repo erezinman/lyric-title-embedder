@@ -540,3 +540,81 @@ describe("D-70 — Break line toggled state", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// D-71 — D-73: toggled-state indication for the remaining little-state buttons
+// (same pattern as D-70: the button lights up when the state it creates is
+// already present at the selection).
+// ---------------------------------------------------------------------------
+function toolBtn(name: RegExp) {
+  return within(document.querySelector(".cue-tools-wrap") as HTMLElement)
+    .getByRole("button", { name });
+}
+
+function selectLaneWord(word: string) {
+  const els = screen.getAllByText(word);
+  const row = els.find((el) => el.closest(".lane-row"))!;
+  fireEvent.click(row);
+}
+
+describe("D-71 — Merge words toggled state", () => {
+  it("D-71a — merged token selected: Merge words shows on/pressed", async () => {
+    await bootWith(withMergedTok(baseProject()));
+    selectLaneWord("alpha bravo");
+    const b = toolBtn(/merge words/i);
+    expect(b.className).toContain("on");
+    expect(b).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("D-71b — plain cue selected: Merge words not pressed", async () => {
+    await bootWith(baseProject());
+    selectLaneWord("alpha");
+    const b = toolBtn(/merge words/i);
+    expect(b.className).not.toContain("on");
+    expect(b).toHaveAttribute("aria-pressed", "false");
+  });
+});
+
+describe("D-72 — Delete/Restore toggled state", () => {
+  it("D-72a — deleted cue selected: button reads Restore and shows on/pressed", async () => {
+    const p = mutate(baseProject(), (d) => { d.layout[0].lines[0].toks[0].del = true; });
+    await bootWith(p);
+    selectLaneWord("alpha");
+    const b = toolBtn(/restore/i);
+    expect(b.className).toContain("on");
+    expect(b).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("D-72b — live cue selected: Delete not pressed", async () => {
+    await bootWith(baseProject());
+    selectLaneWord("alpha");
+    const b = toolBtn(/delete/i);
+    expect(b.className).not.toContain("on");
+    expect(b).toHaveAttribute("aria-pressed", "false");
+  });
+});
+
+describe("D-73 — Group fade buttons toggled state", () => {
+  it("D-73a — word in a fade-in tag: fade-in pressed, fade-out not", async () => {
+    await bootWith(withFadeTags(baseProject()));
+    selectLaneWord("alpha");                    // fin_tags ids include 0
+    expect(toolBtn(/group fade-in/i)).toHaveAttribute("aria-pressed", "true");
+    expect(toolBtn(/group fade-in/i).className).toContain("on");
+    expect(toolBtn(/group fade-out/i)).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("D-73b — word in a fade-out tag: fade-out pressed, fade-in not", async () => {
+    await bootWith(withFadeTags(baseProject()));
+    selectLaneWord("echo");                     // fout_tags ids include 4
+    expect(toolBtn(/group fade-out/i)).toHaveAttribute("aria-pressed", "true");
+    expect(toolBtn(/group fade-out/i).className).toContain("on");
+    expect(toolBtn(/group fade-in/i)).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("D-73c — untagged word: neither fade button pressed", async () => {
+    await bootWith(baseProject());
+    selectLaneWord("alpha");
+    expect(toolBtn(/group fade-in/i)).toHaveAttribute("aria-pressed", "false");
+    expect(toolBtn(/group fade-out/i)).toHaveAttribute("aria-pressed", "false");
+  });
+});
+

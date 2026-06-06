@@ -73,6 +73,38 @@ describe("C-20 — lock pill toggle", () => {
     expect(btn.textContent).toContain("locked");
   });
 
+  it("C-20e — locked: lock pill is not pressed (aria-pressed=false, no .on)", () => {
+    render(
+      <TimingPanel
+        tok={singleTok()}
+        project={proj()}
+        unlocked={false}
+        onToggleLock={vi.fn()}
+        onSetTime={vi.fn()}
+        onSetText={vi.fn()}
+      />
+    );
+    const btn = screen.getByTitle("Unlock timings");
+    expect(btn).toHaveAttribute("aria-pressed", "false");
+    expect(btn.className).not.toContain("on");
+  });
+
+  it("C-20f — unlocked: lock pill is pressed (aria-pressed=true, .on)", () => {
+    render(
+      <TimingPanel
+        tok={singleTok()}
+        project={proj()}
+        unlocked={true}
+        onToggleLock={vi.fn()}
+        onSetTime={vi.fn()}
+        onSetText={vi.fn()}
+      />
+    );
+    const btn = screen.getByTitle("Lock timings");
+    expect(btn).toHaveAttribute("aria-pressed", "true");
+    expect(btn.className).toContain("on");
+  });
+
   it("C-20b2 — lock pill shows 'unlocked' text when unlocked and has title 'Lock timings'", () => {
     render(
       <TimingPanel

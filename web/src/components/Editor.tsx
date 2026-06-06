@@ -318,6 +318,10 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     return ti === (g?.lines[li]?.toks.length ?? 0) - 1 && li < (g?.lines.length ?? 0) - 1;
   }
   function hasEvent() { return sel.scope === "group"; }
+  // true when the selected cue is already a merged token (multi-word)
+  function mergeOn() {
+    return (currentTok()?.ids.length ?? 0) > 1;
+  }
   function wordDeleted() {
     const tok = currentTok();
     return tok?.del ?? false;
@@ -705,6 +709,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
           canGroupFade={canGroupFade()}
           fadeMembership={fade}
           canMergeWords={canMergeWords()}
+          mergeOn={mergeOn()}
           canMergeEvents={canMergeEvents()}
           canSplitEvent={canSplitEvent()}
           canBreakLine={canBreakLine()}
