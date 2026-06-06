@@ -310,6 +310,13 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   function canMergeEvents() { return !!P && sel.scope === "group" && sel.gi < P.layout.length - 1; }
   function canSplitEvent() { return !!P && sel.scope === "group" && P.layout[sel.gi]?.lines.length > 1; }
   function canBreakLine() { return sel.tok != null; }
+  // true when the selected cue already has a break after it (pressing would JOIN)
+  function breakLineOn() {
+    if (!P || !sel.tok) return false;
+    const g = P.layout[sel.gi];
+    const { li, ti } = sel.tok;
+    return ti === (g?.lines[li]?.toks.length ?? 0) - 1 && li < (g?.lines.length ?? 0) - 1;
+  }
   function hasEvent() { return sel.scope === "group"; }
   function wordDeleted() {
     const tok = currentTok();
@@ -701,6 +708,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
           canMergeEvents={canMergeEvents()}
           canSplitEvent={canSplitEvent()}
           canBreakLine={canBreakLine()}
+          breakLineOn={breakLineOn()}
           hasEvent={hasEvent()}
           wordDeleted={wordDeleted()}
           onGroupFade={groupFade}

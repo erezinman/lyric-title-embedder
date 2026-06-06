@@ -11,7 +11,7 @@
  *     ever be true with only single-group sel scope?).
  */
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor } from "../Editor";
 import { setupFakeWS, FakeWS } from "../../test-util/fakews";
@@ -500,3 +500,43 @@ describe("OpsToolbar merge_events daemon contract", () => {
     }
   );
 });
+
+// User request 2026-06-06: Break line reflects its toggle state — "on"
+// (pressed) when the selected cue already has a break after it (i.e. the cue
+// is last in a non-final line, where pressing would JOIN the next line).
+describe("D-70 — Break line toggled state", () => {
+  it("D-70a — cue at end of a non-final line: Break line shows on/pressed", async () => {
+    await bootWith(baseProject());
+    // 'delta' is the last cue of line 0 (group 0 has 2 lines)
+    const els = screen.getAllByText("delta");
+    const row = els.find((el) => el.closest(".lane-row"))!;
+    fireEvent.click(row);
+    const btn = within(document.querySelector(".cue-tools-wrap") as HTMLElement)
+      .getByRole("button", { name: /break line/i });
+    expect(btn.className).toContain("on");
+    expect(btn).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("D-70b — mid-line cue: Break line is not pressed", async () => {
+    await bootWith(baseProject());
+    const els = screen.getAllByText("bravo");
+    const row = els.find((el) => el.closest(".lane-row"))!;
+    fireEvent.click(row);
+    const btn = within(document.querySelector(".cue-tools-wrap") as HTMLElement)
+      .getByRole("button", { name: /break line/i });
+    expect(btn.className).not.toContain("on");
+    expect(btn).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("D-70c — last cue of the LAST line: not pressed (no break after it)", async () => {
+    await bootWith(baseProject());
+    // 'golf' ends line 1, the final line of group 0
+    const els = screen.getAllByText("golf");
+    const row = els.find((el) => el.closest(".lane-row"))!;
+    fireEvent.click(row);
+    const btn = within(document.querySelector(".cue-tools-wrap") as HTMLElement)
+      .getByRole("button", { name: /break line/i });
+    expect(btn.className).not.toContain("on");
+  });
+});
+

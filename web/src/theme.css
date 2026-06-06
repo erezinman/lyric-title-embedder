@@ -308,6 +308,8 @@ svg.lucide { display: block; }
 .minibtn { height: 28px; padding: 0 11px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-3); color: var(--text-2);
   font-size: 12px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; transition: var(--dur) var(--ease-out); }
 .minibtn:hover { background: var(--surface-4); color: var(--text-1); border-color: var(--border-strong); }
+.minibtn.on { background: color-mix(in srgb, var(--accent) 18%, var(--surface-3)); color: var(--text-1); border-color: var(--accent); }
+.minibtn.on svg { color: var(--accent); }
 .minibtn svg { color: var(--text-3); } .minibtn:hover svg { color: var(--accent); }
 .minibtn.primary { background: color-mix(in srgb, var(--accent) 18%, transparent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); color: #fff; }
 .minibtn.primary svg { color: var(--accent); }

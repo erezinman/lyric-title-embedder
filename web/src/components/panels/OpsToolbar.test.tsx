@@ -7,7 +7,7 @@ describe("OpsToolbar", () => {
   it("group-fade and merge fire their callbacks", async () => {
     const onGroupFade = vi.fn(); const onMergeWords = vi.fn();
     render(<OpsToolbar selCount={2} canGroupFade={true} fadeMembership={null} canMergeWords={true}
-      canMergeEvents={false} canSplitEvent={false} canBreakLine={false} hasEvent={false} wordDeleted={false}
+      canMergeEvents={false} canSplitEvent={false} canBreakLine={false} breakLineOn={false} hasEvent={false} wordDeleted={false}
       onGroupFade={onGroupFade} onClearFade={() => {}} onMergeWords={onMergeWords} onMergeEvents={() => {}}
       onSplitEvent={() => {}} onBreakLine={() => {}} onUngroupEvent={() => {}} onDelete={() => {}}
       onUndo={() => {}} onRedo={() => {}} canUndo canRedo />);

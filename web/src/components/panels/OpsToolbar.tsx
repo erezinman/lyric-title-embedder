@@ -11,6 +11,7 @@ export interface OpsToolbarProps {
   canMergeEvents: boolean;
   canSplitEvent: boolean;
   canBreakLine: boolean;
+  breakLineOn: boolean;
   hasEvent: boolean;
   wordDeleted: boolean;
   onGroupFade: (kind: "in" | "out") => void;
@@ -29,7 +30,7 @@ export interface OpsToolbarProps {
 
 export function OpsToolbar({
   selCount, canGroupFade, fadeMembership,
-  canMergeWords, canMergeEvents, canSplitEvent, canBreakLine,
+  canMergeWords, canMergeEvents, canSplitEvent, canBreakLine, breakLineOn,
   hasEvent, wordDeleted,
   onGroupFade, onClearFade, onMergeWords, onMergeEvents,
   onSplitEvent, onBreakLine, onUngroupEvent, onDelete, onUndo, onRedo,
@@ -53,7 +54,8 @@ export function OpsToolbar({
         <button className="minibtn" onClick={onMergeWords} disabled={!canMergeWords}>
           <Icon name="layers" size={13} />Merge words
         </button>
-        <button className="minibtn" onClick={onBreakLine} disabled={!canBreakLine}>
+        <button className={"minibtn" + (breakLineOn ? " on" : "")} aria-pressed={breakLineOn}
+          onClick={onBreakLine} disabled={!canBreakLine}>
           <Icon name="scissors" size={13} />Break line
         </button>
         <button className="minibtn" onClick={onMergeEvents} disabled={!canMergeEvents}>
