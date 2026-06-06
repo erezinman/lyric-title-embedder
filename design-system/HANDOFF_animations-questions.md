@@ -27,7 +27,9 @@ Fades are the only animation today, wired three ways:
 
 The fade UI you designed (Group fade-in/out buttons, FadeGroupPanel trigger editor,
 FadeDefaultsPanel) keeps working — those controls become shorthands that write animation records
-underneath.
+underneath. (UI-level continuity only: the WS/MCP API surface is **not** kept backward
+compatible — old fade tools are replaced by the new animation tools; project *files*
+auto-convert on open.)
 
 ### 1.2 The new data model (authoritative, reviewed)
 
@@ -263,6 +265,7 @@ renderer, selection must be an overlay.
 ---
 
 *Engineer note: the formal engine spec (mutations, MCP tools, migration details, compiler) will
-follow the usual spec flow once these are answered; nothing engine-side blocks on questions 1–12
-except 3b (whether fade shims survive) and 10b (trigger micro-UI), which shape the migration's
-public surface.*
+follow the usual spec flow once these are answered. No WS/MCP backward compatibility is required
+— the old fade tools are removed outright and replaced by animation tools, so questions 3b and
+10b are purely about UI presentation and block nothing engine-side. Project-file migration
+(auto-convert on open) is still in scope.*
