@@ -46,7 +46,13 @@ type AnimChannel =
   | "spacing"                                 // letter tracking, px
   | "border_w" | "shadow_depth" | "blur"      // px
   | "clip_rect"                               // [x1,y1,x2,y2] — wipes/reveals
-  | "move";                                   // position — SPECIAL, see §1.5
+  | "karaoke_fill"                            // SPECIAL: native \kf sweep (primary
+                                              //   fills over a base color as the
+                                              //   word is sung); used only by the
+                                              //   Sweep preset; dedicated emission
+                                              //   path, not \t; timing is
+                                              //   intrinsically the sung interval
+  | "move";                                   // position — SPECIAL, see §1.4
 
 // ---- timing: every endpoint is anchor + offset --------------------------
 interface AnimTime {
@@ -251,11 +257,16 @@ channels. Proposed v1 list:
 |---|---|---|
 | Fade in | alpha | duration, lead-in (start before cue), easing |
 | Fade out | alpha | duration, easing |
+| **Sweep** (karaoke fill) | karaoke_fill | base (pre-sweep) color; sweeps to primary as sung |
 | Pop | scale_x+scale_y | overshoot %, duration |
 | Color flash | primary | color, attack/decay durations |
 | Wipe in | clip_rect | direction (L→R/R→L/T→B), duration |
 | Blur in | blur | start blur px, duration |
 | Slide (group-level only) | move | direction, distance, duration |
+
+Sweep is the genre-defining karaoke effect (left-to-right fill as the word is sung) and uses
+ASS's native `\kf` mechanism — the oldest, best-supported feature of the format. Its timing is
+intrinsically the cue's sung interval (no anchors/modes apply).
 
 ### 1.7 Verification spikes (run before the engine spec is finalized)
 
@@ -270,6 +281,10 @@ Cheap, isolated experiments answering the review's empirical questions:
    worst case.
 4. **Geometry calibration** — same-font DOM layer vs rendered pixels across fontsize/bold/
    spacing/scale variations; measure per-word bbox drift. Gates the §1.5 overlay plan.
+5. **`\kf` gap padding** — our words have silence gaps inside an event, so the compiler must
+   emit padding `\k` segments to keep the accumulated karaoke clock honest. Verify the
+   technique renders correctly in jassub (incl. fill color = primary over base). Gates the
+   Sweep preset.
 
 ---
 
@@ -395,8 +410,35 @@ renderer, selection must be an overlay.
 
 ---
 
+---
+
+## Part 3 — Product answers (decided 2026-06-06; design against these)
+
+The five product calls the designer escalated, answered by the product owner:
+
+1. **v1 ambition (Q1): presets + Advanced.** Simple comes first and dominates the surface;
+   Advanced is differentiated with a small tag (or similar lightweight marker), and exposes
+   the raw channel/segment/timing records. Rationale: MCP agents author raw records, and the
+   UI must be able to display any state the server holds.
+2. **Karaoke sweep: in v1.** Added to §1.6 and the channel list (`karaoke_fill`); spike #5
+   gates it.
+3. **Vocabulary (Q2b): plain verbs.** "Fade in / Sweep / Pop / Wipe" — consistent with the
+   app's imperative labels ("Merge words", "Break line"). No branded effect names.
+4. **Timing modes in simple view (Q5d): five** — Per cue / Per line / Together / Cascade /
+   Typewriter. Reverse, Center-out and Jitter live under Advanced. (Typewriter = chained
+   cascade; both earn simple-view slots: cascade for its adjustable step, typewriter for
+   instant recognizability.)
+5. **IA (Q3): Inspector section mirroring the style waterfall**, inheriting its tier grammar
+   (tier select, inherited rendering, clear/override). The Group fade-in/out toolbar buttons
+   survive as preset shortcuts; FadeDefaultsPanel and FadeGroupPanel fold into the animation
+   list.
+
+Remaining sub-questions of the 12 are the designer's to decide, noted for engineer sign-off.
+
+---
+
 *Engineer note: the formal engine spec (mutations, MCP tools, migration details, compiler) will
-follow the usual spec flow once these are answered. No WS/MCP backward compatibility is required
-— the old fade tools are removed outright and replaced by animation tools, so questions 3b and
-10b are purely about UI presentation and block nothing engine-side. Project-file migration
-(auto-convert on open) is still in scope.*
+follow the usual spec flow now that Part 3 is decided. No WS/MCP backward compatibility is
+required — the old fade tools are removed outright and replaced by animation tools. Project-file
+migration (auto-convert on open) is still in scope. The §1.7 spikes run before the engine spec
+is finalized.*
