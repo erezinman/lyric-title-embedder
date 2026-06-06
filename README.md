@@ -51,11 +51,22 @@ Everything except Pillow is a system tool. Pillow is installed into the poetry v
 ```bash
 cd karaoke-subtitle-studio
 poetry install            # creates the venv, installs deps
-poetry run python karaoke_subtitle_gui.py          # the app
+
+# WEB APP (daemon :8770 + web editor :5173) — the primary editor
+./run.sh                  # Ctrl-C stops both; ./kill.sh also stops them
+# then open http://localhost:5173 — project library → open or create a project
+
+# DESKTOP (Tk) APP
+poetry run python karaoke_subtitle_gui.py
 poetry run python old/karaoke_subtitle_gui.py      # archived v1 (optional)
 ```
 
-(If you don't use poetry, the app also runs under any Python 3.10+ with tkinter; Pillow is optional.)
+The web app is **server-authoritative**: a single daemon holds the open project; every edit
+goes through `/api/call` and broadcasts to all clients (browsers *and* MCP agents) over
+`/ws`. Edits **autosave** (debounced) to the project folder — there is no save button.
+See **docs/FEATURES.md** for the complete feature/behavior reference.
+
+(If you don't use poetry, the Tk app also runs under any Python 3.10+ with tkinter; Pillow is optional.)
 
 ---
 
@@ -225,10 +236,16 @@ Headless generators (no GUI). Run from the project root so `aligned_lyrics.json`
 ## Testing
 
 ```bash
-# Headless engine/controller unit tests (no display needed)
+# Headless engine / daemon / tools suites (no display; run any tests/test_*.py)
 .venv/bin/python tests/test_engine.py
 
-# UI regression suite (needs a display or xvfb-run)
+# Web unit+interaction-audit suites (vitest/jsdom, 600+ tests)
+npm --prefix web run test
+
+# End-to-end (real daemon + chromium; seeds a temp project, asserts /api/state + UI)
+cd web && npx playwright test
+
+# Tk UI regression suites (needs a display or xvfb-run)
 poetry run python tests/test_v2_ui.py
 ```
 

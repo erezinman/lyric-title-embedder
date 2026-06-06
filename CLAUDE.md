@@ -239,12 +239,20 @@ The view resolves `group_style` + per-word `style` against `cfg` when drawing or
 (`python3-tk`). Pillow is the only managed pip dep (optional; graceful fallback).
 
 ## Testing
-- `tests/test_v2_ui.py` — 26 headless UI checks driving the editor via synthesized `<Button-1>`
-  events at real coordinates. Asserts state/render correctness (not pixels). Run:
-  `poetry run python tests/test_v2_ui.py` (needs a display or `xvfb-run`). Re-run after any
-  editor change; it has already caught real bugs.
-- `tests/test_engine.py` — headless engine/controller units (no display needed). Run:
-  `.venv/bin/python tests/test_engine.py`.
+- **Python suites** (`tests/test_*.py`, stdlib `t_*` harness, `.venv/bin/python tests/<f>.py`):
+  engine (model/mutations/build-io/srt/merge-span/remove-break/group-align/globals-undo),
+  daemon (api/projects/autosave), tools, library, suno_fetch — ~280 tests. Engine code is
+  TDD-first; Tk suites are batched at the end of a work session.
+- **Web** (`npm --prefix web run test`): 612 vitest/jsdom tests incl. the interaction-audit
+  suites (`web/src/**/*.audit.test.tsx`) — every control's action/revert/double/gating + an
+  exhaustive WS-push→UI external-sync battery. Shared harness: `web/src/test-util/`.
+- **E2E** (`cd web && npx playwright test`): 45 specs against a REAL daemon (temp seeded
+  project) + vite + chromium; asserts the daemon's `/api/state` AND rendered UI/geometry
+  with revert symmetry; per-test reset restores a pristine snapshot (autosave-aware).
+- **Tk** (`poetry run python tests/test_v2_ui.py` + `tests/test_ui_*.py`, display/xvfb): 118
+  checks driving the editor via synthesized events; asserts state/render correctness.
+- Audit decision log: `docs/superpowers/testing/2026-06-05-adjudication-log.md`.
+- **docs/FEATURES.md** is the authoritative feature/behavior inventory — keep it current.
 
 ## Conventions & gotchas
 - **Tk threading:** never touch widgets / call `after()` from a worker thread. The burn uses a
