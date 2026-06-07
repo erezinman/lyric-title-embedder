@@ -310,6 +310,17 @@ svg.lucide { display: block; }
   pointer-events: none; transition: left .1s linear; z-index: 4; }
 .wt-playhead::before { content:""; position: absolute; top: 0; left: -4px; width: 10px; height: 10px; border-radius: 50%;
   background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+/* snap guides — cyan magnetic line shown while a block/playhead edge locks on
+   (adapted from kit theme.css §1/§4). Positioned over the lanes by sec/dur. */
+.wt-guides { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+.snap-guide { position: absolute; top: 0; bottom: 0; width: 0; pointer-events: none;
+  border-left: 1.5px dashed var(--cyan); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--cyan) 70%, transparent)); }
+.snap-guide.k-playhead { border-left-style: solid; }
+.snap-guide.near { border-left: 1px dotted color-mix(in srgb, var(--cyan) 65%, transparent); filter: none; }
+.snap-guide .sg-tag { position: absolute; top: 2px; left: 4px; font-family: var(--font-mono); font-size: 9px; color: var(--cyan);
+  background: rgba(12,10,20,.78); border: 1px solid color-mix(in srgb, var(--cyan) 40%, transparent);
+  border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
+
 /* drag handles — only shown when timings unlocked */
 .wt-area .block .wt-handle { position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize; opacity: 0; }
 .wt-handle.l { left: -2px; }

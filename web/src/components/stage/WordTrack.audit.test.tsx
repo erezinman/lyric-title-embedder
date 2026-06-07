@@ -263,9 +263,12 @@ describe("WordTrack drag-then-drag-back integration", () => {
     }
     const block = blocks[0]!;
 
+    // Alt-held both ways so this exercises the raw inverse-retime contract
+    // (drag + equal drag-back nets baseline); magnet snapping is covered by
+    // WordTrack.snap.test.tsx.
     fireEvent.pointerDown(block, { clientX: 100 });
-    fireEvent.pointerMove(window, { clientX: 200 });
-    fireEvent.pointerUp(window, { clientX: 200 });
+    fireEvent.pointerMove(window, { clientX: 200, altKey: true });
+    fireEvent.pointerUp(window, { clientX: 200, altKey: true });
 
     const d1 = dispatches().filter((d) => d.tool === "set_word_times");
     if (d1.length === 0) {
@@ -287,10 +290,12 @@ describe("WordTrack drag-then-drag-back integration", () => {
     emitState(movedProj);
     clearDispatches();
 
-    // Drag block back by same amount in opposite direction
+    // Drag block back by same amount in opposite direction. Hold Alt to bypass
+    // magnet snapping so this verifies the raw inverse-retime contract (a nearby
+    // snap candidate would otherwise pull the returned edge off the baseline).
     fireEvent.pointerDown(block, { clientX: 200 });
-    fireEvent.pointerMove(window, { clientX: 100 });
-    fireEvent.pointerUp(window, { clientX: 100 });
+    fireEvent.pointerMove(window, { clientX: 100, altKey: true });
+    fireEvent.pointerUp(window, { clientX: 100, altKey: true });
 
     const d2 = dispatches().filter((d) => d.tool === "set_word_times");
     expect(d2).toHaveLength(1);

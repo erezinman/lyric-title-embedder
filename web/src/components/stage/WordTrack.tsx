@@ -4,6 +4,7 @@ import { computeMove, computeResize, dragMode } from "../../model/edit";
 import type { TimeUpdate } from "../../model/edit";
 import type { Project, Token, ResolvedAnim } from "../../types";
 import { layoutStrips, stripStyle, typeColor, typeGlyph, type StripLayout } from "../../model/animStrips";
+import { collectTargets, snap, type NearLine, type SnapTarget } from "../../model/snap";
 
 export interface TrackWord {
   wid: number;
@@ -57,6 +58,14 @@ interface WordTrackProps {
   onAnimRetime?: (wid: number, aid: string, edge: "t0" | "t1", deltaMs: number) => void;
   /** override the seconds→px scale (horizontal zoom); default = areaPx/dur. */
   pxPerSecOverride?: number;
+  /** magnet snapping on? (default true). Alt held during a drag inverts it. */
+  magnet?: boolean;
+}
+
+/** active snap visualisation (lock guide + soft near-lines), in seconds. */
+interface SnapViz {
+  hit: SnapTarget | null;
+  near: NearLine[];
 }
 
 const MIN_ANIM_MS = 50; // clamp: a strip never shrinks below 50ms (HANDOFF §3)
@@ -71,6 +80,11 @@ interface DragState {
   resizeTok: Token | null;
   edge: "start" | "end";
   movedEnough: boolean;
+  // snap inputs (seconds)
+  exclude: Set<number>; // dragged block wids (never snap an edge to itself)
+  groupS: number; // min start of the moving group (for move-snap)
+  groupE: number; // max end of the moving group
+  edgeSec: number; // original time of the resized edge (for resize-snap)
 }
 
 // Expanded cues timeline: one labelled lane per layout event, cue blocks
@@ -95,12 +109,15 @@ export function WordTrack({
   onCollapseOverflow,
   onAnimRetime,
   pxPerSecOverride,
+  magnet = true,
 }: WordTrackProps) {
   const progress = dur ? time / dur : 0;
   const lanes = (events ?? []).filter((ev) => words.some((w) => w.gi === ev.gi));
 
   // preview: map from wid -> { start, end } during live drag
   const [preview, setPreview] = useState<Map<number, { start: number; end: number }>>(new Map());
+  // snap visualisation while a drag is locked / near a candidate
+  const [snapViz, setSnapViz] = useState<SnapViz | null>(null);
 
   // measured track-area width (px) for the strip seconds→px scale + MIN_PX glyph
   // threshold. Falls back to a nominal width before layout / in jsdom.
@@ -119,6 +136,40 @@ export function WordTrack({
   durRef.current = dur;
   const onRetimeRef = useRef(onRetime);
   onRetimeRef.current = onRetime;
+  // refs for snap inputs (read inside stable drag closures)
+  const wordsRef = useRef(words);
+  wordsRef.current = words;
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
+  const timeRef = useRef(time);
+  timeRef.current = time;
+  const magnetRef = useRef(magnet);
+  magnetRef.current = magnet;
+
+  /** event boundary spans (min start / max end of each event's words) in seconds. */
+  const eventSpans = useCallback((): { s: number; e: number }[] => {
+    const ws = wordsRef.current;
+    const out: { s: number; e: number }[] = [];
+    for (const ev of eventsRef.current) {
+      const mine = ws.filter((w) => w.gi === ev.gi);
+      if (!mine.length) continue;
+      out.push({ s: Math.min(...mine.map((w) => w.s)), e: Math.max(...mine.map((w) => w.e)) });
+    }
+    return out;
+  }, []);
+
+  /** all snap targets for a block drag, excluding the dragged block wids. */
+  const blockTargets = useCallback(
+    (exclude: Set<number>): SnapTarget[] =>
+      collectTargets(
+        wordsRef.current.map((w) => ({ wid: w.wid, s: w.s, e: w.e })),
+        timeRef.current,
+        eventSpans(),
+        { start: 0, end: durRef.current },
+        exclude,
+      ),
+    [eventSpans],
+  );
 
   // drag state ref
   const dragRef = useRef<DragState | null>(null);
@@ -147,6 +198,40 @@ export function WordTrack({
     return () => removeListeners();
   }, [removeListeners]);
 
+  // Compute the magnet-corrected dt for a raw dt, plus the snap visualisation.
+  // Group move snaps by ONE delta (kit: pick the better of the two raw edges);
+  // resize snaps the single moving edge. Returns { dt, viz }.
+  const applySnap = useCallback(
+    (drag: DragState, rawDt: number, altHeld: boolean): { dt: number; viz: SnapViz | null } => {
+      const pxPerSec = drag.areaPx / durRef.current;
+      const opts = { enabled: magnetRef.current, altHeld };
+      const targets = blockTargets(drag.exclude);
+
+      if (drag.mode === "move") {
+        const rawS = drag.groupS + rawDt;
+        const rawE = drag.groupE + rawDt;
+        const a = snap(rawS, targets, pxPerSec, opts);
+        const b = snap(rawE, targets, pxPerSec, opts);
+        const da = a.target ? Math.abs(a.sec - rawS) : Infinity;
+        const db = b.target ? Math.abs(b.sec - rawE) : Infinity;
+        let corr = 0;
+        let hit: SnapTarget | null = null;
+        if (a.target && da <= db) { corr = a.sec - rawS; hit = a.target; }
+        else if (b.target) { corr = b.sec - rawE; hit = b.target; }
+        const near = a.nearLines.length >= b.nearLines.length ? a.nearLines : b.nearLines;
+        const viz = opts.enabled !== altHeld ? { hit, near } : null;
+        return { dt: rawDt + corr, viz };
+      }
+      // resize: snap the single moving edge
+      const raw = drag.edgeSec + rawDt;
+      const r = snap(raw, targets, pxPerSec, opts);
+      const corr = r.target ? r.sec - raw : 0;
+      const viz = opts.enabled !== altHeld ? { hit: r.target, near: r.nearLines } : null;
+      return { dt: rawDt + corr, viz };
+    },
+    [blockTargets],
+  );
+
   // Start a drag - sets up window listeners
   const startDrag = useCallback(
     (state: DragState) => {
@@ -162,7 +247,9 @@ export function WordTrack({
         if (Math.abs(dx) >= 3) drag.movedEnough = true;
         if (!drag.movedEnough) return;
 
-        const dt = (dx / drag.areaPx) * durRef.current;
+        const rawDt = (dx / drag.areaPx) * durRef.current;
+        const { dt, viz } = applySnap(drag, rawDt, e.altKey);
+        setSnapViz(viz);
 
         let updates: TimeUpdate[] = [];
         if (drag.mode === "move") {
@@ -187,7 +274,8 @@ export function WordTrack({
 
         if (!drag.cancelled && drag.movedEnough && proj && retimeFn) {
           const dx = e.clientX - drag.startX;
-          const dt = (dx / drag.areaPx) * durRef.current;
+          const rawDt = (dx / drag.areaPx) * durRef.current;
+          const { dt } = applySnap(drag, rawDt, e.altKey);
 
           let updates: TimeUpdate[] = [];
           if (drag.mode === "move") {
@@ -201,6 +289,7 @@ export function WordTrack({
 
         dragRef.current = null;
         setPreview(new Map());
+        setSnapViz(null);
         removeListeners();
       };
 
@@ -212,6 +301,7 @@ export function WordTrack({
           drag.cancelled = true;
           dragRef.current = null;
           setPreview(new Map());
+          setSnapViz(null);
           removeListeners();
         }
       };
@@ -220,6 +310,7 @@ export function WordTrack({
       const onPointercancel = () => {
         dragRef.current = null;
         setPreview(new Map());
+        setSnapViz(null);
         removeListeners();
       };
 
@@ -229,7 +320,7 @@ export function WordTrack({
       window.addEventListener("keydown", onKeydown);
       window.addEventListener("pointercancel", onPointercancel);
     },
-    [removeListeners]
+    [removeListeners, applySnap]
   );
 
   const handleBlockPointerDown = useCallback(
@@ -285,6 +376,15 @@ export function WordTrack({
       e.preventDefault();
       e.stopPropagation();
 
+      // snap inputs: the moving wids' track span + which edge is being resized
+      const movingWids = new Set<number>(
+        mode === "move" ? affectedToks.flatMap((t) => t.ids) : thisTok.ids,
+      );
+      const movingWords = words.filter((w) => movingWids.has(w.wid));
+      const groupS = movingWords.length ? Math.min(...movingWords.map((w) => w.s)) : w.s;
+      const groupE = movingWords.length ? Math.max(...movingWords.map((w) => w.e)) : w.e;
+      const edgeSec = edge === "start" ? groupS : groupE;
+
       startDrag({
         active: true,
         cancelled: false,
@@ -295,6 +395,10 @@ export function WordTrack({
         resizeTok,
         edge,
         movedEnough: false,
+        exclude: movingWids,
+        groupS,
+        groupE,
+        edgeSec,
       });
     },
     [unlocked, project, onRetime, selectedWords, words, startDrag]
@@ -489,6 +593,34 @@ export function WordTrack({
         className="wt-playhead"
         style={{ left: `calc(var(--tl-gutter) + ${progress} * (100% - var(--tl-gutter)))` }}
       />
+      {snapViz && (
+        <div className="wt-guides" aria-hidden="true">
+          {snapViz.near.map((n) => {
+            if (snapViz.hit && Math.abs(n.sec - snapViz.hit.sec) < 1e-3) return null;
+            const f = dur ? n.sec / dur : 0;
+            return (
+              <div
+                key={`near-${n.sec.toFixed(4)}`}
+                className="snap-guide near"
+                style={{
+                  left: `calc(var(--tl-gutter) + ${f} * (100% - var(--tl-gutter)))`,
+                  opacity: (0.15 + n.opacity * 0.45).toFixed(3),
+                }}
+              />
+            );
+          })}
+          {snapViz.hit && (
+            <div
+              className={"snap-guide" + (snapViz.hit.kind === "playhead" ? " k-playhead" : "")}
+              style={{
+                left: `calc(var(--tl-gutter) + ${(dur ? snapViz.hit.sec / dur : 0)} * (100% - var(--tl-gutter)))`,
+              }}
+            >
+              <span className="sg-tag">{snapViz.hit.sec.toFixed(2)}s</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
