@@ -2,8 +2,8 @@
  * TopBar.audit.test.tsx — Cluster A, TopBar unit tests.
  * Tests here render <TopBar> directly (no WebSocket) or <Editor> where integration is required.
  */
-import { describe, it, expect, vi } from "vitest";
-import { render, fireEvent, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, fireEvent, screen, waitFor } from "@testing-library/react";
 import { TopBar } from "./TopBar";
 
 // ---------------------------------------------------------------------------
@@ -23,6 +23,7 @@ function mkProps(overrides: Partial<Parameters<typeof TopBar>[0]> = {}): Paramet
     onRedo: vi.fn(),
     canUndo: true,
     canRedo: true,
+    aiConnected: false,
     ...overrides,
   };
 }
@@ -215,5 +216,126 @@ describe("A-06 — time formatting", () => {
     const { container } = render(<TopBar {...mkProps({ time: 0, dur: 90 })} />);
     const el = container.querySelector(".time") as HTMLElement;
     expect(el.textContent).toContain("1:30.00");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A-07  Press-flash class (flash prop drives .pressed on undo/redo)
+// ---------------------------------------------------------------------------
+describe("A-07 — undo/redo press-flash class", () => {
+  it("A-07a — flash='undo' adds .pressed to the Undo button only", () => {
+    const { getByTitle } = render(<TopBar {...mkProps({ flash: "undo" })} />);
+    expect((getByTitle("Undo") as HTMLElement).className).toContain("pressed");
+    expect((getByTitle("Redo") as HTMLElement).className).not.toContain("pressed");
+  });
+
+  it("A-07b — flash='redo' adds .pressed to the Redo button only", () => {
+    const { getByTitle } = render(<TopBar {...mkProps({ flash: "redo" })} />);
+    expect((getByTitle("Redo") as HTMLElement).className).toContain("pressed");
+    expect((getByTitle("Undo") as HTMLElement).className).not.toContain("pressed");
+  });
+
+  it("A-07c — flash=null leaves neither button pressed", () => {
+    const { getByTitle } = render(<TopBar {...mkProps({ flash: null })} />);
+    expect((getByTitle("Undo") as HTMLElement).className).not.toContain("pressed");
+    expect((getByTitle("Redo") as HTMLElement).className).not.toContain("pressed");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A-08  AI presence pill + MCP-connect popover
+// ---------------------------------------------------------------------------
+function mockConnect(body: Record<string, unknown>) {
+  return vi.spyOn(globalThis, "fetch").mockImplementation((url: RequestInfo | URL) => {
+    if (String(url).includes("/api/connect")) {
+      return Promise.resolve(new Response(JSON.stringify(body), {
+        status: 200, headers: { "Content-Type": "application/json" },
+      }) as Response);
+    }
+    return Promise.resolve(new Response("{}", { status: 200 }) as Response);
+  });
+}
+const CONNECT_NO_TOKEN = {
+  host: "127.0.0.1", port: 8770, api_url: "http://127.0.0.1:8770/api/call",
+  ws_url: "ws://127.0.0.1:8770/ws", mcp_url: "http://127.0.0.1:8770/mcp", token_required: false,
+};
+const CONNECT_TOKEN = { ...CONNECT_NO_TOKEN, token_required: true };
+
+describe("A-08 — AI pill + MCP connect popover", () => {
+  let clip: { writeText: ReturnType<typeof vi.fn> };
+  beforeEach(() => {
+    clip = { writeText: vi.fn() };
+    Object.defineProperty(navigator, "clipboard", { value: clip, configurable: true });
+  });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it("A-08a — pill absent when aiConnected=false, present when true", () => {
+    const { container, rerender } = render(<TopBar {...mkProps({ aiConnected: false })} />);
+    expect(container.querySelector(".ai-pill")).toBeNull();
+    rerender(<TopBar {...mkProps({ aiConnected: true })} />);
+    expect(container.querySelector(".ai-pill")).toBeTruthy();
+  });
+
+  it("A-08b — hovering the pill fetches /api/connect once and renders rows (no auth row without token)", async () => {
+    const fetchSpy = mockConnect(CONNECT_NO_TOKEN);
+    const { container } = render(<TopBar {...mkProps({ aiConnected: true })} />);
+    fireEvent.mouseEnter(container.querySelector(".ai-pill-wrap") as HTMLElement);
+    await waitFor(() => expect(container.querySelectorAll(".ai-pop-row").length).toBeGreaterThan(0));
+    const labels = [...container.querySelectorAll(".ai-pop-row > span")].map((s) => s.textContent);
+    expect(labels).toContain("MCP");
+    expect(labels).toContain("WebSocket");
+    expect(labels).not.toContain("Auth");
+    const connectCalls = fetchSpy.mock.calls.filter((c) => String(c[0]).includes("/api/connect"));
+    expect(connectCalls.length).toBe(1);
+    // hovering again must not refetch (cached)
+    fireEvent.mouseEnter(container.querySelector(".ai-pill-wrap") as HTMLElement);
+    expect(fetchSpy.mock.calls.filter((c) => String(c[0]).includes("/api/connect")).length).toBe(1);
+  });
+
+  it("A-08c — auth row appears only when token_required=true", async () => {
+    mockConnect(CONNECT_TOKEN);
+    const { container } = render(<TopBar {...mkProps({ aiConnected: true })} />);
+    fireEvent.mouseEnter(container.querySelector(".ai-pill-wrap") as HTMLElement);
+    await waitFor(() => {
+      const labels = [...container.querySelectorAll(".ai-pop-row > span")].map((s) => s.textContent);
+      expect(labels).toContain("Auth");
+    });
+  });
+
+  it("A-08d — clicking a row copies its value and shows 'Copied ✓'", async () => {
+    mockConnect(CONNECT_NO_TOKEN);
+    const { container } = render(<TopBar {...mkProps({ aiConnected: true })} />);
+    fireEvent.mouseEnter(container.querySelector(".ai-pill-wrap") as HTMLElement);
+    await waitFor(() => expect(container.querySelectorAll(".ai-pop-row").length).toBeGreaterThan(0));
+    const mcpRow = [...container.querySelectorAll(".ai-pop-row")].find(
+      (r) => r.querySelector("span")?.textContent === "MCP",
+    ) as HTMLElement;
+    fireEvent.click(mcpRow);
+    expect(clip.writeText).toHaveBeenCalledWith("http://127.0.0.1:8770/mcp");
+    expect(mcpRow.textContent).toContain("Copied ✓");
+  });
+
+  it("A-08e — 'Copy agent config (JSON)' copies an mcpServers block", async () => {
+    mockConnect(CONNECT_NO_TOKEN);
+    const { container } = render(<TopBar {...mkProps({ aiConnected: true })} />);
+    fireEvent.mouseEnter(container.querySelector(".ai-pill-wrap") as HTMLElement);
+    await waitFor(() => expect(container.querySelector(".ai-pop-copy")).toBeTruthy());
+    fireEvent.click(container.querySelector(".ai-pop-copy") as HTMLElement);
+    expect(clip.writeText).toHaveBeenCalledTimes(1);
+    const payload = clip.writeText.mock.calls[0][0] as string;
+    const parsed = JSON.parse(payload);
+    expect(parsed.mcpServers["karaoke-subtitle-studio"].url).toBe("http://127.0.0.1:8770/mcp");
+    // no token → no Authorization header in the config
+    expect(parsed.mcpServers["karaoke-subtitle-studio"].headers).toBeUndefined();
+  });
+
+  it("A-08f — config includes an Authorization header when token_required", async () => {
+    mockConnect(CONNECT_TOKEN);
+    const { container } = render(<TopBar {...mkProps({ aiConnected: true })} />);
+    fireEvent.mouseEnter(container.querySelector(".ai-pill-wrap") as HTMLElement);
+    await waitFor(() => expect(container.querySelector(".ai-pop-copy")).toBeTruthy());
+    fireEvent.click(container.querySelector(".ai-pop-copy") as HTMLElement);
+    const parsed = JSON.parse(clip.writeText.mock.calls[0][0] as string);
+    expect(parsed.mcpServers["karaoke-subtitle-studio"].headers.Authorization).toContain("Bearer");
   });
 });

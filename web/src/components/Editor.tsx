@@ -75,6 +75,19 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   // export menu
   const [exportOpen, setExportOpen] = useState(false);
 
+  // undo/redo press-flash (TopBar button highlights ~200ms on key OR button)
+  const [flash, setFlash] = useState<"undo" | "redo" | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // held-modifier pill (§2): ⇧ Range select / ⌘ Cherry-pick
+  const [shiftHeld, setShiftHeld] = useState(false);
+  const [ctrlHeld, setCtrlHeld] = useState(false);
+
+  // undo/redo are always available against the server-authoritative history;
+  // kept as flags so the keyboard/button paths share one gating contract.
+  const canUndo = true;
+  const canRedo = true;
+
   // resizable panes (persisted)
   const loadPane = (k: string, def: number) => {
     try { const v = Number(localStorage.getItem(k)); return Number.isFinite(v) && v >= 100 ? v : def; }
@@ -90,6 +103,59 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   const dispatch = useCallback((tool: string, args: Record<string, unknown>) => {
     store.call(tool, args).catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)));
   }, [store]);
+
+  // ── undo/redo with press-flash ──────────────────────────────────────────
+  // Both the keyboard and the TopBar buttons route through these. A no-op (gated
+  // by canUndo/canRedo) neither dispatches nor flashes.
+  const triggerFlash = useCallback((which: "undo" | "redo") => {
+    setFlash(which);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setFlash(null), 200);
+  }, []);
+  const doUndo = useCallback(() => {
+    if (!canUndo) return;
+    triggerFlash("undo");
+    store.undo().catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)));
+  }, [canUndo, triggerFlash, store]);
+  const doRedo = useCallback(() => {
+    if (!canRedo) return;
+    triggerFlash("redo");
+    store.redo().catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)));
+  }, [canRedo, triggerFlash, store]);
+
+  // ── global keyboard: Ctrl/⌘+Z undo, +Shift / Ctrl+Y redo ──
+  // Inert while focus is in an editable element.
+  useEffect(() => {
+    const editable = (el: EventTarget | null) => {
+      const t = el as HTMLElement | null;
+      if (!t) return false;
+      const tag = t.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || t.isContentEditable === true;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (editable(e.target)) return;
+      const k = e.key.toLowerCase();
+      if (k === "z") { e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); }
+      else if (k === "y") { e.preventDefault(); doRedo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [doUndo, doRedo]);
+
+  // ── held-modifier tracking (§2): drives the dock modifier pill ──
+  useEffect(() => {
+    const sync = (e: KeyboardEvent) => { setShiftHeld(e.shiftKey); setCtrlHeld(e.ctrlKey || e.metaKey); };
+    const clear = () => { setShiftHeld(false); setCtrlHeld(false); };
+    window.addEventListener("keydown", sync);
+    window.addEventListener("keyup", sync);
+    window.addEventListener("blur", clear);
+    return () => {
+      window.removeEventListener("keydown", sync);
+      window.removeEventListener("keyup", sync);
+      window.removeEventListener("blur", clear);
+    };
+  }, []);
 
   // keep pRef in sync with P
   useEffect(() => { pRef.current = P; }, [P]);
@@ -680,14 +746,17 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
         time={time}
         dur={dur}
         playing={playing}
+        aiConnected={store.connected}
+        exportOpen={exportOpen}
+        flash={flash}
         onPlay={() => { if (!playing) setPvMode("live"); setPlaying(!playing); }}
         onSeekRel={(d) => setTime((t) => Math.max(0, Math.min(dur, t + d)))}
         onHome={onHome}
         onExport={() => setExportOpen((o) => !o)}
-        onUndo={() => store.undo().catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)))}
-        onRedo={() => store.redo().catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)))}
-        canUndo
-        canRedo
+        onUndo={doUndo}
+        onRedo={doRedo}
+        canUndo={canUndo}
+        canRedo={canRedo}
       />
       {exportOpen && (
         <ExportMenu
@@ -696,7 +765,6 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
           onBurn={(out, videoIn) => { burn(out, videoIn).catch((e) => setErrMsg(e instanceof Error ? e.message : String(e))); }}
         />
       )}
-      {store.connected && <span className="ai-pill">AI agent · live</span>}
       <div className="body">
         <aside className="rail" style={{ width: railW, flex: `0 0 ${railW}px` }}>
           <div className="rail-tabs">
@@ -788,6 +856,11 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
           >
             <Icon name="layers" size={13} />Cue lanes
           </button>
+          {(shiftHeld || ctrlHeld) && (
+            <span className={"mod-cue" + (shiftHeld ? " shift" : " ctrl")}>
+              {shiftHeld ? "⇧ Range select" : "⌘ Cherry-pick"}
+            </span>
+          )}
         </div>
         {groupExplicitSel && sel.scope === "group" && P.layout[sel.gi] && (
           <EventStrip g={P.layout[sel.gi]} onSet={setLayoutProp} />

@@ -30,6 +30,24 @@ export async function getRender(): Promise<unknown> {
   return jsonOrThrow(await fetch("/api/render"));
 }
 
+export interface ConnectInfo {
+  host: string;
+  port: number;
+  api_url: string;
+  ws_url: string;
+  mcp_url: string;
+  token_required: boolean;
+}
+
+export async function getConnect(): Promise<ConnectInfo> {
+  return jsonOrThrow<ConnectInfo>(await fetch("/api/connect"));
+}
+
+export async function getFonts(): Promise<string[]> {
+  const data = await jsonOrThrow<{ fonts?: string[] }>(await fetch("/api/fonts"));
+  return Array.isArray(data?.fonts) ? data.fonts : [];
+}
+
 export async function getAss(): Promise<string> {
   const res = await fetch("/api/ass");
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
