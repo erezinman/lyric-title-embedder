@@ -82,46 +82,49 @@ test("G-22 — bold toggle twice = state reverted (back to inherited)", async ({
   await until(async () => (await boldOf()) === undefined);
 });
 
-test("G-23 — fade defaults stepper: fade_in_ms 250 ->300 ->250 via +/-", async ({ page }) => {
+// REWRITTEN for the animations migration: the legacy fade-defaults panel
+// (.fg-panel.defaults) and globals.fade_in_ms field were removed — global fade
+// defaults are now ordinary global-scope alpha animations. The surviving fade
+// affordance is the OpsToolbar "Group fade-in" shortcut, which writes a fade_in
+// animation onto an anim_tag over the selection (Editor.groupFade →
+// add_animation scope:"tag"). This exercises that round-trip.
+test("G-23 — OpsToolbar Group fade-in adds an anim_tag fade record; Clear in reverts", async ({ page }) => {
   await openAudit(page);
-  await selectWord0(page);
-  await inspector(page);
+  await selectWord0(page);   // selects word 0 → enables Group fade-in
 
-  const base = (await apiState()).globals.fade_in_ms as number;
-  const row = page.locator(".fg-panel.defaults .fd-row", { has: page.locator(".fd-l", { hasText: "Fade-in" }) });
+  expect((await apiState()).anim_tags.length).toBe(0);
+  await page.locator(".minibtn", { hasText: "Group fade-in" }).click();
+  await until(async () => (await apiState()).anim_tags.some(
+    (t: any) => t.ids.includes(0) && t.anims.some((a: any) => a.name === "fade_in"),
+  ));
 
-  await row.locator(".pm").last().click();   // +50
-  await until(async () => (await apiState()).globals.fade_in_ms === base + 50);
-  await row.locator(".pm").first().click();  // -50
-  await until(async () => (await apiState()).globals.fade_in_ms === base);
+  // Clear in → the fade record (and its tag) is removed; state back to baseline
+  await page.locator(".minibtn", { hasText: "Clear in" }).click();
+  await until(async () => !(await apiState()).anim_tags.some(
+    (t: any) => t.anims.some((a: any) => a.name === "fade_in"),
+  ));
 });
 
-test("G-24 — EventStrip accumulate + linger change layout props; undo reverts", async ({ page }) => {
+// REWRITTEN for the animations migration: the EventStrip `accumulate` 3-way was
+// removed (timing is now an animation concern — the AM-phase timing-mode picker), and
+// set_layout_props no longer carries `accumulate`. The linger round-trip — the
+// surviving windowing control on EventStrip — is retained.
+test("G-24 — EventStrip linger change layout props; undo reverts", async ({ page }) => {
   await openAudit(page);
   // EventStrip only renders after explicit group select
   await page.locator(".dock-tab", { hasText: "Cue lanes" }).click();
   await page.locator(".lane-evt").first().click();
   await page.locator(".evt-strip").waitFor();
 
-  const base = await apiState();
-  const baseAcc = base.layout[0].accumulate;
-  const baseLinger = base.layout[0].linger ?? 0;
-
-  // set accumulate -> lines
-  await page.locator(".evt-strip .seg2 button", { hasText: "lines" }).click();
-  await until(async () => (await apiState()).layout[0].accumulate === "lines");
+  const baseLinger = (await apiState()).layout[0].linger ?? 0;
 
   // linger +0.1
   await page.locator(".evt-strip .pv-step .pm").last().click();
   await until(async () => Math.abs(((await apiState()).layout[0].linger ?? 0) - (baseLinger + 0.1)) < 1e-6);
 
-  // revert via undos
+  // revert via undo
   await apiCall("undo");
-  await apiCall("undo");
-  await until(async () => {
-    const s = await apiState();
-    return s.layout[0].accumulate === baseAcc && (s.layout[0].linger ?? 0) === baseLinger;
-  });
+  await until(async () => ((await apiState()).layout[0].linger ?? 0) === baseLinger);
 });
 
 test("G-25 — TimingPanel numeric commit + arrow-step + revert by typing original", async ({ page }) => {

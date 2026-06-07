@@ -200,27 +200,34 @@ def _anim_view(ctx, scope, ref):
     return {"scope": "global",
             "animations": list((p.get("globals") or {}).get("animations") or [])}
 
-def add_animation(ctx, scope, ref=None, anim=None):
+def _norm_scope(scope):
+    # The UI/selection scope name is "cue" (test design §3: scope ∈ {global, group,
+    # cue}, where "cue"/selection == the tag carrier). The engine's canonical name is
+    # "tag"; accept both at the tool boundary so the Inspector/strip dispatches (which
+    # send "cue") and the OpsToolbar fade shortcuts (which send "tag") both work.
+    if scope == "cue":
+        return "tag"
     if scope not in ("global", "group", "tag"):
         raise ValueError(f"unknown scope {scope!r}")
+    return scope
+
+def add_animation(ctx, scope, ref=None, anim=None):
+    scope = _norm_scope(scope)
     _do(ctx, "anim_add", scope, ref, anim)
     return ctx.run(lambda: _anim_view(ctx, scope, ref))
 
 def remove_animation(ctx, scope, ref=None, anim_id=None):
-    if scope not in ("global", "group", "tag"):
-        raise ValueError(f"unknown scope {scope!r}")
+    scope = _norm_scope(scope)
     _do(ctx, "anim_remove", scope, ref, anim_id)
     return ctx.run(lambda: _anim_view(ctx, scope, ref))
 
 def restore_animation(ctx, scope, ref=None, anim_id=None):
-    if scope not in ("global", "group", "tag"):
-        raise ValueError(f"unknown scope {scope!r}")
+    scope = _norm_scope(scope)
     _do(ctx, "anim_restore", scope, ref, anim_id)
     return ctx.run(lambda: _anim_view(ctx, scope, ref))
 
 def set_animation_props(ctx, scope, ref=None, anim_id=None, partial=None):
-    if scope not in ("global", "group", "tag"):
-        raise ValueError(f"unknown scope {scope!r}")
+    scope = _norm_scope(scope)
     _do(ctx, "anim_set_props", scope, ref, anim_id, partial or {})
     return ctx.run(lambda: _anim_view(ctx, scope, ref))
 

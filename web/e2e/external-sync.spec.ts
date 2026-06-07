@@ -99,36 +99,60 @@ test("G-46 — external delete_words (toggle_word_del): strikethrough + undo", a
 test("G-47 — external set_layout_props linger: group header +linger + undo", async ({ page }) => {
   await openAudit(page);
   await ensureLanes(page);
-  await apiCall("set_layout_props", { gi: 0, linger: 1.5, accumulate: "words" });
+  // REWRITTEN for the animations migration: set_layout_props no longer accepts
+  // `accumulate` (timing moved to the animation model). The linger push round-trip
+  // is unchanged.
+  await apiCall("set_layout_props", { gi: 0, linger: 1.5 });
   await until(async () => ((await apiState()).layout[0].linger ?? 0) === 1.5);
   await expect(page.locator(".lane-evt").first().locator(".rng")).toContainText("+1.5s");
   await apiCall("undo");
   await until(async () => ((await apiState()).layout[0].linger ?? 0) !== 1.5);
 });
 
-test("G-48 — external make_fade_tag: fin_tags populated + lane fade cell grouped + undo", async ({ page }) => {
+// REWRITTEN for the animations migration: make_fade_tag was removed (AD-OLD-01).
+// The migrated equivalent is add_animation at "tag"/cue scope writing a fade_in
+// alpha animation onto an anim_tag over the selection. The lane FADE-IN cell still
+// derives its `grouped` treatment from that anim_tag.
+const FADE_IN_ANIM = {
+  id: "fx_in", name: "fade_in", channel: "alpha", mode: "percue", group_id: null,
+  segments: [{ t0: { anchor: "cue_start", offset: 0, unit: "ms" },
+               t1: { anchor: "cue_start", offset: 250, unit: "ms" }, from: "FF", to: "00", accel: 1 }],
+  enabled: true,
+};
+test("G-48 — external add_animation (fade tag): anim_tags populated + lane fade cell grouped + undo", async ({ page }) => {
   await openAudit(page);
   await ensureLanes(page);
-  await apiCall("make_fade_tag", { kind: "in", word_ids: [0] });
-  await until(async () => (await apiState()).fin_tags.some((t: any) => t.ids.includes(0)));
+  await apiCall("add_animation", { scope: "tag", ref: [0, 1, 2, 3], anim: FADE_IN_ANIM });
+  await until(async () => (await apiState()).anim_tags.some(
+    (t: any) => t.ids.includes(0) && t.anims.some((a: any) => a.name === "fade_in")));
   await expect(page.locator(".lane-row").first().locator(".lc.fade.grouped").first()).toBeVisible();
   await apiCall("undo");
-  await until(async () => !(await apiState()).fin_tags.some((t: any) => t.ids.includes(0)));
+  await until(async () => !(await apiState()).anim_tags.some(
+    (t: any) => t.anims.some((a: any) => a.name === "fade_in")));
 });
 
-test("G-49 — external set_fade_defaults: FadeDefaults panel value + undo", async ({ page }) => {
+// REWRITTEN for the animations migration: set_fade_defaults and the
+// .fg-panel.defaults FadeDefaults panel were removed (AD-OLD-04). Global fade
+// defaults are now ordinary global-scope alpha animations; the Inspector renders
+// them as a row in the GLOBAL tier (.tier.append.global). This pushes a global fade
+// externally and asserts the GLOBAL-tier row appears, then undo removes it.
+test("G-49 — external add_animation (global fade): Inspector GLOBAL tier row + undo", async ({ page }) => {
   await openAudit(page);
   await page.locator(".dock-tab", { hasText: "Cue lanes" }).click();
   await page.locator(".lane-row").first().click();
   await page.locator(".rail-tab", { hasText: "Inspector" }).click();
-  const base = (await apiState()).globals.fade_in_ms as number;
 
-  await apiCall("set_fade_defaults", { fade_in_ms: base + 100 });
-  await until(async () => (await apiState()).globals.fade_in_ms === base + 100);
-  await expect(page.locator(".fg-panel.defaults .fd-row", { has: page.locator(".fd-l", { hasText: "Fade-in" }) }))
-    .toContainText(String(base + 100));
+  // (migration synthesises a global "appearance" anim, so globals.animations is
+  // non-empty at baseline — assert on the added record's id, not total length.)
+  expect((await apiState()).globals.animations.some((a: any) => a.id === "g_fade")).toBe(false);
+  await apiCall("add_animation", { scope: "global", ref: null, anim: { ...FADE_IN_ANIM, id: "g_fade" } });
+  await until(async () => ((await apiState()).globals.animations ?? []).some((a: any) => a.id === "g_fade"));
+  await expect(page.locator(".tier.append.global")).toContainText("fade_in");
+  await expect(page.locator(".toast.ai")).toBeVisible();
+
   await apiCall("undo");
-  await until(async () => (await apiState()).globals.fade_in_ms === base);
+  await until(async () => !(await apiState()).globals.animations.some((a: any) => a.id === "g_fade"));
+  await expect(page.locator(".tier.append.global")).not.toContainText("fade_in");
 });
 
 // FINDING G-50: external set_globals align lands and the UI reflects it, but
