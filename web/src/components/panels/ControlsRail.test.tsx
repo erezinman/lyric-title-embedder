@@ -59,4 +59,11 @@ describe("ControlsRail", () => {
     render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} />);
     expect(screen.getByText("Margins come from dragging the preview box edges.")).toBeInTheDocument();
   });
+
+  it("Animations pointer row fires onOpenInspector (rail-tab switch is Editor-owned)", () => {
+    const onOpenInspector = vi.fn();
+    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} onOpenInspector={onOpenInspector} />);
+    fireEvent.click(screen.getByRole("button", { name: /animations/i }));
+    expect(onOpenInspector).toHaveBeenCalledTimes(1);
+  });
 });

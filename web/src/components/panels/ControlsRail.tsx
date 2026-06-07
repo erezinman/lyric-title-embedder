@@ -11,9 +11,12 @@ export interface ControlsRailProps {
   projectName: string;
   onSetGlobal: (key: string, value: number) => void;
   onTogglePos: (on: boolean) => void;
+  /** Switch the rail to the Inspector tab (where the real AnimSection lives).
+   *  The "Coming soon" animation stub was removed; this points at the live entry. */
+  onOpenInspector?: () => void;
 }
 
-export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos }: ControlsRailProps) {
+export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos, onOpenInspector }: ControlsRailProps) {
   const pl = project.placement;
   const videoName = project.video ? project.video.split("/").pop() : "—";
   const posOn = posActive(pl);
@@ -58,6 +61,15 @@ export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos }:
           ? "Pin coordinate comes from dragging the preview box."
           : "Margins come from dragging the preview box edges."}
       </p>
+
+      {/* The "Animation presets — Coming soon" stub was removed; the real entry is
+          the Inspector's AnimSection. Point at it rather than leaving a dead gap. */}
+      <div className="sec-t spacer"><Icon name="sparkles" size={13} />Animations</div>
+      <button type="button" className="rail-link" onClick={() => onOpenInspector?.()}>
+        <Icon name="sparkles" size={13} />
+        Edit animations in the Inspector
+        <Icon name="fwd" size={12} />
+      </button>
     </div>
   );
 }

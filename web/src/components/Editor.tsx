@@ -915,6 +915,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                     : { use_pos: false, pos: null };
                   dispatch("set_globals", { partial });
                 }}
+                onOpenInspector={() => setRailTab("inspector")}
               />
             )}
             {railTab === "inspector" && (

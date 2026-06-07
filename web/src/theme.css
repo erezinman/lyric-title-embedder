@@ -206,6 +206,14 @@ svg.lucide { display: block; }
 /* rail note line (state-aware placement hint) */
 .rail-note { display: flex; align-items: flex-start; gap: 6px; font-size: 11px; color: var(--text-3); line-height: 1.5; margin: 6px 0 2px; }
 .rail-note svg { color: var(--violet); flex: 0 0 auto; margin-top: 1px; }
+/* pointer row to the live AnimSection (replaces the removed "Coming soon" stub) */
+.rail-link { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; margin-top: 4px;
+  font: inherit; font-size: 12px; color: var(--text-2); text-align: left; cursor: pointer;
+  background: color-mix(in srgb, var(--violet) 8%, transparent); border: 1px solid color-mix(in srgb, var(--violet) 22%, transparent);
+  border-radius: 8px; transition: background .12s, border-color .12s, color .12s; }
+.rail-link:hover { background: color-mix(in srgb, var(--violet) 16%, transparent); border-color: color-mix(in srgb, var(--violet) 42%, transparent); color: var(--text-1); }
+.rail-link svg { color: var(--violet); flex: 0 0 auto; }
+.rail-link svg:last-child { margin-left: auto; }
 
 /* Alignment 3×3 numpad grid */
 .ag-wrap { position: relative; }
