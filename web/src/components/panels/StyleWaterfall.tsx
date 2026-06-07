@@ -151,41 +151,6 @@ function PropRow({ pkey, isGlobal, inheritFrom, overridden, onSet, onClear }: Pr
   );
 }
 
-// ---- FadeRow — step control for fade_in_ms / fade_out_ms in GROUP tier ----
-interface FadeRowProps {
-  fadeKey: "fade_in_ms" | "fade_out_ms";
-  label: string;
-  groupValue: number | null | undefined;
-  globalValue: number;
-  onSet: (key: "fade_in_ms" | "fade_out_ms", value: number) => void;
-  onClear: (key: "fade_in_ms" | "fade_out_ms") => void;
-}
-
-function FadeRow({ fadeKey, label, groupValue, globalValue, onSet, onClear }: FadeRowProps) {
-  const overridden = groupValue != null;
-  const val = overridden ? groupValue : globalValue;
-
-  const stepUp = () => onSet(fadeKey, Math.max(0, (val ?? 0) + 50));
-  const stepDown = () => onSet(fadeKey, Math.max(0, (val ?? 0) - 50));
-
-  return (
-    <div className={"prow" + (overridden ? " over" : " inh")}>
-      <span className="pl">{label}</span>
-      <span className="pv">
-        <span className="pv-step">
-          <span className="pm" onClick={stepDown}>−</span>
-          <span className="v">{val} ms</span>
-          <span className="pm" onClick={stepUp}>+</span>
-        </span>
-      </span>
-      {overridden
-        ? <button className="pclear" title="Clear override (inherit)" onClick={() => onClear(fadeKey)}><Icon name="close" size={11} /></button>
-        : <span className="psrc" title="inherited from global">glob</span>
-      }
-    </div>
-  );
-}
-
 // ---- Tier ----
 type TierScope = "global" | "group" | "cue";
 
@@ -205,11 +170,9 @@ interface TierProps {
   onSet: (tier: TierScope, pk: string, v: unknown) => void;
   onClear: (tier: TierScope, pk: string) => void;
   aiHot?: boolean;
-  // optional GROUP-tier fade props
-  fadeRows?: React.ReactNode;
 }
 
-function Tier({ tierClass, scope, title, badge, keys, styleDict, isGlobal, inherit, selected, onSelect, onSet, onClear, aiHot, fadeRows }: TierProps) {
+function Tier({ tierClass, scope, title, badge, keys, styleDict, isGlobal, inherit, selected, onSelect, onSet, onClear, aiHot }: TierProps) {
   return (
     <div
       className={"tier3 " + tierClass + (selected ? " sel" : "") + (aiHot ? " aihot" : "")}
@@ -234,7 +197,6 @@ function Tier({ tierClass, scope, title, badge, keys, styleDict, isGlobal, inher
             onClear={(pk) => onClear(scope, pk)}
           />
         ))}
-        {fadeRows}
       </div>
     </div>
   );
@@ -248,34 +210,12 @@ export interface StyleWaterfallProps {
   onSelectTier: (scope: TierScope) => void;
   onSetStyle: (tier: TierScope, key: string, value: unknown) => void;
   onClearStyle: (tier: TierScope, key: string) => void;
-  onSetFade: (key: "fade_in_ms" | "fade_out_ms", value: number | null) => void;
 }
 
-export function StyleWaterfall({ project, sel, aiTier, onSelectTier, onSetStyle, onClearStyle, onSetFade }: StyleWaterfallProps) {
+export function StyleWaterfall({ project, sel, aiTier, onSelectTier, onSetStyle, onClearStyle }: StyleWaterfallProps) {
   const gi = sel.gi;
   const g = gi != null ? project.layout[gi] : null;
   const tok = sel.tok || null;
-
-  const groupFadeRows = g ? (
-    <>
-      <FadeRow
-        fadeKey="fade_in_ms"
-        label="Group fade-in"
-        groupValue={g.fade?.fade_in_ms ?? null}
-        globalValue={project.globals.fade_in_ms}
-        onSet={(key, value) => onSetFade(key, value)}
-        onClear={(key) => onSetFade(key, null)}
-      />
-      <FadeRow
-        fadeKey="fade_out_ms"
-        label="Group fade-out"
-        groupValue={g.fade?.fade_out_ms ?? null}
-        globalValue={project.globals.fade_out_ms}
-        onSet={(key, value) => onSetFade(key, value)}
-        onClear={(key) => onSetFade(key, null)}
-      />
-    </>
-  ) : null;
 
   return (
     <div className="insp">
@@ -314,7 +254,6 @@ export function StyleWaterfall({ project, sel, aiTier, onSelectTier, onSetStyle,
           onSelect={() => onSelectTier("group")}
           onSet={onSetStyle}
           onClear={onClearStyle}
-          fadeRows={groupFadeRows}
         />
       )}
 

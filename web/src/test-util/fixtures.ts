@@ -1,8 +1,13 @@
 // test-util/fixtures.ts — composable Project fixture builders for audit tests.
 // The base fixture is rich enough for every interaction: 2 groups, the first
 // with 2 lines (4 + 3 single-word tokens), the second with 1 line of 2 tokens,
-// distinct timings so selection/merge/timeline/fade tests all have material.
-import type { Project, GlobalStyle, Placement, LayoutGroup } from "../types";
+// distinct timings so selection/merge/timeline tests all have material.
+//
+// Animations model: the legacy fin_tags/fout_tags/group.fade/globals.fade_*_ms/
+// accumulate are GONE. Carriers are globals.animations / layout[gi].animations +
+// suppress / anim_tags (test design §1.2).
+import type { Project, GlobalStyle, Placement, LayoutGroup, Animation, AnimTag } from "../types";
+import { fadeInAnim, fadeOutAnim, anim, seg, time } from "../model/animPresets";
 
 export const GLOBAL_STYLE: GlobalStyle = {
   font: "Space Grotesk", fontsize: 64, bold: true, primary: "#FFFFFF", outline: "#000000",
@@ -14,12 +19,15 @@ export const PLACEMENT: Placement = {
   pos: null, use_pos: true,
 };
 
+// shared anim literal builders (re-exported so tests can author records)
+export { anim, seg, time };
+
 const tok = (id: number) => ({ ids: [id], sep: "", del: false, style: {} });
 
 function ev(label: string, lines: number[][]): LayoutGroup {
   return {
-    label, accumulate: "words", win_start: null, win_end: null, linger: null,
-    del: false, style: {}, fade: {},
+    label, win_start: null, win_end: null, linger: null,
+    del: false, style: {}, animations: [], suppress: [],
     lines: lines.map((ids) => ({ toks: ids.map(tok) })),
   };
 }
@@ -30,8 +38,8 @@ export function baseProject(): Project {
   return {
     words: texts.map((text, i) => ({ text, start: 0.5 + i, end: 1.2 + i })),
     layout: [ev("Verse 1", [[0, 1, 2, 3], [4, 5, 6]]), ev("Chorus", [[7, 8]])],
-    fin_tags: [], fout_tags: [],
-    globals: { fade_in_ms: 250, fade_out_ms: 1000, linger: 0 },
+    anim_tags: [],
+    globals: { linger: 0, animations: [] },
     global_style: { ...GLOBAL_STYLE },
     placement: { ...PLACEMENT },
     video: null,
@@ -45,10 +53,42 @@ export function mutate(p: Project, fn: (draft: Project) => void): Project {
   return next;
 }
 
-export const withFadeTags = (p: Project): Project =>
-  mutate(p, (d) => {
-    d.fin_tags = [{ ids: [0, 1, 2, 3], trigger: null }];
-    d.fout_tags = [{ ids: [4, 5, 6], trigger: 2.5 }];
+// ── withAnimations(p, spec) — the headline builder (test design §1.2-1.3) ────
+// spec keys (all optional):
+//   global:   Animation[]            -> p.globals.animations
+//   group:    {gi: Animation[]}      -> p.layout[gi].animations
+//   suppress: {gi: anim_id[]}        -> p.layout[gi].suppress
+//   tags:     AnimTag[]              -> p.anim_tags
+export interface AnimSpec {
+  global?: Animation[];
+  group?: Record<number, Animation[]>;
+  suppress?: Record<number, string[]>;
+  tags?: AnimTag[];
+}
+export function withAnimations(p: Project, spec: AnimSpec): Project {
+  return mutate(p, (d) => {
+    if (spec.global) d.globals.animations = JSON.parse(JSON.stringify(spec.global));
+    for (const [gi, anims] of Object.entries(spec.group ?? {})) {
+      d.layout[Number(gi)].animations = JSON.parse(JSON.stringify(anims));
+    }
+    for (const [gi, ids] of Object.entries(spec.suppress ?? {})) {
+      d.layout[Number(gi)].suppress = [...ids];
+    }
+    if (spec.tags) d.anim_tags = JSON.parse(JSON.stringify(spec.tags));
+  });
+}
+
+/**
+ * Animations-based replacement for the legacy withFadeTags: words 0-3 carry a
+ * fade_in preset (auto trigger), words 4-6 carry a fade_out preset. Mirrors the
+ * old fin/fout-tag membership the audit tests asserted, now via anim_tags.
+ */
+export const withFadeAnims = (p: Project): Project =>
+  withAnimations(p, {
+    tags: [
+      { ids: [0, 1, 2, 3], anims: [fadeInAnim("a1")], suppress: [] },
+      { ids: [4, 5, 6], anims: [fadeOutAnim("a2")], suppress: [] },
+    ],
   });
 
 export const withPos = (p: Project, pos: [number, number] = [960, 540]): Project =>

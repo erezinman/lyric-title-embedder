@@ -22,7 +22,7 @@ import { Editor } from "./Editor";
 import { setupFakeWS, FakeWS } from "../test-util/fakews";
 import { mockApi, emitState } from "../test-util/dispatch";
 import {
-  baseProject, mutate, withFadeTags, withPos, withVideo,
+  baseProject, mutate, withFadeAnims, withPos, withVideo,
   withMergedTok, withGroupStyle, withCueStyle,
 } from "../test-util/fixtures";
 import type { Project } from "../types";
@@ -291,108 +291,16 @@ describe("set_cue_style", () => {
 });
 
 // ===========================================================================
-// set_group_fade  /  set_fade_defaults
+// add_animation / remove_animation (fade preset, anim_tags) — lane FADE columns
+// The set_group_fade / set_fade_defaults / set_fade_tag_props tools and their
+// FadeDefaultsPanel / FadeGroupPanel / GROUP-tier fade-row surfaces were removed
+// with the animations migration; F-14..F-17, F-21, F-22 were deleted (coverage
+// returns in the AI/AM phases). The lane FADE columns now derive from anim_tags.
 // ===========================================================================
-describe("set_fade_defaults", () => {
-  it("F-14 — fade_in_ms default push updates FadeDefaultsPanel value", async () => {
-    const user = userEvent.setup();
+describe("add_animation (fade preset, pushed)", () => {
+  it("F-18 — pushing a fade_in anim_tag fills the FADE-IN lane cell (grouped)", async () => {
     const { container } = await boot();
-    await openInspector(user); // VIS-CLICK reveals FadeDefaultsPanel
-
-    const panel = () => container.querySelector(".fg-panel.defaults") as HTMLElement;
-    const inRow = () => within(panel()).getByText("Fade-in").closest(".fd-row") as HTMLElement;
-    expect(within(inRow()).getByText("250ms")).toBeTruthy();
-
-    emitState(mutate(baseProject(), (d) => { d.globals.fade_in_ms = 500; }));
-    await waitFor(() => expect(within(inRow()).getByText("500ms")).toBeTruthy());
-
-    emitState(baseProject());
-    await waitFor(() => expect(within(inRow()).getByText("250ms")).toBeTruthy());
-  });
-
-  it("F-15 — linger default push updates FadeDefaultsPanel linger value", async () => {
-    const user = userEvent.setup();
-    const { container } = await boot();
-    await openInspector(user); // VIS-CLICK
-
-    const panel = () => container.querySelector(".fg-panel.defaults") as HTMLElement;
-    const lingerRow = () => within(panel()).getByText("Linger").closest(".fd-row") as HTMLElement;
-    expect(within(lingerRow()).getByText("0s")).toBeTruthy();
-
-    emitState(mutate(baseProject(), (d) => { d.globals.linger = 1.5; }));
-    await waitFor(() => expect(within(lingerRow()).getByText("1.5s")).toBeTruthy());
-
-    emitState(baseProject());
-    await waitFor(() => expect(within(lingerRow()).getByText("0s")).toBeTruthy());
-  });
-});
-
-describe("set_group_fade", () => {
-  it("F-16 — group fade-in override shows in GROUP tier FadeRow with overridden value", async () => {
-    const user = userEvent.setup();
-    const { container } = await boot();
-    await openInspector(user); // VIS-CLICK
-
-    const groupTier = () => container.querySelector(".tier3.group") as HTMLElement;
-    // inherited initially: shows global 250 ms, source "glob"
-    const fadeRow0 = within(groupTier()).getByText("Group fade-in").closest(".prow")!;
-    expect(fadeRow0.classList.contains("over")).toBe(false);
-    expect(within(fadeRow0 as HTMLElement).getByText(/250 ms/)).toBeTruthy();
-
-    emitState(mutate(baseProject(), (d) => { d.layout[0].fade = { fade_in_ms: 800 }; }));
-    await waitFor(() => {
-      const row = within(container.querySelector(".tier3.group") as HTMLElement)
-        .getByText("Group fade-in").closest(".prow")!;
-      expect(row.classList.contains("over")).toBe(true);
-      expect(within(row as HTMLElement).getByText(/800 ms/)).toBeTruthy();
-    });
-
-    emitState(baseProject());
-    await waitFor(() => {
-      const row = within(container.querySelector(".tier3.group") as HTMLElement)
-        .getByText("Group fade-in").closest(".prow")!;
-      expect(row.classList.contains("over")).toBe(false);
-    });
-  });
-
-  it("F-17 — FadeGroupPanel fade-out row source tag flips global→group on push", async () => {
-    const user = userEvent.setup();
-    const { container } = await boot(withFadeTags(baseProject()));
-    await openInspector(user); // VIS-CLICK — FadeGroupPanel only renders when sel sits in a fade group
-    // sel defaults to group 0; finTag covers ids 0..3 but selWid is null at boot,
-    // so FadeGroupPanel needs a word selection. Select alpha first (VIS-CLICK).
-    await user.click(laneRow(container, "alpha")!); // VIS-CLICK: put selection on a fade-grouped word
-
-    const fgPanel = () => container.querySelector(".fg-panel:not(.defaults)") as HTMLElement;
-    await waitFor(() => expect(fgPanel()).toBeTruthy());
-    // fade-in row dur source is "(global)" initially
-    const inRow = () => within(fgPanel()).getByText(/Fade-in/).closest(".fg-row") as HTMLElement;
-    expect(within(inRow()).getByText("(global)")).toBeTruthy();
-
-    emitState(mutate(withFadeTags(baseProject()), (d) => { d.layout[0].fade = { fade_in_ms: 700 }; }));
-    await waitFor(() => {
-      const row = within(container.querySelector(".fg-panel:not(.defaults)") as HTMLElement)
-        .getByText(/Fade-in/).closest(".fg-row") as HTMLElement;
-      expect(within(row).getByText("(group)")).toBeTruthy();
-      expect(within(row).getByText("700ms")).toBeTruthy();
-    });
-
-    emitState(withFadeTags(baseProject()));
-    await waitFor(() => {
-      const row = within(container.querySelector(".fg-panel:not(.defaults)") as HTMLElement)
-        .getByText(/Fade-in/).closest(".fg-row") as HTMLElement;
-      expect(within(row).getByText("(global)")).toBeTruthy();
-    });
-  });
-});
-
-// ===========================================================================
-// make_fade_tag / clear_fade_tag / set_fade_tag_props
-// ===========================================================================
-describe("make_fade_tag", () => {
-  it("F-18 — adding a fin tag fills the FADE-IN lane cell (trigger text vs auto)", async () => {
-    const { container } = await boot();
-    // baseline: alpha has no fade-in group -> FadeCell shows "auto" (inFin false)
+    // baseline: alpha has no fade-in anim -> FadeCell ungrouped
     const inCell = (word: string) => {
       const row = laneRow(container, word)!;
       // FADE-IN is the 2nd .lc cell (.word, fade-in, fade-out)
@@ -400,14 +308,14 @@ describe("make_fade_tag", () => {
     };
     expect(inCell("alpha").classList.contains("grouped")).toBe(false);
 
-    emitState(mutate(baseProject(), (d) => { d.fin_tags = [{ ids: [0, 1, 2, 3], trigger: null }]; }));
+    emitState(withFadeAnims(baseProject()));
     await waitFor(() => expect(inCell("alpha").classList.contains("grouped")).toBe(true));
 
     emitState(baseProject());
     await waitFor(() => expect(inCell("alpha").classList.contains("grouped")).toBe(false));
   });
 
-  it("F-19 — FADE-OUT lane cell shows '· none' until a fout tag is pushed", async () => {
+  it("F-19 — FADE-OUT lane cell shows '· none' until a fade_out anim_tag is pushed", async () => {
     const { container } = await boot();
     const outCell = (word: string) => {
       const row = laneRow(container, word)!;
@@ -415,11 +323,12 @@ describe("make_fade_tag", () => {
     };
     expect(outCell("echo").textContent).toContain("· none");
 
-    emitState(mutate(baseProject(), (d) => { d.fout_tags = [{ ids: [4, 5, 6], trigger: 2.5 }]; }));
+    // withFadeAnims puts a fade_out anim on ids [4,5,6]; "echo" = word 4 (end 5.2) → "@5.20"
+    emitState(withFadeAnims(baseProject()));
     await waitFor(() => {
       const cell = outCell("echo");
       expect(cell.textContent).not.toContain("· none");
-      expect(cell.textContent).toContain("@2.50");
+      expect(cell.textContent).toContain("@5.20");
     });
 
     emitState(baseProject());
@@ -427,53 +336,20 @@ describe("make_fade_tag", () => {
   });
 });
 
-describe("clear_fade_tag", () => {
-  it("F-20 — removing a fin tag returns the FADE-IN cell to ungrouped", async () => {
-    const { container } = await boot(withFadeTags(baseProject()));
+describe("remove_animation (fade preset, pushed)", () => {
+  it("F-20 — removing the fade_in anim_tag returns the FADE-IN cell to ungrouped", async () => {
+    const { container } = await boot(withFadeAnims(baseProject()));
     const inCell = (word: string) => {
       const row = laneRow(container, word)!;
       return [...row.querySelectorAll(".lc")][1] as HTMLElement;
     };
     expect(inCell("alpha").classList.contains("grouped")).toBe(true);
 
-    emitState(mutate(withFadeTags(baseProject()), (d) => { d.fin_tags = []; }));
+    emitState(mutate(withFadeAnims(baseProject()), (d) => { d.anim_tags = d.anim_tags.filter((t) => !t.ids.includes(0)); }));
     await waitFor(() => expect(inCell("alpha").classList.contains("grouped")).toBe(false));
 
-    emitState(withFadeTags(baseProject()));
+    emitState(withFadeAnims(baseProject()));
     await waitFor(() => expect(inCell("alpha").classList.contains("grouped")).toBe(true));
-  });
-});
-
-describe("set_fade_tag_props", () => {
-  it("F-21 — setting a fin tag trigger flips the FADE-IN cell from 'auto' to '@t'", async () => {
-    const { container } = await boot(withFadeTags(baseProject())); // fin trigger null
-    const inCell = (word: string) => {
-      const row = laneRow(container, word)!;
-      return [...row.querySelectorAll(".lc")][1] as HTMLElement;
-    };
-    expect(within(inCell("alpha")).getByText("auto")).toBeTruthy();
-
-    emitState(mutate(withFadeTags(baseProject()), (d) => { d.fin_tags = [{ ids: [0, 1, 2, 3], trigger: 1.25 }]; }));
-    await waitFor(() => expect(inCell("alpha").textContent).toContain("@1.25"));
-
-    emitState(withFadeTags(baseProject()));
-    await waitFor(() => expect(within(inCell("alpha")).getByText("auto")).toBeTruthy());
-  });
-
-  it("F-22 — FadeGroupPanel appears when a fin tag arrives and disappears when cleared", async () => {
-    const user = userEvent.setup();
-    const { container } = await boot();
-    await openInspector(user); // VIS-CLICK
-    await user.click(laneRow(container, "alpha")!); // VIS-CLICK: select word for panel context
-
-    // no tags yet -> FadeGroupPanel not rendered
-    expect(container.querySelector(".fg-panel:not(.defaults)")).toBeNull();
-
-    emitState(withFadeTags(baseProject()));
-    await waitFor(() => expect(container.querySelector(".fg-panel:not(.defaults)")).toBeTruthy());
-
-    emitState(baseProject());
-    await waitFor(() => expect(container.querySelector(".fg-panel:not(.defaults)")).toBeNull());
   });
 });
 
@@ -481,25 +357,6 @@ describe("set_fade_tag_props", () => {
 // set_layout_props
 // ===========================================================================
 describe("set_layout_props", () => {
-  it("F-23 — accumulate change updates the lanes acc-badge chip", async () => {
-    const { container } = await boot();
-    const badge = () => {
-      const evt = [...container.querySelectorAll(".lane-evt")].find((e) => e.textContent?.includes("Verse 1"))!;
-      return evt.querySelector(".acc-badge") as HTMLElement;
-    };
-    expect(badge().textContent).toBe("words");
-    expect(badge().classList.contains("acc-words")).toBe(true);
-
-    emitState(mutate(baseProject(), (d) => { d.layout[0].accumulate = "lines"; }));
-    await waitFor(() => {
-      expect(badge().textContent).toBe("lines");
-      expect(badge().classList.contains("acc-lines")).toBe(true);
-    });
-
-    emitState(baseProject());
-    await waitFor(() => expect(badge().textContent).toBe("words"));
-  });
-
   it("F-24 — linger change updates EventStrip linger value", async () => {
     const user = userEvent.setup();
     const { container } = await boot();
@@ -514,22 +371,6 @@ describe("set_layout_props", () => {
 
     emitState(baseProject());
     await waitFor(() => expect(lingerV().textContent).toBe("0.0s"));
-  });
-
-  it("F-25 — accumulate change reflects in EventStrip Accumulate seg buttons", async () => {
-    const user = userEvent.setup();
-    const { container } = await boot();
-    await selectVerse1Header(user); // VIS-CLICK
-    await waitFor(() => expect(container.querySelector(".evt-strip")).toBeTruthy());
-
-    const onBtn = () => container.querySelector(".evt-strip .seg2 button.on") as HTMLElement;
-    expect(onBtn().textContent).toBe("words");
-
-    emitState(mutate(baseProject(), (d) => { d.layout[0].accumulate = "off"; }));
-    await waitFor(() => expect(onBtn().textContent).toBe("off"));
-
-    emitState(baseProject());
-    await waitFor(() => expect(onBtn().textContent).toBe("words"));
   });
 
   it("F-26 — explicit window start updates EventStrip window note text", async () => {
@@ -824,28 +665,29 @@ describe("combined deep revert", () => {
     const { container } = await boot();
     // baseline captures
     expect(capWord(container, "alpha")!.style.fontSize).toBe("");
-    const accBadge = () => {
+    // layout facet now surfaces via the lane-evt range chip's linger suffix
+    const evtRng = () => {
       const evt = [...container.querySelectorAll(".lane-evt")].find((e) => e.textContent?.includes("Verse 1"))!;
-      return evt.querySelector(".acc-badge") as HTMLElement;
+      return evt.querySelector(".rng") as HTMLElement;
     };
-    expect(accBadge().textContent).toBe("words");
+    expect(evtRng().textContent).not.toContain("+1.5s");
 
     emitState(mutate(baseProject(), (d) => {
       d.words[0].text = "OMEGA";                       // words facet
       d.layout[0].style = { fontsize: 128 };           // style facet
-      d.layout[0].accumulate = "lines";                // layout facet
+      d.layout[0].linger = 1.5;                        // layout facet
     }));
     await waitFor(() => {
       expect(capWord(container, "OMEGA")).toBeTruthy();
       expect(capWord(container, "OMEGA")!.style.fontSize).toBe("2em");
-      expect(accBadge().textContent).toBe("lines");
+      expect(evtRng().textContent).toContain("+1.5s");
     });
 
     emitState(baseProject());
     await waitFor(() => {
       expect(capWord(container, "alpha")).toBeTruthy();
       expect(capWord(container, "alpha")!.style.fontSize).toBe("");
-      expect(accBadge().textContent).toBe("words");
+      expect(evtRng().textContent).not.toContain("+1.5s");
       expect(capWord(container, "OMEGA")).toBeUndefined();
     });
   });

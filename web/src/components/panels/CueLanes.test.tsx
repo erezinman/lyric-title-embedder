@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { CueLanes } from "./CueLanes";
 import type { Project } from "../../types";
+import { fadeInAnim, fadeOutAnim } from "../../model/animPresets";
 
 function proj(): Project {
   return {
@@ -16,10 +17,9 @@ function proj(): Project {
     layout: [
       {
         label: "V1",
-        accumulate: "words",
         win_start: null, win_end: null, linger: null, del: false,
         style: { fontsize: 72 },
-        fade: {},
+        animations: [], suppress: [],
         lines: [{
           toks: [
             { ids: [0], sep: "", del: false, style: {} },
@@ -31,9 +31,12 @@ function proj(): Project {
         }],
       },
     ],
-    fin_tags: [{ ids: [0], trigger: null }],
-    fout_tags: [{ ids: [3], trigger: 15.4 }],
-    globals: { fade_in_ms: 250, fade_out_ms: 1000, linger: 0.0 },
+    // animations model: fade-in on word 0, fade-out on word 3 (anim_tags)
+    anim_tags: [
+      { ids: [0], anims: [fadeInAnim("a1")], suppress: [] },
+      { ids: [3], anims: [fadeOutAnim("a2")], suppress: [] },
+    ],
+    globals: { linger: 0.0, animations: [] },
     global_style: {
       font: "Space Grotesk", fontsize: 64, bold: true, primary: "#FFFFFF",
       outline: "#000000", back: "#000000", back_alpha: "80", outline_w: 3, shadow: 0, border_style: 1, align: 2,
@@ -44,7 +47,7 @@ function proj(): Project {
 }
 
 describe("CueLanes", () => {
-  it("renders event label, merged-token joined text, and a fade-out trigger", () => {
+  it("renders event label, merged-token joined text, and a fade-out cell anchored to cue_end", () => {
     const p = proj();
     render(
       <CueLanes
@@ -60,6 +63,7 @@ describe("CueLanes", () => {
     );
     expect(screen.getByText("V1")).toBeTruthy();
     expect(screen.getByText(/up in/)).toBeTruthy();
-    expect(screen.getByText(/15\.40/)).toBeTruthy();
+    // fade-out cell anchors to cue_end (word 3 end = 2.0) → "@2.00"
+    expect(screen.getByText(/@2\.00/)).toBeTruthy();
   });
 });

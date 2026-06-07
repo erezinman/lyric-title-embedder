@@ -7,9 +7,9 @@ const words = [ { wid: 0, text: "a", s: 1, e: 1.5, gi: 0, li: 0, ti: 0 }, { wid:
 const events = [{ gi: 0, label: "V" }];
 function proj(): Project {
   return { words: [{ text: "a", start: 1, end: 1.5 }, { text: "b", start: 2, end: 2.5 }],
-    layout: [{ label: "V", accumulate: "words", win_start: null, win_end: null, linger: null, del: false, style: {}, fade: {},
+    layout: [{ label: "V", win_start: null, win_end: null, linger: null, del: false, style: {}, animations: [], suppress: [],
       lines: [{ toks: [{ ids: [0], sep: "", del: false, style: {} }, { ids: [1], sep: "", del: false, style: {} }] }] }],
-    fin_tags: [], fout_tags: [], globals: { fade_in_ms: 250, fade_out_ms: 1000, linger: 0 },
+    anim_tags: [], globals: { linger: 0, animations: [] },
     global_style: { font: "x", fontsize: 64, bold: true, primary: "#fff", outline: "#000", back: "#000", back_alpha: "80", outline_w: 3, shadow: 0, border_style: 1, align: 2 },
     placement: { align: 2, play_w: 1920, play_h: 1080, margin_l: 0, margin_r: 0, margin_v: 0, pos: null }, video: null };
 }

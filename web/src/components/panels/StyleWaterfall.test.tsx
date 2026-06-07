@@ -15,10 +15,9 @@ function proj(): Project {
     layout: [
       {
         label: "V1",
-        accumulate: "words",
         win_start: null, win_end: null, linger: null, del: false,
         style: { fontsize: 72 },
-        fade: { fade_in_ms: 400 },
+        animations: [], suppress: [],
         lines: [{
           toks: [
             { ids: [0], sep: "", del: false, style: {} },
@@ -29,9 +28,8 @@ function proj(): Project {
         }],
       },
     ],
-    fin_tags: [],
-    fout_tags: [],
-    globals: { fade_in_ms: 250, fade_out_ms: 1000, linger: 0.0 },
+    anim_tags: [],
+    globals: { linger: 0.0, animations: [] },
     global_style: {
       font: "Space Grotesk", fontsize: 64, bold: true, primary: "#FFFFFF",
       outline: "#000000", back: "#000000", back_alpha: "80",
@@ -43,10 +41,9 @@ function proj(): Project {
 }
 
 describe("StyleWaterfall", () => {
-  it("GROUP tier shows Border mode + fade rows; CUE tier omits Border mode; clearing a cue override calls onClearStyle('cue',...)", async () => {
+  it("GROUP tier shows Border mode; CUE tier omits Border mode; clearing a cue override calls onClearStyle('cue',...)", async () => {
     const onClearStyle = vi.fn();
     const onSetStyle = vi.fn();
-    const onSetFade = vi.fn();
     const p = proj();
     render(
       <StyleWaterfall
@@ -56,7 +53,6 @@ describe("StyleWaterfall", () => {
         onSelectTier={() => {}}
         onSetStyle={onSetStyle}
         onClearStyle={onClearStyle}
-        onSetFade={onSetFade}
       />
     );
 
@@ -72,7 +68,7 @@ describe("StyleWaterfall", () => {
     expect(onClearStyle).toHaveBeenCalledWith("cue", expect.any(String));
   });
 
-  it("GROUP tier has 10 style rows (incl border_style) + 2 fade rows", () => {
+  it("GROUP tier shows border_style row (Border mode)", () => {
     const p = proj();
     render(
       <StyleWaterfall
@@ -82,72 +78,11 @@ describe("StyleWaterfall", () => {
         onSelectTier={() => {}}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
     // border_style shows as "Border mode"
     expect(within(groupTier).getByText(/Border mode/i)).toBeTruthy();
-    // Fade rows
-    expect(within(groupTier).getByText(/Group fade-in/i)).toBeTruthy();
-    expect(within(groupTier).getByText(/Group fade-out/i)).toBeTruthy();
-  });
-
-  it("GLOBAL tier has border_style but no fade rows", () => {
-    const p = proj();
-    render(
-      <StyleWaterfall
-        project={p}
-        sel={{ scope: "global", gi: 0, tok: null }}
-        aiTier={null}
-        onSelectTier={() => {}}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
-      />
-    );
-    const globalTier = screen.getByText("GLOBAL").closest(".tier3") as HTMLElement;
-    expect(within(globalTier).queryByText(/Group fade-in/i)).toBeNull();
-    expect(within(globalTier).queryByText(/Group fade-out/i)).toBeNull();
-  });
-
-  it("GROUP fade row shows inherited global value when group override is null", () => {
-    const p = proj();
-    // Group 0 has fade_in_ms:400 set; remove it to test inheritance
-    p.layout[0].fade = {};
-    render(
-      <StyleWaterfall
-        project={p}
-        sel={{ scope: "group", gi: 0, tok: null }}
-        aiTier={null}
-        onSelectTier={() => {}}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
-      />
-    );
-    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-    // Global value for fade_in_ms is 250, shown greyed
-    const fadeInRow = within(groupTier).getByText(/Group fade-in/i).closest(".prow") as HTMLElement;
-    expect(fadeInRow.classList.contains("inh")).toBe(true);
-  });
-
-  it("GROUP fade row is solid when group overrides the fade", () => {
-    const p = proj(); // group 0 has fade_in_ms:400
-    render(
-      <StyleWaterfall
-        project={p}
-        sel={{ scope: "group", gi: 0, tok: null }}
-        aiTier={null}
-        onSelectTier={() => {}}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
-      />
-    );
-    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-    const fadeInRow = within(groupTier).getByText(/Group fade-in/i).closest(".prow") as HTMLElement;
-    expect(fadeInRow.classList.contains("over")).toBe(true);
   });
 
   it("onSetStyle is called with tier when editing a group prop", async () => {
@@ -161,7 +96,6 @@ describe("StyleWaterfall", () => {
         onSelectTier={() => {}}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -181,7 +115,6 @@ describe("StyleWaterfall", () => {
         onSelectTier={() => {}}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const globalTier = screen.getByText("GLOBAL").closest(".tier3") as HTMLElement;

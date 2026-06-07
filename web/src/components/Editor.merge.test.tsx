@@ -31,13 +31,12 @@ function projectOneLine(): Project {
     layout: [
       {
         label: "V",
-        accumulate: "words",
         win_start: null,
         win_end: null,
         linger: null,
         del: false,
         style: {},
-        fade: {},
+        animations: [], suppress: [],
         lines: [
           {
             toks: [
@@ -50,9 +49,8 @@ function projectOneLine(): Project {
         ],
       },
     ],
-    fin_tags: [],
-    fout_tags: [],
-    globals: { fade_in_ms: 250, fade_out_ms: 1000, linger: 0 },
+    anim_tags: [],
+    globals: { linger: 0, animations: [] },
     global_style: {
       font: "x", fontsize: 64, bold: true, primary: "#fff", outline: "#000",
       back: "#000", back_alpha: "80", outline_w: 3, shadow: 0, border_style: 1, align: 2,

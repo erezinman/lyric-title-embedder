@@ -1,5 +1,7 @@
-// EventStrip.tsx — per-event layout props strip (accumulate / linger / window).
-// Ported from design-system/ui_kits/desktop-app/app.jsx.
+// EventStrip.tsx — per-event layout props strip (linger / window).
+// The accumulate 3-way is gone (replaced by the AM-phase timing-mode picker);
+// linger stays (it is windowing, not animation). set_layout_props no longer
+// carries accumulate.
 
 import { Icon } from "../icons/Icon";
 import type { LayoutGroup } from "../../types";
@@ -7,7 +9,6 @@ import type { LayoutGroup } from "../../types";
 export interface EventStripProps {
   g: LayoutGroup;
   onSet: (patch: Partial<{
-    accumulate: "words" | "lines" | "off";
     linger: number;
     win_start: number | null;
     win_end: number | null;
@@ -19,20 +20,6 @@ export function EventStrip({ g, onSet }: EventStripProps) {
     <div className="evt-strip">
       <span className="es-l">
         <Icon name="layers" size={12} />{g.label}
-      </span>
-      <span className="es-grp">
-        Accumulate
-        <span className="seg2 sm">
-          {(["words", "lines", "off"] as const).map((m) => (
-            <button
-              key={m}
-              className={g.accumulate === m ? "on" : ""}
-              onClick={() => onSet({ accumulate: m })}
-            >
-              {m}
-            </button>
-          ))}
-        </span>
       </span>
       <span className="es-grp">
         Linger

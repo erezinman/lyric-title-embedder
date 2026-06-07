@@ -1,6 +1,6 @@
 import React from "react";
 import type { Project, Token } from "../../types";
-import { resolveFade, eventWindow, wordSchedule, type WordSched } from "../../model/resolve";
+import { eventWindow, wordSchedule, type WordSched } from "../../model/resolve";
 import { colorForIndex } from "../../model/palette";
 import { Icon } from "../icons/Icon";
 
@@ -27,39 +27,27 @@ interface FadeCellProps {
   wid: number;
 }
 
-function FadeCell({ sched, kind, project, gi, wid }: FadeCellProps) {
+// The fade columns now derive from anim_tags (the animations model): a cue is in a
+// fade group when an anim_tag covering it carries a fade_in/fade_out-named alpha anim.
+function FadeCell({ sched, kind, project, wid }: FadeCellProps) {
   const inGroup = kind === "in" ? sched.inFin : sched.inFout;
   if (kind === "out" && !sched.inFout) return <span className="lc fade none">· none</span>;
+  if (kind === "in" && !sched.inFin) return <span className="lc fade none">· none</span>;
 
   const trigger = kind === "in" ? sched.start_s : sched.fout_at;
-  const fade = resolveFade(project, gi);
-  const dur = kind === "in" ? fade.fade_in_ms : fade.fade_out_ms;
 
-  // "inherited vs overridden": inherited (grey) when project.layout[gi].fade[key] == null
-  const fadeKey = kind === "in" ? "fade_in_ms" : "fade_out_ms";
-  const inherited = project.layout[gi].fade[fadeKey] == null;
-
-  // Color band: colorForIndex(tagIndex)
-  const tagArr = kind === "in" ? project.fin_tags : project.fout_tags;
-  const tagIndex = tagArr.findIndex((t) => t.ids.includes(wid));
-  const band = inGroup && tagIndex >= 0 ? colorForIndex(tagIndex) : "transparent";
-
-  // Trigger display: show "auto" grey/italic when null; solid when set
-  const tagTrigger = kind === "in"
-    ? (project.fin_tags.find((t) => t.ids.includes(wid))?.trigger ?? null)
-    : (project.fout_tags.find((t) => t.ids.includes(wid))?.trigger ?? null);
-  const isAutoTrigger = tagTrigger === null;
+  // Color band: colorForIndex(anim_tag index) for the tag this cue belongs to.
+  const name = kind === "in" ? "fade_in" : "fade_out";
+  const tags = project.anim_tags ?? [];
+  const tagIndex = tags.findIndex((t) => t.ids.includes(wid) && t.anims.some((a) => a.name === name));
+  const band = tagIndex >= 0 ? colorForIndex(tagIndex) : "transparent";
 
   return (
     <span
-      className={"lc fade" + (inGroup ? " grouped" : "") + (inherited ? " inh" : " ovr")}
+      className={"lc fade" + (inGroup ? " grouped" : "") + " ovr"}
       style={{ "--band": band } as React.CSSProperties}
     >
-      {isAutoTrigger
-        ? <span style={{ color: "var(--fg-dim,grey)", fontStyle: "italic" }}>auto</span>
-        : <span>@{(trigger ?? 0).toFixed(2)}</span>
-      }
-      {" / "}{dur}
+      <span>@{(trigger ?? 0).toFixed(2)}</span>
     </span>
   );
 }
@@ -94,7 +82,6 @@ export function CueLanes({
                 <Icon name="chevDown" size={13} stroke={2} />
               </span>
               {g.label}
-              <span className={"acc-badge acc-" + g.accumulate}>{g.accumulate}</span>
               <span className="rng">
                 {s.toFixed(2)}–{e.toFixed(2)}
                 {g.linger ? " +" + g.linger + "s" : ""}

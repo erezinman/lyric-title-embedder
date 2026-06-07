@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { resolveStyle, resolveFade, eventWindow, wordSchedule } from "./resolve";
+import { resolveStyle, eventWindow, wordSchedule } from "./resolve";
 import type { Project } from "../types";
+import { fadeInAnim, fadeOutAnim } from "./animPresets";
 
 function demo(): Project {
   return {
@@ -10,24 +11,27 @@ function demo(): Project {
       { text: "Tangled", start: 3.7, end: 4.2 }, { text: "up", start: 4.25, end: 4.45 },
     ],
     layout: [
-      { label: "V1", accumulate: "words", win_start: null, win_end: null, linger: null, del: false,
-        style: { fontsize: 72 }, fade: {},
+      { label: "V1", win_start: null, win_end: null, linger: null, del: false,
+        style: { fontsize: 72 }, animations: [], suppress: [],
         lines: [{ toks: [
           { ids: [0], sep: "", del: false, style: {} },
           { ids: [1], sep: "", del: false, style: {} },
           { ids: [2], sep: "", del: false, style: {} },
           { ids: [3], sep: "", del: false, style: { primary: "#FF3DA6" } },
         ] }] },
-      { label: "C", accumulate: "lines", win_start: null, win_end: null, linger: 0.4, del: false,
-        style: {}, fade: { fade_in_ms: 400 },
+      { label: "C", win_start: null, win_end: null, linger: 0.4, del: false,
+        style: {}, animations: [], suppress: [],
         lines: [{ toks: [
           { ids: [4], sep: "", del: false, style: {} },
           { ids: [5], sep: "", del: false, style: {} },
         ] }] },
     ],
-    fin_tags: [{ ids: [0,1,2], trigger: null }],
-    fout_tags: [{ ids: [3], trigger: 15.4 }],
-    globals: { fade_in_ms: 250, fade_out_ms: 1000, linger: 0.0 },
+    // animations model: fade-in on words 0-2, fade-out on word 3
+    anim_tags: [
+      { ids: [0, 1, 2], anims: [fadeInAnim("a1")], suppress: [] },
+      { ids: [3], anims: [fadeOutAnim("a2")], suppress: [] },
+    ],
+    globals: { linger: 0.0, animations: [] },
     global_style: { font: "Space Grotesk", fontsize: 64, bold: true, primary: "#FFFFFF",
       outline: "#000000", back: "#000000", back_alpha: "80", outline_w: 3, shadow: 0, border_style: 1, align: 2 },
     placement: { align: 2, play_w: 1920, play_h: 1080, margin_l: 60, margin_r: 60, margin_v: 60, pos: null },
@@ -59,17 +63,6 @@ describe("resolveStyle (cue -> group -> global)", () => {
   });
 });
 
-describe("resolveFade (group -> global)", () => {
-  it("group override wins", () => {
-    const p = demo();
-    expect(resolveFade(p, 1)).toEqual({ fade_in_ms: 400, fade_out_ms: 1000 });
-  });
-  it("falls back to global when no override", () => {
-    const p = demo();
-    expect(resolveFade(p, 0)).toEqual({ fade_in_ms: 250, fade_out_ms: 1000 });
-  });
-});
-
 describe("eventWindow", () => {
   it("auto start/end from member words + linger", () => {
     const p = demo();
@@ -79,24 +72,26 @@ describe("eventWindow", () => {
   });
 });
 
-describe("wordSchedule", () => {
-  it("accumulate=words: appearance = word start; fin tag with no trigger uses first member start", () => {
+describe("wordSchedule (animations model)", () => {
+  it("appearance = word start (per-cue, accumulate is gone)", () => {
     const p = demo();
-    const s = wordSchedule(p, 0, 0);
-    expect(s.start_s).toBeCloseTo(0.3);
-    expect(s.inFin).toBe(true);
-    expect(s.fin_ms).toBe(250);
+    expect(wordSchedule(p, 0, 0).start_s).toBeCloseTo(0.3);
   });
-  it("group fade override flows into fin_ms", () => {
+  it("fade-in membership derived from an anim_tag carrying a fade_in alpha anim", () => {
     const p = demo();
-    const s = wordSchedule(p, 1, 4);
-    expect(s.fin_ms).toBe(400);
+    expect(wordSchedule(p, 0, 0).inFin).toBe(true);
+    expect(wordSchedule(p, 0, 3).inFin).toBe(false);
   });
-  it("fout opt-in: word 3 has fout_at from its tag trigger", () => {
+  it("fade-out opt-in: word 3 has fout_at anchored at its cue_end (word end)", () => {
     const p = demo();
     const s = wordSchedule(p, 0, 3);
     expect(s.inFout).toBe(true);
-    expect(s.fout_at).toBeCloseTo(15.4);
-    expect(s.fout_ms).toBe(1000);
+    expect(s.fout_at).toBeCloseTo(2.0);
+  });
+  it("no fade-out anim → inFout false, fout_at null", () => {
+    const p = demo();
+    const s = wordSchedule(p, 0, 0);
+    expect(s.inFout).toBe(false);
+    expect(s.fout_at).toBeNull();
   });
 });

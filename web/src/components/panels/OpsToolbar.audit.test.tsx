@@ -17,7 +17,7 @@ import { Editor } from "../Editor";
 import { setupFakeWS, FakeWS } from "../../test-util/fakews";
 import { mockApi, emitState, dispatches, clearDispatches } from "../../test-util/dispatch";
 import {
-  baseProject, withFadeTags, withMergedTok, mutate,
+  baseProject, withFadeAnims, withMergedTok, mutate,
 } from "../../test-util/fixtures";
 
 // ---------------------------------------------------------------------------
@@ -127,7 +127,7 @@ void user;
   it("D-44 — word in fin_tag: Group fade-in enabled; Clear fade button appears", async () => {
     const user = userEvent.setup();
     // withFadeTags: words 0-3 in fin_tag, words 4-6 in fout_tag
-    await bootWith(withFadeTags(baseProject()));
+    await bootWith(withFadeAnims(baseProject()));
     await clickLaneWord(user, "alpha"); // word 0 is in fin_tag
 
     expect(btn(/Group fade-in/i)).not.toBeDisabled();
@@ -138,7 +138,7 @@ void user;
 
   it("D-45 — word in fout_tag: Clear fade button shows 'Clear out'", async () => {
     const user = userEvent.setup();
-    await bootWith(withFadeTags(baseProject()));
+    await bootWith(withFadeAnims(baseProject()));
     // word 4 = "echo" is in fout_tags
     await clickLaneWord(user, "echo");
 
@@ -222,43 +222,52 @@ void user;
 // ---------------------------------------------------------------------------
 describe("OpsToolbar action dispatches", () => {
 
-  it("D-53 — Group fade-in dispatches make_fade_tag {kind:'in', word_ids:[wid]}", async () => {
+  it("D-53 — Group fade-in dispatches add_animation {scope:'tag', ref:[wid], anim:fade_in/alpha}", async () => {
     const user = userEvent.setup();
     await bootWith(baseProject());
     await clickLaneWord(user, "alpha");
     clearDispatches();
     await user.click(btn(/Group fade-in/i));
 
-    const d = dispatches().filter((d) => d.tool === "make_fade_tag");
+    const d = dispatches().filter((d) => d.tool === "add_animation");
     expect(d).toHaveLength(1);
-    expect(d[0].args.kind).toBe("in");
-    expect(d[0].args.word_ids).toEqual([0]);
+    expect(d[0].args.scope).toBe("tag");
+    expect(d[0].args.ref).toEqual([0]);
+    const anim = d[0].args.anim as { name: string; channel: string; enabled: boolean };
+    expect(anim.name).toBe("fade_in");
+    expect(anim.channel).toBe("alpha");
+    expect(anim.enabled).toBe(true);
   });
 
-  it("D-54 — Group fade-out dispatches make_fade_tag {kind:'out', word_ids:[wid]}", async () => {
+  it("D-54 — Group fade-out dispatches add_animation {scope:'tag', anim:fade_out/alpha}", async () => {
     const user = userEvent.setup();
     await bootWith(baseProject());
     await clickLaneWord(user, "alpha");
     clearDispatches();
     await user.click(btn(/Group fade-out/i));
 
-    const d = dispatches().filter((d) => d.tool === "make_fade_tag");
+    const d = dispatches().filter((d) => d.tool === "add_animation");
     expect(d).toHaveLength(1);
-    expect(d[0].args.kind).toBe("out");
+    expect(d[0].args.scope).toBe("tag");
+    const anim = d[0].args.anim as { name: string; channel: string };
+    expect(anim.name).toBe("fade_out");
+    expect(anim.channel).toBe("alpha");
   });
 
-  it("D-55 — Clear fade dispatches clear_fade_tag {kind:'in'} for a fin_tag word", async () => {
+  it("D-55 — Clear fade dispatches remove_animation {scope:'tag'} for the fade_in anim on a fade-in word", async () => {
     const user = userEvent.setup();
-    await bootWith(withFadeTags(baseProject()));
-    await clickLaneWord(user, "alpha"); // word 0 in fin_tag
+    await bootWith(withFadeAnims(baseProject()));
+    await clickLaneWord(user, "alpha"); // word 0 in the fade_in anim_tag
     clearDispatches();
     const clearBtn = screen.getByRole("button", { name: /Clear in/i });
     await user.click(clearBtn);
 
-    const d = dispatches().filter((d) => d.tool === "clear_fade_tag");
+    const d = dispatches().filter((d) => d.tool === "remove_animation");
     expect(d).toHaveLength(1);
-    expect(d[0].args.kind).toBe("in");
-    expect(d[0].args.word_ids).toEqual([0]);
+    expect(d[0].args.scope).toBe("tag");
+    // tag ids in withFadeAnims fade-in tag = [0,1,2,3]; anim_id = the fade_in anim ("a1")
+    expect(d[0].args.ref).toEqual([0, 1, 2, 3]);
+    expect(d[0].args.anim_id).toBe("a1");
   });
 
   it("D-56 — Merge words (smoke): 2 adjacent → merge_word_span dispatched", async () => {
@@ -595,7 +604,7 @@ describe("D-72 — Delete/Restore toggled state", () => {
 
 describe("D-73 — Group fade buttons toggled state", () => {
   it("D-73a — word in a fade-in tag: fade-in pressed, fade-out not", async () => {
-    await bootWith(withFadeTags(baseProject()));
+    await bootWith(withFadeAnims(baseProject()));
     selectLaneWord("alpha");                    // fin_tags ids include 0
     expect(toolBtn(/group fade-in/i)).toHaveAttribute("aria-pressed", "true");
     expect(toolBtn(/group fade-in/i).className).toContain("on");
@@ -603,7 +612,7 @@ describe("D-73 — Group fade buttons toggled state", () => {
   });
 
   it("D-73b — word in a fade-out tag: fade-out pressed, fade-in not", async () => {
-    await bootWith(withFadeTags(baseProject()));
+    await bootWith(withFadeAnims(baseProject()));
     selectLaneWord("echo");                     // fout_tags ids include 4
     expect(toolBtn(/group fade-out/i)).toHaveAttribute("aria-pressed", "true");
     expect(toolBtn(/group fade-out/i).className).toContain("on");

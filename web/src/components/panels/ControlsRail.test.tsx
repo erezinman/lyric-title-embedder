@@ -5,8 +5,8 @@ import type { Project } from "../../types";
 
 function proj(overrides: Partial<Project["placement"]> = {}, video: string | null = null): Project {
   return {
-    words: [], layout: [], fin_tags: [], fout_tags: [],
-    globals: { fade_in_ms: 250, fade_out_ms: 1000, linger: 0 },
+    words: [], layout: [], anim_tags: [],
+    globals: { linger: 0, animations: [] },
     global_style: { font: "x", fontsize: 64, bold: true, primary: "#fff", outline: "#000",
       back: "#000", back_alpha: "80", outline_w: 3, shadow: 0, border_style: 1, align: 2 },
     placement: { align: 2, play_w: 1920, play_h: 1080, margin_l: 80, margin_r: 80, margin_v: 60, pos: null, ...overrides },

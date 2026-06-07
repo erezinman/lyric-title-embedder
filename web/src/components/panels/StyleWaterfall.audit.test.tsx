@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StyleWaterfall } from "./StyleWaterfall";
-import { baseProject, withGroupStyle, withCueStyle, mutate } from "../../test-util/fixtures";
+import { baseProject, withGroupStyle, withCueStyle } from "../../test-util/fixtures";
 import type { Project } from "../../types";
 
 // ---------- helpers ----------
@@ -30,7 +30,6 @@ function mkProps(overrides: Partial<Parameters<typeof StyleWaterfall>[0]> = {}) 
     onSelectTier: vi.fn(),
     onSetStyle: vi.fn(),
     onClearStyle: vi.fn(),
-    onSetFade: vi.fn(),
     ...overrides,
   };
 }
@@ -50,7 +49,6 @@ describe("C-01 — tier selection fires onSelectTier", () => {
         onSelectTier={onSelectTier}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     await userEvent.click(screen.getByText("GLOBAL").closest(".tier3")!);
@@ -68,7 +66,6 @@ describe("C-01 — tier selection fires onSelectTier", () => {
         onSelectTier={onSelectTier}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     await userEvent.click(screen.getByText("GROUP").closest(".tier3")!);
@@ -86,7 +83,6 @@ describe("C-01 — tier selection fires onSelectTier", () => {
         onSelectTier={onSelectTier}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     await userEvent.click(screen.getByText("CUE").closest(".tier3")!);
@@ -103,7 +99,6 @@ describe("C-01 — tier selection fires onSelectTier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -127,7 +122,6 @@ describe("C-02 — fontsize stepper at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -147,7 +141,6 @@ describe("C-02 — fontsize stepper at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -167,7 +160,6 @@ describe("C-02 — fontsize stepper at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -189,7 +181,6 @@ describe("C-02 — fontsize stepper at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -207,7 +198,6 @@ describe("C-02 — fontsize stepper at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier2 = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -227,7 +217,6 @@ describe("C-02 — fontsize stepper at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -242,7 +231,6 @@ describe("C-02 — fontsize stepper at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier2 = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -266,7 +254,6 @@ describe("C-03 — outline_w stepper", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -286,7 +273,6 @@ describe("C-03 — outline_w stepper", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -310,7 +296,6 @@ describe("C-04 — shadow stepper", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -330,7 +315,6 @@ describe("C-04 — shadow stepper", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -354,7 +338,6 @@ describe("C-05 — back_alpha stepper (hex)", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -375,7 +358,6 @@ describe("C-05 — back_alpha stepper (hex)", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -396,7 +378,6 @@ describe("C-05 — back_alpha stepper (hex)", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -421,7 +402,6 @@ describe("C-06 — bold toggle at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -446,7 +426,6 @@ describe("C-06 — bold toggle at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={onClearStyle}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -472,7 +451,6 @@ describe("C-07 — color swatches (primary) at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -494,7 +472,6 @@ describe("C-07 — color swatches (primary) at group tier", () => {
           onSelectTier={vi.fn()}
           onSetStyle={onSetStyle}
           onClearStyle={vi.fn()}
-          onSetFade={vi.fn()}
         />
       );
       const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -515,7 +492,6 @@ describe("C-07 — color swatches (primary) at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -540,7 +516,6 @@ describe("C-08 — color swatches for outline and back at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -565,7 +540,6 @@ describe("C-08 — color swatches for outline and back at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -590,7 +564,6 @@ describe("C-09 — border_style Outline/Box buttons at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -610,7 +583,6 @@ describe("C-09 — border_style Outline/Box buttons at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -629,7 +601,6 @@ describe("C-09 — border_style Outline/Box buttons at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
@@ -651,7 +622,6 @@ describe("C-10 — align grid at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -677,7 +647,6 @@ describe("C-10 — align grid at group tier", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
@@ -698,7 +667,6 @@ describe("C-11 — inheritance display and clear override", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
@@ -717,7 +685,6 @@ describe("C-11 — inheritance display and clear override", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
@@ -735,7 +702,6 @@ describe("C-11 — inheritance display and clear override", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
@@ -754,7 +720,6 @@ describe("C-11 — inheritance display and clear override", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={onClearStyle}
-        onSetFade={vi.fn()}
       />
     );
     const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
@@ -774,7 +739,6 @@ describe("C-11 — inheritance display and clear override", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
@@ -792,7 +756,6 @@ describe("C-11 — inheritance display and clear override", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -812,7 +775,6 @@ describe("C-11 — inheritance display and clear override", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={onClearStyle}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -836,7 +798,6 @@ describe("C-12 — cue tier style controls", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
@@ -856,7 +817,6 @@ describe("C-12 — cue tier style controls", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
@@ -877,7 +837,6 @@ describe("C-12 — cue tier style controls", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
@@ -901,7 +860,6 @@ describe("C-13 — global tier controls", () => {
         onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const globalTier = screen.getByText("GLOBAL").closest(".tier3") as HTMLElement;
@@ -920,7 +878,6 @@ describe("C-13 — global tier controls", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const globalTier = screen.getByText("GLOBAL").closest(".tier3") as HTMLElement;
@@ -930,148 +887,6 @@ describe("C-13 — global tier controls", () => {
   });
 });
 
-// ---------- C-14 — Group fade rows in waterfall ----------
-
-describe("C-14 — group fade rows in StyleWaterfall", () => {
-  it("C-14a — fade-in '+' fires onSetFade('fade_in_ms', val+50)", async () => {
-    const onSetFade = vi.fn();
-    const p = mutate(baseProject(), (d) => { d.layout[0].fade = { fade_in_ms: 400 }; });
-    render(
-      <StyleWaterfall
-        project={p}
-        sel={selGroup()}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-        onSetFade={onSetFade}
-      />
-    );
-    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-    const fadeInRow = within(groupTier).getByText(/Group fade-in/i).closest(".prow") as HTMLElement;
-    await userEvent.click(within(fadeInRow).getByText("+"));
-    expect(onSetFade).toHaveBeenCalledWith("fade_in_ms", 450);
-  });
-
-  it("C-14b — fade-in '−' fires onSetFade('fade_in_ms', val-50)", async () => {
-    const onSetFade = vi.fn();
-    const p = mutate(baseProject(), (d) => { d.layout[0].fade = { fade_in_ms: 400 }; });
-    render(
-      <StyleWaterfall
-        project={p}
-        sel={selGroup()}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-        onSetFade={onSetFade}
-      />
-    );
-    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-    const fadeInRow = within(groupTier).getByText(/Group fade-in/i).closest(".prow") as HTMLElement;
-    await userEvent.click(within(fadeInRow).getByText("−"));
-    expect(onSetFade).toHaveBeenCalledWith("fade_in_ms", 350);
-  });
-
-  it("C-14c — fade-in min 0: decrement from 0 stays 0", async () => {
-    const onSetFade = vi.fn();
-    const p = mutate(baseProject(), (d) => { d.layout[0].fade = { fade_in_ms: 0 }; });
-    render(
-      <StyleWaterfall
-        project={p}
-        sel={selGroup()}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-        onSetFade={onSetFade}
-      />
-    );
-    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-    const fadeInRow = within(groupTier).getByText(/Group fade-in/i).closest(".prow") as HTMLElement;
-    await userEvent.click(within(fadeInRow).getByText("−"));
-    expect(onSetFade).toHaveBeenCalledWith("fade_in_ms", 0);
-  });
-
-  it("C-14d — fade-in clear button fires onSetFade('fade_in_ms', null)", async () => {
-    const onSetFade = vi.fn();
-    const p = mutate(baseProject(), (d) => { d.layout[0].fade = { fade_in_ms: 400 }; });
-    render(
-      <StyleWaterfall
-        project={p}
-        sel={selGroup()}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-        onSetFade={onSetFade}
-      />
-    );
-    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-    const fadeInRow = within(groupTier).getByText(/Group fade-in/i).closest(".prow") as HTMLElement;
-    await userEvent.click(within(fadeInRow).getByTitle(/clear/i));
-    expect(onSetFade).toHaveBeenCalledWith("fade_in_ms", null);
-  });
-
-  it("C-14e — fade-out '+' fires onSetFade('fade_out_ms', val+50)", async () => {
-    const onSetFade = vi.fn();
-    const p = mutate(baseProject(), (d) => { d.layout[0].fade = { fade_out_ms: 1000 }; });
-    render(
-      <StyleWaterfall
-        project={p}
-        sel={selGroup()}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-        onSetFade={onSetFade}
-      />
-    );
-    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-    const fadeOutRow = within(groupTier).getByText(/Group fade-out/i).closest(".prow") as HTMLElement;
-    await userEvent.click(within(fadeOutRow).getByText("+"));
-    expect(onSetFade).toHaveBeenCalledWith("fade_out_ms", 1050);
-  });
-
-  it("C-14f — fade-out clear button fires onSetFade('fade_out_ms', null)", async () => {
-    const onSetFade = vi.fn();
-    const p = mutate(baseProject(), (d) => { d.layout[0].fade = { fade_out_ms: 800 }; });
-    render(
-      <StyleWaterfall
-        project={p}
-        sel={selGroup()}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-        onSetFade={onSetFade}
-      />
-    );
-    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-    const fadeOutRow = within(groupTier).getByText(/Group fade-out/i).closest(".prow") as HTMLElement;
-    await userEvent.click(within(fadeOutRow).getByTitle(/clear/i));
-    expect(onSetFade).toHaveBeenCalledWith("fade_out_ms", null);
-  });
-
-  it("C-14g — inherited fade row shows global value and 'glob' chip (no clear button)", () => {
-    const p = mutate(baseProject(), (d) => { d.layout[0].fade = {}; }); // no group override
-    render(
-      <StyleWaterfall
-        project={p}
-        sel={selGroup()}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
-      />
-    );
-    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-    const fadeInRow = within(groupTier).getByText(/Group fade-in/i).closest(".prow") as HTMLElement;
-    expect(fadeInRow.classList.contains("inh")).toBe(true);
-    expect(within(fadeInRow).queryByTitle(/clear/i)).toBeNull();
-  });
-});
 
 // ---------- C-15 — CUE badge shows first word text ----------
 
@@ -1086,7 +901,6 @@ describe("C-15 — CUE tier badge", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     // word 0 is "alpha"
@@ -1108,7 +922,6 @@ describe("C-16 — aiTier hot class", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
@@ -1125,7 +938,6 @@ describe("C-16 — aiTier hot class", () => {
         onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
-        onSetFade={vi.fn()}
       />
     );
     const globalTier = screen.getByText("GLOBAL").closest(".tier3") as HTMLElement;

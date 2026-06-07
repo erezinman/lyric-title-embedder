@@ -16,14 +16,6 @@ export function resolveStyle(project: Project, gi: number, tok: Token | null): R
   return out;
 }
 
-export function resolveFade(project: Project, gi: number): { fade_in_ms: number; fade_out_ms: number } {
-  const f = project.layout[gi]?.fade ?? {};
-  return {
-    fade_in_ms: f.fade_in_ms != null ? f.fade_in_ms : project.globals.fade_in_ms,
-    fade_out_ms: f.fade_out_ms != null ? f.fade_out_ms : project.globals.fade_out_ms,
-  };
-}
-
 function liveWids(project: Project, gi: number): number[] {
   return project.layout[gi].lines.flatMap((l) => l.toks.filter((t) => !t.del).flatMap((t) => t.ids));
 }
@@ -38,39 +30,29 @@ export function eventWindow(project: Project, gi: number): [number, number, numb
   return [s, e, linger];
 }
 
-type FadeTagOpt = { ids: number[]; trigger: number | null } | null;
-function tagFor(project: Project, kind: "in" | "out", wid: number): FadeTagOpt {
-  const arr = kind === "in" ? project.fin_tags : project.fout_tags;
-  return arr.find((t) => t.ids.includes(wid)) ?? null;
+// ── fade membership derived from anim_tags (animations model) ────────────────
+// The legacy fin_tags/fout_tags are gone; fade-in/fade-out are now alpha animations
+// named "fade_in"/"fade_out" carried on an anim_tag covering the word.
+function fadeTagFor(project: Project, kind: "in" | "out", wid: number): { ids: number[] } | null {
+  const name = kind === "in" ? "fade_in" : "fade_out";
+  for (const t of project.anim_tags ?? []) {
+    if (t.ids.includes(wid) && t.anims.some((a) => a.name === name)) return { ids: t.ids };
+  }
+  return null;
 }
 
 export interface WordSched {
-  start_s: number; fin_ms: number; fout_at: number | null; fout_ms: number;
+  start_s: number; fout_at: number | null;
   inFin: boolean; inFout: boolean;
 }
 
-export function wordSchedule(project: Project, gi: number, wid: number): WordSched {
-  const g = project.layout[gi];
-  const [winS] = eventWindow(project, gi);
+export function wordSchedule(project: Project, _gi: number, wid: number): WordSched {
   const w = project.words[wid];
-  const { fade_in_ms, fade_out_ms } = resolveFade(project, gi);
-
-  let start_s = w.start;
-  if (g.accumulate === "lines") {
-    const line = g.lines.find((l) => l.toks.some((t) => t.ids.includes(wid)));
-    const ids = line ? line.toks.filter((t) => !t.del).flatMap((t) => t.ids) : [wid];
-    start_s = Math.min(...ids.map((id) => project.words[id].start));
-  } else if (g.accumulate === "off") {
-    start_s = winS;
-  }
-
-  const fin = tagFor(project, "in", wid);
-  if (fin) {
-    start_s = fin.trigger != null ? fin.trigger : Math.min(...fin.ids.map((id) => project.words[id].start));
-  }
-  const fout = tagFor(project, "out", wid);
-  let fout_at: number | null = null;
-  if (fout) fout_at = fout.trigger != null ? fout.trigger : Math.max(...fout.ids.map((id) => project.words[id].end));
-
-  return { start_s, fin_ms: fade_in_ms, fout_at, fout_ms: fade_out_ms, inFin: !!fin, inFout: !!fout };
+  // Per-cue appearance (accumulate is gone): the cue appears at its own word start.
+  const start_s = w.start;
+  const inFin = !!fadeTagFor(project, "in", wid);
+  const fout = fadeTagFor(project, "out", wid);
+  // fade-out anchors to cue_end (the word's end) in the animations model.
+  const fout_at = fout ? w.end : null;
+  return { start_s, fout_at, inFin, inFout: !!fout };
 }

@@ -8,6 +8,7 @@ import { resolveStyle, eventWindow, wordSchedule } from "../model/resolve";
 import { computeMove, computeResize } from "../model/edit";
 import { boxFromState, anchorXY } from "../model/bbox";
 import type { Token } from "../types";
+import { fadeInAnim, fadeOutAnim, fadeAnimName, freshAnimId } from "../model/animPresets";
 
 // Panels
 import { PreviewStage } from "./stage/PreviewStage";
@@ -16,8 +17,6 @@ import { Waveform } from "./stage/Waveform";
 import { WordTrack } from "./stage/WordTrack";
 import type { TrackWord } from "./stage/WordTrack";
 import { StyleWaterfall } from "./panels/StyleWaterfall";
-import { FadeGroupPanel } from "./panels/FadeGroupPanel";
-import { FadeDefaultsPanel } from "./panels/FadeDefaultsPanel";
 import { TimingPanel } from "./panels/TimingPanel";
 import { CueLanes } from "./panels/CueLanes";
 import { OpsToolbar } from "./panels/OpsToolbar";
@@ -280,28 +279,20 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     return wid != null ? [wid] : [];
   }
 
-  // ---- derived: fade membership ----
+  // ---- derived: fade membership (from anim_tags — animations model) ----
+  // A cue is "in" a fade group when an anim_tag covering it carries a fade_in-named
+  // alpha animation; "out" likewise for fade_out.
+  function fadeAnimTagFor(kind: "in" | "out", wid: number) {
+    if (!P) return null;
+    const name = fadeAnimName(kind);
+    return P.anim_tags.find((t) => t.ids.includes(wid) && t.anims.some((a) => a.name === name)) ?? null;
+  }
   function fadeMembership(): "in" | "out" | null {
-    if (!P) return null;
     const wid = selWid();
     if (wid == null) return null;
-    if (P.fin_tags.some((t) => t.ids.includes(wid))) return "in";
-    if (P.fout_tags.some((t) => t.ids.includes(wid))) return "out";
+    if (fadeAnimTagFor("in", wid)) return "in";
+    if (fadeAnimTagFor("out", wid)) return "out";
     return null;
-  }
-
-  // ---- derived: finTag / foutTag for FadeGroupPanel ----
-  function finTagForSel() {
-    if (!P) return null;
-    const wid = selWid();
-    if (wid == null) return null;
-    return P.fin_tags.find((t) => t.ids.includes(wid)) ?? null;
-  }
-  function foutTagForSel() {
-    if (!P) return null;
-    const wid = selWid();
-    if (wid == null) return null;
-    return P.fout_tags.find((t) => t.ids.includes(wid)) ?? null;
   }
 
   // ---- derived: can* flags ----
@@ -425,30 +416,40 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     setStyle(tier, key, null);
   }
 
-  function setFade(key: "fade_in_ms" | "fade_out_ms", value: number | null) {
-    if (!P) return;
-    dispatch("set_group_fade", { gi: sel.gi, partial: { [key]: value } });
+  // The fade buttons survive as preset shortcuts that write animation records onto
+  // an anim_tag over the selection (reconciliation §3). "Group fade-in/out" dispatches
+  // add_animation with the fade preset; "Clear in/out" dispatches remove_animation for
+  // that tag-scope anim id. The full preset picker / Inspector animations UI lands later.
+  function allAnimIds(): string[] {
+    if (!P) return [];
+    const ids: string[] = [];
+    for (const a of P.globals.animations) ids.push(a.id);
+    for (const g of P.layout) for (const a of g.animations) ids.push(a.id);
+    for (const t of P.anim_tags) for (const a of t.anims) ids.push(a.id);
+    return ids;
   }
 
   function groupFade(kind: "in" | "out") {
     const ids = wordsForOp();
     if (ids.length === 0) return;
-    dispatch("make_fade_tag", { kind, word_ids: ids });
+    const id = freshAnimId(allAnimIds());
+    const anim = kind === "in" ? fadeInAnim(id) : fadeOutAnim(id);
+    dispatch("add_animation", { scope: "tag", ref: ids, anim });
   }
 
   function clearFade(kind: "in" | "out") {
     const ids = wordsForOp();
-    if (ids.length === 0) return;
-    dispatch("clear_fade_tag", { kind, word_ids: ids });
+    if (ids.length === 0 || !P) return;
+    const wid = ids[0];
+    const tag = fadeAnimTagFor(kind, wid);
+    if (!tag) return;
+    const name = fadeAnimName(kind);
+    const target = tag.anims.find((a) => a.name === name);
+    if (!target) return;
+    dispatch("remove_animation", { scope: "tag", ref: tag.ids, anim_id: target.id });
   }
 
-  function setFadeTrigger(kind: "in" | "out", trigger: number | null) {
-    const ids = wordsForOp();
-    if (ids.length === 0) return;
-    dispatch("set_fade_tag_props", { kind, word_ids: ids, trigger });
-  }
-
-  function setLayoutProp(patch: Partial<{ accumulate: "words" | "lines" | "off"; linger: number; win_start: number | null; win_end: number | null }>) {
+  function setLayoutProp(patch: Partial<{ linger: number; win_start: number | null; win_end: number | null }>) {
     if (!P) return;
     const g = P.layout[sel.gi];
     if (!g) return;
@@ -457,7 +458,6 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
       win_start: patch.win_start !== undefined ? patch.win_start : g.win_start,
       win_end: patch.win_end !== undefined ? patch.win_end : g.win_end,
       linger: patch.linger !== undefined ? patch.linger : g.linger,
-      accumulate: patch.accumulate !== undefined ? patch.accumulate : g.accumulate,
     });
   }
 
@@ -561,8 +561,6 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   const trackWords = computeTrackWords();
   const tok = currentTok();
   const wid = selWid();
-  const finTag = finTagForSel();
-  const foutTag = foutTagForSel();
   const fade = fadeMembership();
   const selCount = selectedWords.size || (wid != null ? 1 : 0);
 
@@ -646,21 +644,6 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                   onSelectTier={selectTier}
                   onSetStyle={setStyle}
                   onClearStyle={clearStyle}
-                  onSetFade={setFade}
-                />
-                {P.layout[sel.gi] && (
-                  <FadeGroupPanel
-                    project={P}
-                    gi={sel.gi}
-                    finTag={finTag}
-                    foutTag={foutTag}
-                    onSet={setFadeTrigger}
-                    onClear={clearFade}
-                  />
-                )}
-                <FadeDefaultsPanel
-                  globals={P.globals}
-                  onSet={(key, value) => dispatch("set_fade_defaults", { [key]: value })}
                 />
                 {tok && <TimingPanel key={sel.tok ? `${sel.gi}-${sel.tok.li}-${sel.tok.ti}` : "none"} tok={tok} project={P} unlocked={timingsUnlocked} onToggleLock={() => setTimingsUnlocked((u) => !u)} onSetTime={setCueTime} onSetText={setCueText} />}
               </>
