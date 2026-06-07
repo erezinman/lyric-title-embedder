@@ -56,6 +56,7 @@ export function PreviewStage({
   // Visual band height (canvas px), session-local. The model only persists the
   // anchored margin; without this, resizing the non-anchored edge would snap
   // back to the default 18% band as soon as the placement push lands.
+  // Q3: band height is a synthetic DOF — ASS has no band height; session-local by design.
   const [bandH, setBandH] = useState<number | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
 
@@ -234,7 +235,8 @@ export function PreviewStage({
           onPlacementRef.current({ pos: anchorXY(final, pl2.align) });
         } else {
           // remember the visual band height so the box doesn't snap back to the
-          // default band when the committed placement re-derives it
+          // default band when the committed placement re-derives it.
+          // Q3: band height is a synthetic DOF — ASS has no band height; session-local by design.
           setBandH(final.b - final.t);
           onPlacementRef.current(marginsFromBox(final, pl2));
         }
