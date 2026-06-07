@@ -71,14 +71,17 @@ def t_mixed_history_unwinds_in_order():
     s4 = c.get_globals()["align"] == align0
     return (s1 and s2 and s3 and s4), f"{s1}{s2}{s3}{s4}"
 
-def t_fade_defaults_still_undo():
+def t_global_edit_still_undo():
+    # REWRITE (animations migration): set_fade_defaults is removed (fades are now
+    # animations). The undo path for a globals edit is unchanged — exercise it through
+    # the surviving set_globals tool instead.
     c = _ctx()
-    f0 = c.session.project["globals"].get("fade_in_ms")
-    tools.set_fade_defaults(c, fade_in_ms=999)
-    f1 = c.session.project["globals"].get("fade_in_ms")
+    f0 = c.get_globals().get("align")
+    tools.set_globals(c, {"align": 5})
+    f1 = c.get_globals().get("align")
     tools.undo(c)
-    f2 = c.session.project["globals"].get("fade_in_ms")
-    return (f1 == 999 and f2 == f0), f"{f0}->{f1}->{f2}"
+    f2 = c.get_globals().get("align")
+    return (f1 == 5 and f2 == f0), f"{f0}->{f1}->{f2}"
 
 def t_get_project_after_undo_reflects_reverted_placement():
     c = _ctx()

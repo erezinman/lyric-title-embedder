@@ -28,16 +28,7 @@ def build_server(ctx, name="karaoke-subtitle-studio"):
     @mcp.tool()
     def set_group_style(gi: int, partial: dict) -> dict: return tools.set_group_style(ctx, gi, partial)
     @mcp.tool()
-    def set_group_fade(gi: int, partial: dict) -> dict: return tools.set_group_fade(ctx, gi, partial)
-    @mcp.tool()
     def set_cue_style(word_ids: list, partial: dict) -> list: return tools.set_cue_style(ctx, word_ids, partial)
-    @mcp.tool()
-    def make_fade_tag(kind: str, word_ids: list) -> dict: return tools.make_fade_tag(ctx, kind, word_ids)
-    @mcp.tool()
-    def clear_fade_tag(kind: str, word_ids: list) -> dict: return tools.clear_fade_tag(ctx, kind, word_ids)
-    @mcp.tool()
-    def set_fade_tag_props(kind: str, word_ids: list, trigger: Optional[float] = None) -> dict:
-        return tools.set_fade_tag_props(ctx, kind, word_ids, trigger)
     @mcp.tool()
     def set_word_times(updates: list) -> dict: return tools.set_word_times(ctx, updates)
     @mcp.tool()
@@ -45,8 +36,8 @@ def build_server(ctx, name="karaoke-subtitle-studio"):
 
     @mcp.tool()
     def set_layout_props(gi: int, win_start: Optional[float] = None, win_end: Optional[float] = None,
-                         linger: Optional[float] = None, accumulate: str = "words") -> dict:
-        return tools.set_layout_props(ctx, gi, win_start, win_end, linger, accumulate)
+                         linger: Optional[float] = None) -> dict:
+        return tools.set_layout_props(ctx, gi, win_start, win_end, linger)
     @mcp.tool()
     def merge_events(gidxs: list) -> list: return tools.merge_events(ctx, gidxs)
     @mcp.tool()
@@ -66,10 +57,6 @@ def build_server(ctx, name="karaoke-subtitle-studio"):
     def delete_words(word_ids: list) -> list: return tools.delete_words(ctx, word_ids)
     @mcp.tool()
     def restore_words(word_ids: list) -> list: return tools.restore_words(ctx, word_ids)
-    @mcp.tool()
-    def set_fade_defaults(fade_in_ms: Optional[float] = None, fade_out_ms: Optional[float] = None,
-                          linger: Optional[float] = None) -> dict:
-        return tools.set_fade_defaults(ctx, fade_in_ms, fade_out_ms, linger)
     @mcp.tool()
     def undo() -> dict: return tools.undo(ctx)
     @mcp.tool()

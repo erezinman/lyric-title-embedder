@@ -4,6 +4,8 @@ from engine.model import (BUILTIN, STYLE_KEYS, CUE_STYLE_KEYS, FADE_KEYS,
 from engine.render import project_to_render
 from engine.ass import build_ass
 from engine.io import serialize_cues, apply_cues
+from engine.anim_migrate import migrate_project
+from engine import anim
 from engine import ffmpeg
 from engine import mutations
 from engine import srt

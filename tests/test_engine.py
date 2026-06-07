@@ -118,18 +118,30 @@ def t_regress_build_delta_resets_baseline():
     ev_line = diag_lines[ev_idx]
     return ("1c&H0000FF&" in ev_line and "1c&HFFFFFF&" in ev_line), "override + reset both present"
 
+# NOTE: fades are now ordinary animations; render carries each word's resolved
+# "anims" list instead of fin_ms/fout_at/fout_ms. These three tests are rewritten
+# to assert the SAME intent (group.fade override / fallback / fade-out duration)
+# through the migrated appearance/fade animations.
+def _appear_dur_ms(word):
+    """Duration (ms) of a word's resolved alpha appearance (fade-in) animation."""
+    for a in word.get("anims", []):
+        if a["channel"] == "alpha" and a["name"] in ("appearance", "fade_in"):
+            s = a["segments"][0]
+            return round((s["end_s"] - s["start_s"]) * 1000)
+    return None
+
 def t_render_group_fade_in_override():
     p = engine.make_project(CFG)
-    p["layout"][0]["fade"] = {"fade_in_ms": 400}
+    p["layout"][0]["fade"] = {"fade_in_ms": 400}     # group override
     groups = engine.project_to_render(p)
     w = groups[0]["lines"][0]["words"][0]
-    return (w["fin_ms"] == 400, w["fin_ms"])
+    return (_appear_dur_ms(w) == 400, _appear_dur_ms(w))
 
 def t_render_group_fade_falls_back_to_global():
     p = engine.make_project(CFG)          # no group override
     groups = engine.project_to_render(p)
     w = groups[0]["lines"][0]["words"][0]
-    return (w["fin_ms"] == p["globals"]["fade_in_ms"], w["fin_ms"])
+    return (_appear_dur_ms(w) == p["globals"]["fade_in_ms"], _appear_dur_ms(w))
 
 def t_render_group_fade_out_override():
     from engine import mutations as mut
@@ -139,7 +151,11 @@ def t_render_group_fade_out_override():
     mut.make_tag(p, "fout_tags", {wid})
     groups = engine.project_to_render(p)
     w = groups[0]["lines"][0]["words"][0]
-    return (w["fout_ms"] == 600, w["fout_ms"])
+    fade_out = next((a for a in w.get("anims", [])
+                     if a["channel"] == "alpha" and a["name"] == "fade_out"), None)
+    dur = round((fade_out["segments"][0]["end_s"] - fade_out["segments"][0]["start_s"]) * 1000) \
+        if fade_out else None
+    return (dur == 600, dur)
 
 for name, fn in list(globals().items()):
     if name.startswith("t_"): check(name, fn)

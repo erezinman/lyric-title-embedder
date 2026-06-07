@@ -1,5 +1,5 @@
 # daemon/library.py — self-contained project folders: <dir>/<name>/lyrics.json + project.json
-import json, os, shutil
+import json, os, shutil, tempfile
 import engine
 
 def _safe(name):
@@ -112,6 +112,8 @@ def open_project(ctx, projects_dir, name):
         if d.get("globals_style"):
             ctx.set_globals(d["globals_style"])
         engine.apply_cues(ctx.session.project, d.get("cues_v2") or {})
+        # Legacy projects auto-convert to the animation model on open (idempotent).
+        engine.migrate_project(ctx.session.project)
         v = d.get("video")
         if v:
             ctx.set_video(v if os.path.isabs(v) else os.path.join(folder, v))
@@ -123,5 +125,14 @@ def save_project(ctx, projects_dir, name):
     doc = {"globals_style": ctx.get_globals(),
            "cues_v2": engine.serialize_cues(ctx.session.project),
            "video": _video_field(folder, ctx.video_path())}
-    with open(os.path.join(folder, "project.json"), "w", encoding="utf-8") as fh:
-        json.dump(doc, fh, indent=2)
+    # Atomic write: a concurrent reader (e.g. a polling client/test) must never see a
+    # half-written project.json. Write a temp file in the same dir, then rename.
+    dest = os.path.join(folder, "project.json")
+    fd, tmp = tempfile.mkstemp(dir=folder, prefix=".project.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(doc, fh, indent=2)
+        os.replace(tmp, dest)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)

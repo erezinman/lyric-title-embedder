@@ -359,7 +359,11 @@ def t_apply_cues_roundtrip_rich_state():
     wid0 = p["layout"][0]["lines"][0]["toks"][0]["ids"][0]
     mut.set_cue_style(p, {wid0}, {"primary": "#AABBCC"})
     # layout props
-    mut.set_layout_props(p, 0, win_start=1.5, win_end=5.5, linger=0.75, accumulate="lines")
+    # REWRITE (animations migration): set_layout_props dropped its `accumulate` arg.
+    # accumulate is still a valid pre-migration group field (it round-trips through
+    # serialize/apply_cues until migration converts it), so set it on the group directly.
+    mut.set_layout_props(p, 0, win_start=1.5, win_end=5.5, linger=0.75)
+    p["layout"][0]["accumulate"] = "lines"
     # del flag on a tok
     p["layout"][0]["lines"][0]["toks"][0]["del"] = True
     # globals

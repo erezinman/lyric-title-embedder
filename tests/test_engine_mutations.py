@@ -119,20 +119,20 @@ def t_set_global():
 def t_set_layout_props_reflected_in_render():
     p = fresh()
     gi = 0
-    # Pick a plausible window slightly before natural start
-    mut.set_layout_props(p, gi, win_start=1.0, win_end=9.0, linger=2.5, accumulate="lines")
+    # REWRITE (animations migration): set_layout_props no longer carries `accumulate`
+    # (accumulate is converted into the appearance animation's mode at migration); it
+    # now only sets the windowing fields win_start/win_end/linger.
+    mut.set_layout_props(p, gi, win_start=1.0, win_end=9.0, linger=2.5)
     g = p["layout"][gi]
     assert g["win_start"] == 1.0
     assert g["win_end"] == 9.0
     assert g["linger"] == 2.5
-    assert g["accumulate"] == "lines"
     rgroups = engine.project_to_render(p)
-    # first rendered group corresponds to gi=0 (sorted by start time; might not be index 0 after sort)
     # find the render group that covers win_start=1.0
     match = [r for r in rgroups if abs(r["start"] - 1.0) < 1e-9]
     assert match, f"no render group with start=1.0, starts={[r['start'] for r in rgroups]}"
     assert abs(match[0]["end"] - 9.0) < 1e-9, f"end={match[0]['end']}"
-    return True, f"start={match[0]['start']} end={match[0]['end']} acc={g['accumulate']}"
+    return True, f"start={match[0]['start']} end={match[0]['end']}"
 
 # ============================================================
 # 7. set_group_style filters STYLE_KEYS and clear with None

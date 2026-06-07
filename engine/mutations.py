@@ -1,5 +1,6 @@
 # engine/mutations.py — pure project edits: (project, ...) -> None (mutate in place).
 # The controller snapshots for undo and triggers rebuild; these never touch UI.
+import copy
 from engine.model import STYLE_KEYS, CUE_STYLE_KEYS, FADE_KEYS
 
 def make_tag(project, lane, ids):
@@ -22,10 +23,10 @@ def set_tag_props(project, lane, ti, trigger):
 def set_global(project, key, val):
     project["globals"][key] = val
 
-def set_layout_props(project, gi, win_start, win_end, linger, accumulate):
+def set_layout_props(project, gi, win_start, win_end, linger):
     g = project["layout"][gi]
     g["win_start"] = win_start; g["win_end"] = win_end
-    g["linger"] = linger; g["accumulate"] = accumulate
+    g["linger"] = linger
 
 def _clean(style, allowed):
     return {k: v for k, v in style.items() if k in allowed and v is not None}
@@ -161,25 +162,94 @@ def layout_split_event(project, gi, li):
         b = {**g, "lines": g["lines"][li:], "win_start": None, "win_end": None}
         project["layout"] = L[:gi] + [a, b] + L[gi + 1:]
 
-# ── animations (RED-PHASE STUBS, animations feature) ─────────────────────────
-# Session-recorded mutations matching engine/anim.py's spec. Stubs raise
-# NotImplementedError so the AE-undo tests fail for the right reason. These are
-# NOT imported by any existing module/path (existing suite stays green).
+# ── animations ───────────────────────────────────────────────────────────────
+# Session-recorded mutations matching engine/anim.py's spec. Same style as the
+# other mutations: plain functions mutating the project dict in place.
+from engine import anim as _anim
+
+
+def _anim_list(project, scope, ref):
+    """The carrier list an animation lives in for scope/ref (created if absent)."""
+    if scope == "global":
+        return project.setdefault("globals", {}).setdefault("animations", [])
+    if scope == "group":
+        g = project["layout"][ref]
+        return g.setdefault("animations", [])
+    if scope == "tag":
+        idset = set(ref)
+        for t in project.setdefault("anim_tags", []):
+            if set(t["ids"]) == idset:
+                return t.setdefault("anims", [])
+        t = {"ids": list(ref), "anims": [], "suppress": []}
+        project["anim_tags"].append(t)
+        return t["anims"]
+    raise ValueError(f"unknown scope {scope!r}")
+
+
+def _suppress_list(project, scope, ref):
+    if scope == "group":
+        return project["layout"][ref].setdefault("suppress", [])
+    if scope == "tag":
+        idset = set(ref)
+        for t in project.setdefault("anim_tags", []):
+            if set(t["ids"]) == idset:
+                return t.setdefault("suppress", [])
+        t = {"ids": list(ref), "anims": [], "suppress": []}
+        project["anim_tags"].append(t)
+        return t["suppress"]
+    raise ValueError(f"cannot suppress at scope {scope!r}")
+
+
+def _owns(project, scope, ref, anim_id):
+    """True if anim_id is an OWN animation of scope/ref (vs inherited)."""
+    return any(a["id"] == anim_id for a in _anim_list(project, scope, ref))
+
 
 def anim_add(project, scope, ref, anim):
     """Validate and append an animation at scope/ref (multi-channel presets arrive
-    as sibling records sharing group_id)."""
-    raise NotImplementedError("mutations.anim_add")
+    as sibling records sharing group_id — added one call each)."""
+    _anim.validate_animation(project, scope, ref, anim)
+    _anim_list(project, scope, ref).append(copy.deepcopy(anim))
+
 
 def anim_remove(project, scope, ref, anim_id):
-    """Delete an own animation (and group_id siblings); tombstone an inherited id
-    at a narrower scope. Idempotent no-op otherwise."""
-    raise NotImplementedError("mutations.anim_remove")
+    """Own anim → delete it (and its group_id siblings). Inherited id at a narrower
+    scope → tombstone (append to suppress). Idempotent no-op otherwise (ruling 5)."""
+    lst = _anim_list(project, scope, ref)
+    owned = [a for a in lst if a["id"] == anim_id]
+    if owned:
+        gids = {a.get("group_id") for a in owned if a.get("group_id")}
+        lst[:] = [a for a in lst
+                  if a["id"] != anim_id and not (a.get("group_id") and a.get("group_id") in gids)]
+        return
+    if scope in ("group", "tag"):
+        supp = _suppress_list(project, scope, ref)
+        if anim_id not in supp:
+            supp.append(anim_id)
+
 
 def anim_restore(project, scope, ref, anim_id):
     """Remove a tombstone (suppress entry); idempotent no-op."""
-    raise NotImplementedError("mutations.anim_restore")
+    if scope not in ("group", "tag"):
+        return
+    supp = _suppress_list(project, scope, ref)
+    if anim_id in supp:
+        supp[:] = [s for s in supp if s != anim_id]
+
 
 def anim_set_props(project, scope, ref, anim_id, partial):
-    """Merge a partial prop update onto an animation; validates the merged result."""
-    raise NotImplementedError("mutations.anim_set_props")
+    """Merge a partial prop update onto an animation; validates the merged result.
+    Settable: mode, step, step_unit, segments, enabled, name."""
+    lst = _anim_list(project, scope, ref)
+    allowed = ("mode", "step", "step_unit", "segments", "enabled", "name")
+    for a in lst:
+        if a["id"] != anim_id:
+            continue
+        merged = copy.deepcopy(a)
+        for k, v in partial.items():
+            if k in allowed:
+                merged[k] = v
+        _anim.validate_animation(project, scope, ref, merged)
+        a.clear()
+        a.update(merged)
+        return

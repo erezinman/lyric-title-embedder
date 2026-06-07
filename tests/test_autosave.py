@@ -67,8 +67,9 @@ def t_no_project_open_no_crash():
         ctx = DaemonContext(Hub()); ctx.load_lyrics("aligned_lyrics.json")
         app = build_app(ctx, Hub(), token=None, projects_dir=d)
         c = TestClient(app)
-        # lyrics loaded but NO named project bound; edits must not write or crash
-        r = c.post("/api/call", json={"tool": "set_fade_defaults", "args": {"fade_in_ms": 300}})
+        # lyrics loaded but NO named project bound; edits must not write or crash.
+        # REWRITE (animations migration): set_fade_defaults is removed; use set_globals.
+        r = c.post("/api/call", json={"tool": "set_globals", "args": {"partial": {"align": 8}}})
         time.sleep(0.8)
         return (r.status_code == 200 and os.listdir(d) == [], "no stray writes, no crash")
     finally: shutil.rmtree(d, ignore_errors=True)

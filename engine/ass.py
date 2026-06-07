@@ -1,5 +1,6 @@
 # engine/ass.py — render-groups -> ASS text with global<group<cue style. UI-free.
 import core
+from engine import anim
 from engine.model import resolve_style
 ESC = core.esc
 
@@ -57,17 +58,8 @@ def build_ass(cfg, groups):
                 parts.append("\\N")
             for w in line["words"]:
                 res = _resolve(w.get("style"), g.get("group_style"), gctx)
-                fin = max(0, int(round((w["start_s"] - ev) * 1000)))
-                fdur = int(w.get("fin_ms", 250) or 0)
                 tags = [_style_tags(cur, res)]; cur = res
-                tags.append("\\alpha&HFF&" if fdur > 0 else "\\alpha&H00&")
-                if fdur > 0:
-                    tags.append(f"\\t({fin},{fin + fdur},\\alpha&H00&)")
-                fo = w.get("fout_at")
-                if fo is not None:
-                    ro = max(0, int(round((fo - ev) * 1000)))
-                    od = int(w.get("fout_ms", 1000) or 0)
-                    tags.append(f"\\t({ro},{ro + (od if od > 0 else 1)},\\alpha&HFF&)")
+                tags.append(anim.emit_anim_tags(w.get("anims") or [], ev))
                 parts.append("{" + "".join(tags) + "}" + ESC(w["text"]))
         return "".join(parts)
 

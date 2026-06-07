@@ -65,11 +65,18 @@ def t_edit_cue_style_border_dropped():
     return (st == {"primary": "#00FF00"}), f"st={st}"
 
 def t_fade_tag_make_and_props():
+    # REWRITE (animations migration): the make_fade_tag / set_fade_tag_props MCP tools
+    # are removed. Fades are now animations: a legacy fout-tag + trigger migrates (on
+    # render) into a fade_out alpha animation that begins at the trigger time. Same
+    # intent, but the legacy tag is now planted on the project model directly and the
+    # assertion reads the resolved per-word "anims".
     ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
-    tools.make_fade_tag(ctx, "out", [0, 1, 2])
-    tools.set_fade_tag_props(ctx, "out", [0], trigger=99.0)
+    ctx.session.project["fout_tags"] = [{"ids": {0, 1, 2}, "trigger": 99.0}]
     r = engine.project_to_render(ctx.session.project)
-    foats = [w["fout_at"] for g in r for ln in g["lines"] for w in ln["words"] if w["fout_at"] is not None]
+    foats = [a["segments"][0]["start_s"]
+             for g in r for ln in g["lines"] for w in ln["words"]
+             for a in w.get("anims", [])
+             if a["channel"] == "alpha" and a["name"] == "fade_out"]
     return (any(abs(x - 99.0) < 1e-6 for x in foats)), f"foats~{[round(x,1) for x in foats][:4]}"
 
 def t_layout_merge_split_redo():
@@ -141,53 +148,46 @@ def t_regress_load_project_atomic_mismatch():
     after = ctx.get_globals()["fontsize"]
     return (raised and before == 64 and after == 64), f"raised={raised} {before}->{after}"
 
-def t_set_group_fade_tool_returns_fade_overrides():
+def t_group_fade_migrates_to_group_alpha_anim():
+    # REWRITE (animations migration): the set_group_fade tool and fade_overrides view
+    # field are removed. A legacy group.fade override migrates (on render) into a
+    # group-scope alpha "appearance" animation. Assert that equivalent.
     ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
-    view = tools.set_group_fade(ctx, 0, {"fade_in_ms": 400})
-    return (view["fade_overrides"] == {"fade_in_ms": 400}, view.get("fade_overrides"))
+    ctx.session.project["layout"][0]["fade"] = {"fade_in_ms": 400}
+    engine.migrate_project(ctx.session.project)     # in-place conversion (load path)
+    anims = ctx.session.project["layout"][0].get("animations", [])
+    appear = [a for a in anims if a["channel"] == "alpha" and a.get("name") == "appearance"]
+    dur = (appear[0]["segments"][0]["t1"]["offset"] - appear[0]["segments"][0]["t0"]["offset"]) if appear else None
+    return (bool(appear) and dur == 400, {"n": len(appear), "dur": dur})
 
-def t_get_state_event_includes_fade_overrides():
+def t_get_state_event_includes_animations():
+    # REWRITE (animations migration): get_state events no longer carry fade_overrides;
+    # they expose the new per-group animations carrier instead.
     ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
-    tools.set_group_fade(ctx, 0, {"fade_in_ms": 400})
+    ctx.session.project["layout"][0]["fade"] = {"fade_in_ms": 400}
+    engine.migrate_project(ctx.session.project)     # in-place conversion (load path)
     st = tools.get_state(ctx)
-    return (st["events"][0]["fade_overrides"] == {"fade_in_ms": 400}, st["events"][0].get("fade_overrides"))
-
-def t_regress_fade_tag_props_rejects_cross_and_ungrouped():
-    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
-    tools.make_fade_tag(ctx, "out", [0, 1]); tools.make_fade_tag(ctx, "out", [5, 6])
-    def raises(ids):
-        try: tools.set_fade_tag_props(ctx, "out", ids, trigger=1.0); return False
-        except ValueError: return True
-    return (raises([0, 5]) and raises([99])), "cross+ungrouped rejected"
-
-def t_set_fade_tag_props_trigger_only():
-    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
-    tools.make_fade_tag(ctx, "in", [0])
-    tools.set_fade_tag_props(ctx, "in", [0], trigger=1.5)
-    t = ctx.session.project["fin_tags"][0]
-    return (t["trigger"] == 1.5 and "dur" not in t, t)
+    ev0 = st["events"][0]
+    return ("animations" in ev0 and "fade_overrides" not in ev0, sorted(ev0.keys()))
 
 def t_get_project_minimal_shape():
     import json
     from engine.model import STYLE_KEYS
     ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    engine.migrate_project(ctx.session.project)     # migrate to the new carriers
     pj = tools.get_project(ctx)
     keys = set(pj.keys())
-    ok = (keys == {"words", "layout", "fin_tags", "fout_tags", "globals", "global_style", "placement", "video"}
+    # REWRITE (animations migration): get_project now exposes anim_tags + per-group
+    # animations/suppress instead of fin_tags/fout_tags/group.fade.
+    ok = (keys == {"words", "layout", "anim_tags", "globals", "global_style", "placement", "video"}
           and set(pj["global_style"].keys()) == set(STYLE_KEYS)
           and "use_pos" in pj["placement"]   # exposed so clients can't misreport \pos state
           and "pos" in pj["placement"]
-          and "fade" in pj["layout"][0] and "style" in pj["layout"][0]
+          and "animations" in pj["layout"][0] and "suppress" in pj["layout"][0]
+          and "fade" not in pj["layout"][0] and "style" in pj["layout"][0]
           and set(pj["layout"][0]["lines"][0]["toks"][0].keys()) == {"ids", "sep", "del", "style"})
     json.dumps(pj)
     return (ok, sorted(keys))
-
-def t_get_project_fade_tags_have_no_color_dur():
-    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
-    tools.make_fade_tag(ctx, "in", [0, 1])
-    pj = tools.get_project(ctx)
-    t = pj["fin_tags"][0]
-    return (set(t.keys()) == {"ids", "trigger"} and isinstance(t["ids"], list), t)
 
 def t_event_view_merged_token_text():
     ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")

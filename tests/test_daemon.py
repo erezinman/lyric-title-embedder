@@ -144,14 +144,21 @@ def t_api_state_is_full_project():
     return (r.status_code == 200 and "words" in body and "layout" in body
             and "palette" not in body, sorted(body.keys()))
 
-def t_ws_push_after_set_group_fade_carries_fade():
+def t_ws_push_after_edit_carries_animation_model():
+    # REWRITE (animations migration): the legacy set_group_fade tool is gone; fades are
+    # now alpha animations produced by migration. Assert an edit still broadcasts a state
+    # push and that the pushed project carries the new animation carriers (group.animations
+    # / anim_tags), not the removed group.fade field.
     c, ctx = _client()
     with c.websocket_connect("/ws") as ws:
         ws.receive_json()  # initial state push
-        c.post("/api/call", json={"tool": "set_group_fade", "args": {"gi": 0, "partial": {"fade_in_ms": 400}}})
+        c.post("/api/call", json={"tool": "set_layout_props", "args": {"gi": 0, "linger": 0.5}})
         msg = ws.receive_json()
         g0 = msg["state"]["layout"][0]
-        return (msg["type"] == "state" and g0["fade"].get("fade_in_ms") == 400, g0.get("fade"))
+        ok = (msg["type"] == "state" and g0.get("linger") == 0.5
+              and "fade" not in g0 and "animations" in g0
+              and "anim_tags" in msg["state"])
+        return (ok, {"linger": g0.get("linger"), "anims": len(g0.get("animations", []))})
 
 def t_new_project_is_immediately_listable():
     import shutil, os

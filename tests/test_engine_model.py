@@ -298,15 +298,26 @@ def t_render_groups_sorted_by_start():
     return ok, f"starts={starts}"
 
 
+# NOTE: appearance/fades are now animations; the render-word's start_s is the
+# event window start, and the per-cue appearance TIME lives in its resolved alpha
+# animation's segment (anims). These three tests are rewritten to assert the same
+# intent (accumulate='words' distinct appear times; fout/fin tag anchoring) via
+# the migrated animations rather than the removed fin_ms/fout_at/start_s fields.
+def _appear_start(word):
+    for a in word.get("anims", []):
+        if a["channel"] == "alpha" and a["name"] in ("appearance", "fade_in"):
+            return a["segments"][0]["start_s"]
+    return None
+
 def t_render_accumulate_words_distinct_starts():
-    """accumulate='words': tokens in a multi-word line get distinct start_s values."""
+    """accumulate='words': tokens in a multi-word line get distinct appearance times."""
     p = engine.make_project(CFG)
     # group 0 has 3 lines with multiple words — use accumulate='words' (default)
     p["layout"][0]["accumulate"] = "words"
     g = engine.project_to_render(p)
-    starts = [w["start_s"] for ln in g[0]["lines"] for w in ln["words"]]
+    starts = [_appear_start(w) for ln in g[0]["lines"] for w in ln["words"]]
     ok = len(set(starts)) > 1  # not all the same
-    return ok, f"distinct_starts={len(set(starts))} total={len(starts)}"
+    return ok, f"distinct_appear_starts={len(set(starts))} total={len(starts)}"
 
 
 def t_render_accumulate_lines_same_start_within_line():
@@ -399,20 +410,25 @@ def t_render_event_end_extended_by_fout_tail():
 
 
 def t_render_fout_tag_no_trigger_uses_word_end():
-    """fout_tag with trigger=None defaults fout_at to the tagged word's end time."""
+    """fout_tag with trigger=None → the migrated fade_out animation begins at the
+    tagged word's end time (cue_end anchor)."""
     p = engine.make_project(CFG)
     wid0 = p["layout"][0]["lines"][0]["toks"][0]["ids"][0]
     word_end = p["words"][wid0]["end"]
     mut.make_tag(p, "fout_tags", [wid0])
-    # trigger=None, dur=None
+    # trigger=None
     g = engine.project_to_render(p)
     w0 = g[0]["lines"][0]["words"][0]
-    ok = abs(w0["fout_at"] - word_end) < 1e-9
-    return ok, f"fout_at={w0['fout_at']} word_end={word_end}"
+    fade_out = next((a for a in w0.get("anims", [])
+                     if a["channel"] == "alpha" and a["name"] == "fade_out"), None)
+    fout_at = fade_out["segments"][0]["start_s"] if fade_out else None
+    ok = fout_at is not None and abs(fout_at - word_end) < 1e-9
+    return ok, f"fout_at={fout_at} word_end={word_end}"
 
 
 def t_render_fin_tag_trigger_and_dur_explicit():
-    """fin_tag trigger overrides start_s; group fade_in_ms overrides fin_ms."""
+    """fin_tag trigger anchors the migrated fade_in animation's start; group
+    fade_in_ms sets its duration (was start_s / fin_ms on the render-word)."""
     p = engine.make_project(CFG)
     wid0 = p["layout"][0]["lines"][0]["toks"][0]["ids"][0]
     mut.set_group_fade(p, 0, {"fade_in_ms": 500})      # duration via group waterfall
@@ -420,8 +436,14 @@ def t_render_fin_tag_trigger_and_dur_explicit():
     mut.set_tag_props(p, "fin_tags", 0, 10.0)          # trigger only
     g = engine.project_to_render(p)
     w0 = g[0]["lines"][0]["words"][0]
-    ok = abs(w0["start_s"] - 10.0) < 1e-9 and w0["fin_ms"] == 500
-    return ok, f"start_s={w0['start_s']} fin_ms={w0['fin_ms']}"
+    fade_in = next((a for a in w0.get("anims", [])
+                    if a["channel"] == "alpha" and a["name"] == "fade_in"), None)
+    if fade_in is None:
+        return False, "no migrated fade_in animation"
+    seg = fade_in["segments"][0]
+    dur_ms = round((seg["end_s"] - seg["start_s"]) * 1000)
+    ok = abs(seg["start_s"] - 10.0) < 1e-9 and dur_ms == 500
+    return ok, f"start_s={seg['start_s']} dur_ms={dur_ms}"
 
 
 def t_render_group_style_passed_through():

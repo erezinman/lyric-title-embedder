@@ -1,8 +1,8 @@
 # mcp_server/tools.py — tool implementations over an EngineContext. No `mcp` import.
-import json, os, tempfile, threading, uuid
+import copy, json, os, tempfile, threading, uuid
 import engine
 import core
-from engine.model import resolve_style, _tag_of, STYLE_KEYS
+from engine.model import resolve_style, STYLE_KEYS
 
 _PLACE_KEYS = ["align", "play_w", "play_h", "margin_l", "margin_r", "margin_v", "use_pos", "pos"]
 
@@ -26,10 +26,11 @@ def _event_view(ctx, gi):
     ids = [i for ln in g["lines"] for t in ln["toks"] for i in t["ids"]]
     s = g["win_start"] if g.get("win_start") is not None else (min(words[i]["start"] for i in ids) if ids else 0.0)
     e = g["win_end"] if g.get("win_end") is not None else (max(words[i]["end"] for i in ids) if ids else 0.0)
-    return {"gi": gi, "label": g["label"], "win": [s, e], "accumulate": g.get("accumulate", "words"),
+    return {"gi": gi, "label": g["label"], "win": [s, e],
             "linger": g.get("linger"), "deleted": g.get("del", False),
             "style_overrides": dict(g.get("style") or {}),
-            "fade_overrides": dict(g.get("fade") or {}),
+            "animations": list(g.get("animations") or []),
+            "suppress": list(g.get("suppress") or []),
             "resolved_style": resolve_style(None, g, gd),
             "lines": [{"li": li, "words": [{"wid": t["ids"][0], "ids": list(t["ids"]),
                         "sep": t.get("sep", ""), "text": core.token_text(words, t),
@@ -46,12 +47,12 @@ def get_state(ctx):
         ev = []
         for gi, g in enumerate(p["layout"]):
             v = _event_view(ctx, gi)
-            ev.append({"gi": gi, "label": v["label"], "win": v["win"], "accumulate": v["accumulate"],
+            ev.append({"gi": gi, "label": v["label"], "win": v["win"],
                        "style_overrides": v["style_overrides"],
-                       "fade_overrides": v["fade_overrides"],
+                       "animations": v["animations"], "suppress": v["suppress"],
                        "n_words": sum(len(ln["toks"]) for ln in g["lines"])})
         return {"n_events": len(p["layout"]), "n_words": len(p["words"]),
-                "globals": ctx.get_globals(), "fade_defaults": dict(p["globals"]), "events": ev}
+                "globals": ctx.get_globals(), "events": ev}
     return ctx.run(f)
 
 
@@ -70,11 +71,9 @@ def _word_view(ctx, wid):
         for li, ln in enumerate(g["lines"]):
             for ti, t in enumerate(ln["toks"]):
                 if wid in t["ids"]: loc = (gi, li, ti); tok = t
-    fin = _tag_of(p["fin_tags"], wid)[1]; fout = _tag_of(p["fout_tags"], wid)[1]
     grp = p["layout"][loc[0]] if loc else None
     return {"wid": wid, "text": w["text"], "start": w["start"], "end": w["end"],
-            "location": loc, "fade_in_group": sorted(fin["ids"]) if fin else None,
-            "fade_out_group": sorted(fout["ids"]) if fout else None,
+            "location": loc,
             "cue_style": dict((tok or {}).get("style") or {}),
             "resolved_style": resolve_style(tok, grp, _gctx_for_resolve(ctx))}
 
@@ -95,18 +94,22 @@ def get_project(ctx):
     def f():
         _require_project(ctx)
         p = ctx.session.project; g = ctx.get_globals()
-        layout = [{"label": grp["label"], "accumulate": grp.get("accumulate", "words"),
+        # Animations replace the legacy fade model; a migrated project carries
+        # globals.animations / layout[].animations + suppress / anim_tags instead
+        # of fin_tags/fout_tags/group.fade/accumulate. Tolerate either shape.
+        layout = [{"label": grp["label"],
                    "win_start": grp.get("win_start"), "win_end": grp.get("win_end"),
                    "linger": grp.get("linger"), "del": grp.get("del", False),
-                   "style": dict(grp.get("style") or {}), "fade": dict(grp.get("fade") or {}),
+                   "style": dict(grp.get("style") or {}),
+                   "animations": copy.deepcopy(grp.get("animations", [])),
+                   "suppress": list(grp.get("suppress") or []),
                    "lines": [{"toks": [{"ids": list(t["ids"]), "sep": t.get("sep", ""),
                                         "del": t.get("del", False),
                                         "style": dict(t.get("style") or {})}
                                        for t in ln["toks"]]} for ln in grp["lines"]]}
                   for grp in p["layout"]]
-        mk = lambda lane: [{"ids": sorted(t["ids"]), "trigger": t.get("trigger")} for t in p[lane]]
         return {"words": [dict(w) for w in p["words"]], "layout": layout,
-                "fin_tags": mk("fin_tags"), "fout_tags": mk("fout_tags"),
+                "anim_tags": copy.deepcopy(p.get("anim_tags", [])),
                 "globals": dict(p["globals"]),
                 "global_style": {k: g[k] for k in STYLE_KEYS},
                 "placement": {k: g.get(k) for k in _PLACE_KEYS},
@@ -118,36 +121,15 @@ def get_ass(ctx):
     return ctx.run(lambda: (_require_project(ctx), engine.build_ass(ctx.cfg(), engine.project_to_render(ctx.session.project))[0])[1])
 
 
-_LANE = {"in": "fin_tags", "out": "fout_tags"}
-
 def _do(ctx, fn_name, *args):
     return ctx.run(lambda: ctx.session.do(fn_name, *args))
 
 def set_group_style(ctx, gi, partial):
     _do(ctx, "set_group_style", gi, partial); return ctx.run(lambda: _event_view(ctx, gi))
 
-def set_group_fade(ctx, gi, partial):
-    _do(ctx, "set_group_fade", gi, partial); return ctx.run(lambda: _event_view(ctx, gi))
-
 def set_cue_style(ctx, word_ids, partial):
     _do(ctx, "set_cue_style", set(word_ids), partial)
     return ctx.run(lambda: [_word_view(ctx, w) for w in word_ids])
-
-def make_fade_tag(ctx, kind, word_ids):
-    _do(ctx, "make_tag", _LANE[kind], set(word_ids)); return get_state(ctx)
-
-def clear_fade_tag(ctx, kind, word_ids):
-    _do(ctx, "clear_tag", _LANE[kind], set(word_ids)); return get_state(ctx)
-
-def set_fade_tag_props(ctx, kind, word_ids, trigger=None):
-    def f():
-        lane = _LANE[kind]; tags = ctx.session.project[lane]
-        tis = {_tag_of(tags, w)[0] for w in word_ids}
-        if None in tis or len(tis) != 1:
-            raise ValueError("set_fade_tag_props: all word_ids must belong to ONE fade group "
-                             "(make_fade_tag them first)")
-        return ctx.session.do("set_tag_props", lane, next(iter(tis)), trigger)
-    ctx.run(f); return get_state(ctx)
 
 def set_word_times(ctx, updates):
     _do(ctx, "set_word_times", updates); return get_state(ctx)
@@ -155,8 +137,8 @@ def set_word_times(ctx, updates):
 def set_word_text(ctx, wid, text):
     _do(ctx, "set_word_text", wid, text); return get_state(ctx)
 
-def set_layout_props(ctx, gi, win_start=None, win_end=None, linger=None, accumulate="words"):
-    _do(ctx, "set_layout_props", gi, win_start, win_end, linger, accumulate); return ctx.run(lambda: _event_view(ctx, gi))
+def set_layout_props(ctx, gi, win_start=None, win_end=None, linger=None):
+    _do(ctx, "set_layout_props", gi, win_start, win_end, linger); return ctx.run(lambda: _event_view(ctx, gi))
 
 def merge_events(ctx, gidxs):
     ok = _do(ctx, "layout_merge", set(gidxs))
@@ -188,12 +170,6 @@ def delete_words(ctx, word_ids):
 
 def restore_words(ctx, word_ids):
     _do(ctx, "toggle_word_del", set(word_ids), False); return ctx.run(lambda: [_word_view(ctx, w) for w in word_ids])
-
-def set_fade_defaults(ctx, fade_in_ms=None, fade_out_ms=None, linger=None):
-    def f():
-        for k, v in (("fade_in_ms", fade_in_ms), ("fade_out_ms", fade_out_ms), ("linger", linger)):
-            if v is not None: ctx.session.do("set_global", k, v)
-    ctx.run(f); return ctx.run(lambda: dict(ctx.session.project["globals"]))
 
 def undo(ctx): ctx.run(lambda: ctx.session.undo()); return get_state(ctx)
 

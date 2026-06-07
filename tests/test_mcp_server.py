@@ -21,7 +21,9 @@ def t_build_server_lists_tools():
     srv = build_server(ctx)
     tl = asyncio.run(srv.list_tools())
     tnames = {t.name for t in tl}
-    needed = {"get_state", "set_group_style", "set_cue_style", "make_fade_tag", "set_globals",
+    # REWRITE (animations migration): make_fade_tag is removed from the tool surface
+    # (the new animation tools land in a later phase); assert a surviving editing tool.
+    needed = {"get_state", "set_group_style", "set_cue_style", "set_layout_props", "set_globals",
               "generate_ass", "render_frame", "burn", "burn_status", "undo", "redo", "load_lyrics"}
     return (needed <= tnames), f"missing={needed - tnames}"
 
