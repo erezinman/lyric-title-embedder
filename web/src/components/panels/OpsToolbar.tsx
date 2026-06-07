@@ -9,6 +9,7 @@ export interface OpsToolbarProps {
   fadeMembership: "in" | "out" | null;
   canMergeWords: boolean;
   mergeOn: boolean;
+  canUnmerge: boolean;
   canMergeEvents: boolean;
   canSplitEvent: boolean;
   canBreakLine: boolean;
@@ -18,6 +19,7 @@ export interface OpsToolbarProps {
   onGroupFade: (kind: "in" | "out") => void;
   onClearFade: (kind: "in" | "out") => void;
   onMergeWords: () => void;
+  onUnmerge: () => void;
   onMergeEvents: () => void;
   onSplitEvent: () => void;
   onBreakLine: () => void;
@@ -31,9 +33,9 @@ export interface OpsToolbarProps {
 
 export function OpsToolbar({
   selCount, canGroupFade, fadeMembership,
-  canMergeWords, mergeOn, canMergeEvents, canSplitEvent, canBreakLine, breakLineOn,
+  canMergeWords, mergeOn, canUnmerge, canMergeEvents, canSplitEvent, canBreakLine, breakLineOn,
   hasEvent, wordDeleted,
-  onGroupFade, onClearFade, onMergeWords, onMergeEvents,
+  onGroupFade, onClearFade, onMergeWords, onUnmerge, onMergeEvents,
   onSplitEvent, onBreakLine, onUngroupEvent, onDelete, onUndo, onRedo,
   canUndo, canRedo,
 }: OpsToolbarProps) {
@@ -59,6 +61,9 @@ export function OpsToolbar({
         <button className={"minibtn" + (mergeOn ? " on" : "")} aria-pressed={mergeOn}
           onClick={onMergeWords} disabled={!canMergeWords}>
           <Icon name="layers" size={13} />Merge words
+        </button>
+        <button className="minibtn" onClick={onUnmerge} disabled={!canUnmerge}>
+          <Icon name="scissors" size={13} />Unmerge
         </button>
         <button className={"minibtn" + (breakLineOn ? " on" : "")} aria-pressed={breakLineOn}
           onClick={onBreakLine} disabled={!canBreakLine}>

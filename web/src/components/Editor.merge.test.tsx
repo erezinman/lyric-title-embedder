@@ -131,8 +131,12 @@ async function mergeBtn() {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-describe("multi-word merge", () => {
-  it("3 adjacent words → one merge_word_span with ti_last - ti_first === 2", async () => {
+// Editor.mergeWords now dispatches merge_words_run {gi, ids} — the engine merges a
+// layout-contiguous run that MAY span line breaks (inner \N dropped). Adjacency
+// validation lives in the Editor (contiguity-by-time-order across lines); a
+// non-contiguous selection keeps the friendly toast and dispatches nothing.
+describe("multi-word merge (merge_words_run)", () => {
+  it("3 adjacent words → one merge_words_run with the selected ids", async () => {
     const user = userEvent.setup();
     render(<Editor projectName="s" onHome={() => {}} />);
     await waitFor(() => expect(FakeWS.last).toBeTruthy());
@@ -146,11 +150,11 @@ describe("multi-word merge", () => {
     await user.click(await mergeBtn());
 
     const calls = dispatches();
-    const spans = calls.filter((c: any) => c.tool === "merge_word_span");
-    expect(spans).toHaveLength(1);
-    const a = spans[0].args;
-    expect(a.sep).toBe(" ");
-    expect(a.ti_last - a.ti_first).toBe(2);
+    const runs = calls.filter((c: any) => c.tool === "merge_words_run");
+    expect(runs).toHaveLength(1);
+    expect(runs[0].args.gi).toBe(0);
+    expect(runs[0].args.ids).toEqual([0, 1, 2]);
+    expect(calls.some((c: any) => c.tool === "merge_word_span")).toBe(false);
     expect(calls.some((c: any) => c.tool === "merge_words")).toBe(false);
   });
 
@@ -167,14 +171,15 @@ describe("multi-word merge", () => {
     await user.click(await mergeBtn());
 
     const calls = dispatches();
-    expect(calls.some((c: any) => c.tool === "merge_word_span")).toBe(false);
-    expect(await screen.findByText(/adjacent|one line/i)).toBeTruthy();
+    expect(calls.some((c: any) => c.tool === "merge_words_run")).toBe(false);
+    expect(await screen.findByText(/adjacent|contiguous/i)).toBeTruthy();
   });
 
-  it("cross-line selection → no dispatch, error shown", async () => {
+  it("cross-line CONTIGUOUS selection now merges (run spans the \\N)", async () => {
     const user = userEvent.setup();
     render(<Editor projectName="s" onHome={() => {}} />);
     await waitFor(() => expect(FakeWS.last).toBeTruthy());
+    // two lines: [a,b] / [c,d]; selecting b+c is layout-contiguous across the break
     act(() => FakeWS.last!.emit({ type: "state", state: projectTwoLines() }));
 
     await clickWord(user, "b");
@@ -184,11 +189,13 @@ describe("multi-word merge", () => {
     await user.click(await mergeBtn());
 
     const calls = dispatches();
-    expect(calls.some((c: any) => c.tool === "merge_word_span")).toBe(false);
-    expect(await screen.findByText(/adjacent|one line/i)).toBeTruthy();
+    const runs = calls.filter((c: any) => c.tool === "merge_words_run");
+    expect(runs).toHaveLength(1);
+    expect(runs[0].args.gi).toBe(0);
+    expect(runs[0].args.ids).toEqual([1, 2]);
   });
 
-  it("2 adjacent words → one merge_word_span with ti_last === ti_first + 1", async () => {
+  it("2 adjacent words → one merge_words_run with both ids", async () => {
     const user = userEvent.setup();
     render(<Editor projectName="s" onHome={() => {}} />);
     await waitFor(() => expect(FakeWS.last).toBeTruthy());
@@ -201,11 +208,9 @@ describe("multi-word merge", () => {
     await user.click(await mergeBtn());
 
     const calls = dispatches();
-    const spans = calls.filter((c: any) => c.tool === "merge_word_span");
-    expect(spans).toHaveLength(1);
-    const a = spans[0].args;
-    expect(a.sep).toBe(" ");
-    expect(a.ti_last).toBe(a.ti_first + 1);
+    const runs = calls.filter((c: any) => c.tool === "merge_words_run");
+    expect(runs).toHaveLength(1);
+    expect(runs[0].args.ids).toEqual([0, 1]);
     expect(calls.some((c: any) => c.tool === "merge_words")).toBe(false);
   });
 });

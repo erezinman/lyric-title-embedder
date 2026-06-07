@@ -52,6 +52,11 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   const pRef = useRef(P);
   // anchor for shift-range selection — stored in a ref so selectCue doesn't need it as a dep
   const anchorRef = useRef<number | null>(null);
+  // Selection-preserving merge/unmerge: a merge/unmerge dispatch records the word
+  // ids it touched; when the server's WS echo lands (P gets a new reference) we
+  // re-derive the selection from those ids (merged cue → its merged tok; unmerge →
+  // every resulting single-word cue). Cleared once applied.
+  const pendingSelRef = useRef<{ ids: number[]; kind: "merge" | "unmerge" } | null>(null);
 
   // rail / dock tabs — start on "project" so StyleWaterfall doesn't overlap CueLanes event labels
   const [railTab, setRailTab] = useState<"project" | "inspector">("project");
@@ -93,6 +98,32 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
 
   // keep pRef in sync with P
   useEffect(() => { pRef.current = P; }, [P]);
+
+  // Selection-preserving merge/unmerge — re-derive selection from pendingSelRef once
+  // the post-edit state echoes in. For a merge we select the merged cue (the tok
+  // that now covers all touched ids); for an unmerge we select every resulting
+  // single-word cue. selectedWords carries the ids; sel points at the lead tok.
+  useEffect(() => {
+    const pending = pendingSelRef.current;
+    if (!P || !pending) return;
+    pendingSelRef.current = null;
+    const idset = new Set(pending.ids);
+    // locate the lead tok covering the first id (merge: the merged tok; unmerge: the
+    // first split word) to drive sel.tok
+    for (let gi = 0; gi < P.layout.length; gi++) {
+      const g = P.layout[gi];
+      for (let li = 0; li < g.lines.length; li++) {
+        for (let ti = 0; ti < g.lines[li].toks.length; ti++) {
+          if (g.lines[li].toks[ti].ids.some((id) => idset.has(id))) {
+            setSel({ scope: "cue", gi, tok: { li, ti } });
+            setSelectedWords(new Set(pending.ids));
+            anchorRef.current = pending.ids[0];
+            return;
+          }
+        }
+      }
+    }
+  }, [P]);
 
   // ── live preview .ass feed ──────────────────────────────────────────────
   // Every committed edit re-broadcasts state over WS (P gets a new reference);
@@ -337,6 +368,8 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   function mergeOn() {
     return (currentTok()?.ids.length ?? 0) > 1;
   }
+  // Unmerge is enabled exactly when the selected cue is a merged token (reuse mergeOn).
+  function canUnmerge() { return mergeOn(); }
   function wordDeleted() {
     const tok = currentTok();
     return tok?.del ?? false;
@@ -407,6 +440,15 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
           const wid = tok.ids[0];
           const w = P.words[wid];
           if (!w) continue;
+          // a merged cue carries per-word internal segments (positioned by each
+          // word's real start/end); a single-word cue gets no subs.
+          const subs = tok.ids.length > 1
+            ? tok.ids.map((id) => ({
+                text: P.words[id]?.text ?? "",
+                s: P.words[id]?.start ?? 0,
+                e: P.words[id]?.end ?? 0,
+              }))
+            : undefined;
           result.push({
             wid,
             text: tok.ids.map((id) => P.words[id]?.text ?? "").join(tok.sep || " "),
@@ -417,6 +459,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
             ti,
             del: tok.del,
             anims: tok.anims_resolved ?? [],
+            subs,
           });
         }
       }
@@ -558,30 +601,42 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     if (!P) return;
     const ids = [...selectedWords].sort((a, b) => a - b);
     if (ids.length < 2) return;
-    // map each selected word to its token coordinates in the current snapshot
-    const locs: { gi: number; li: number; ti: number }[] = [];
-    for (const wid of ids) {
-      let found = false;
-      for (let gi = 0; gi < P.layout.length && !found; gi++) {
-        const g = P.layout[gi];
-        for (let li = 0; li < g.lines.length && !found; li++) {
-          for (let ti = 0; ti < g.lines[li].toks.length; ti++) {
-            if (g.lines[li].toks[ti].ids.includes(wid)) { locs.push({ gi, li, ti }); found = true; break; }
-          }
-        }
+    // The selection must be a layout-CONTIGUOUS run inside ONE group — it MAY span
+    // line breaks now (engine merge_words_run drops the inner \N). Validate against
+    // the group's flattened token order; keep the friendly toast for a gap/cross-group.
+    let gi = -1;
+    for (let g = 0; g < P.layout.length && gi < 0; g++) {
+      if (P.layout[g].lines.some((ln) => ln.toks.some((t) => t.ids.some((id) => selectedWords.has(id))))) gi = g;
+    }
+    if (gi < 0) return;
+    const group = P.layout[gi];
+    // any selected id outside this group → cross-group, reject
+    for (let g = 0; g < P.layout.length; g++) {
+      if (g === gi) continue;
+      if (P.layout[g].lines.some((ln) => ln.toks.some((t) => t.ids.some((id) => selectedWords.has(id))))) {
+        setErrMsg("merge needs adjacent words in one event"); return;
       }
-      if (!found) return;
     }
-    const { gi, li } = locs[0];
-    if (!locs.every((l) => l.gi === gi && l.li === li)) {
-      setErrMsg("merge needs adjacent words on one line"); return;
-    }
-    const tis = [...new Set(locs.map((l) => l.ti))].sort((a, b) => a - b);
-    const ti_first = tis[0], ti_last = tis[tis.length - 1];
-    if (ti_last === ti_first || ti_last - ti_first !== tis.length - 1) {
-      setErrMsg("merge needs adjacent words on one line"); return;
-    }
-    dispatch("merge_word_span", { gi, li, ti_first, ti_last, sep: " " });
+    // flatten the group's tokens in layout order; the selected tokens must form an
+    // unbroken contiguous span (no unselected token between the first and last).
+    const flat: number[][] = [];
+    for (const ln of group.lines) for (const t of ln.toks) flat.push(t.ids);
+    const selPos = flat.map((tids, k) => (tids.some((id) => selectedWords.has(id)) ? k : -1)).filter((k) => k >= 0);
+    const lo = selPos[0], hi = selPos[selPos.length - 1];
+    const contiguous = selPos.length === hi - lo + 1 && hi > lo;
+    if (!contiguous) { setErrMsg("merge needs adjacent (contiguous) words"); return; }
+    pendingSelRef.current = { ids, kind: "merge" };
+    dispatch("merge_words_run", { gi, ids });
+  }
+
+  // inverse of Merge words — split the selected merged cue back into separate words;
+  // the resulting word cues stay selected (re-derived when the echo lands).
+  function unmergeWord() {
+    if (!P || !sel.tok) return;
+    const tok = currentTok();
+    if (!tok || tok.ids.length < 2) return;
+    pendingSelRef.current = { ids: [...tok.ids], kind: "unmerge" };
+    dispatch("unmerge_words", { gi: sel.gi, li: sel.tok.li, ti: sel.tok.ti });
   }
 
   function mergeEvents() {
@@ -598,6 +653,41 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
 
   function breakLine() {
     if (!P || !sel.tok) return;
+    // §3 multi-select rule: when ≥2 cues are selected, look at how many lines they
+    // span within a group. >1 line → JOIN those lines; else → BREAK after each
+    // selected cue. With a single selection we keep the existing break/join toggle.
+    // NOTE (known limitation, flagged): the multi paths fan out into several
+    // break_line/join_lines dispatches — each is its own undo step (no atomic
+    // multi-op tool exists yet). One Undo reverses one break/join, not the gesture.
+    if (selectedWords.size >= 2) {
+      // group the selection: per group, which line indices hold a selected cue
+      for (let gi = 0; gi < P.layout.length; gi++) {
+        const g = P.layout[gi];
+        const liSet = new Set<number>();
+        for (let li = 0; li < g.lines.length; li++) {
+          if (g.lines[li].toks.some((t) => t.ids.some((id) => selectedWords.has(id)))) liSet.add(li);
+        }
+        if (liSet.size === 0) continue;
+        if (liSet.size > 1) {
+          // JOIN: collapse the spanned lines onto the first (join from the bottom up
+          // so earlier line indices stay valid across the sequence of joins).
+          const lis = [...liSet].sort((a, b) => a - b);
+          const lo = lis[0], hi = lis[lis.length - 1];
+          for (let li = hi - 1; li >= lo; li--) dispatch("join_lines", { gi, li });
+        } else {
+          // BREAK after EACH selected cue (skip the last tok of a line — nothing to
+          // break there). Break from the right so token indices remain valid.
+          const li = [...liSet][0];
+          const toks = g.lines[li].toks;
+          const tis: number[] = [];
+          for (let ti = 0; ti < toks.length - 1; ti++) {
+            if (toks[ti].ids.some((id) => selectedWords.has(id))) tis.push(ti);
+          }
+          for (let i = tis.length - 1; i >= 0; i--) dispatch("break_line", { gi, li, ti: tis[i], after: true });
+        }
+      }
+      return;
+    }
     const g = P.layout[sel.gi];
     const { li, ti } = sel.tok;
     const isLastInLine = ti === (g?.lines[li]?.toks.length ?? 0) - 1;
@@ -798,6 +888,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
           fadeMembership={fade}
           canMergeWords={canMergeWords()}
           mergeOn={mergeOn()}
+          canUnmerge={canUnmerge()}
           canMergeEvents={canMergeEvents()}
           canSplitEvent={canSplitEvent()}
           canBreakLine={canBreakLine()}
@@ -807,6 +898,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
           onGroupFade={groupFade}
           onClearFade={clearFade}
           onMergeWords={mergeWords}
+          onUnmerge={unmergeWord}
           onMergeEvents={mergeEvents}
           onSplitEvent={splitEvent}
           onBreakLine={breakLine}

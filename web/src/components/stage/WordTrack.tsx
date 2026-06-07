@@ -17,6 +17,10 @@ export interface TrackWord {
   frac?: boolean;
   /** flat resolved animation list for this cue (daemon-filled tok.anims_resolved). */
   anims?: ResolvedAnim[];
+  /** per-word internal segments for a MERGED cue (>1 id): each word positioned by
+   * its real start/end so the block shows every word in its own time slice with a
+   * divider tick. Absent / length≤1 for plain cues (rendered as one centered label). */
+  subs?: { text: string; s: number; e: number }[];
 }
 
 /** Focused animation: a (cue word, anim id) pair, shared with the Inspector. */
@@ -456,7 +460,28 @@ export function WordTrack({
                         }}
                       />
                     )}
-                    <span className="bt">{w.text}</span>
+                    {w.subs && w.subs.length > 1
+                      ? w.subs.map((sub, i) => {
+                          // position each word inside the merged block by its real
+                          // time, relative to the block span; a divider tick (left
+                          // border) separates every word after the first. (kit port)
+                          const denom = (e - s) || 1;
+                          return (
+                            <span
+                              key={i}
+                              className="blk-seg"
+                              style={{
+                                left: `${((sub.s - s) / denom) * 100}%`,
+                                width: `${((sub.e - sub.s) / denom) * 100}%`,
+                                borderLeft: i > 0 ? "1px dashed rgba(255,255,255,.5)" : "none",
+                              }}
+                              title={`${sub.text} · ${sub.s.toFixed(2)}–${sub.e.toFixed(2)}s`}
+                            >
+                              {sub.text}
+                            </span>
+                          );
+                        })
+                      : <span className="bt">{w.text}</span>}
                     {unlocked && (
                       <span
                         className="wt-handle r"

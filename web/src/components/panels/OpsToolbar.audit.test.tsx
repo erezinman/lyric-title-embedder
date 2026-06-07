@@ -270,7 +270,7 @@ describe("OpsToolbar action dispatches", () => {
     expect(d[0].args.anim_id).toBe("a1");
   });
 
-  it("D-56 — Merge words (smoke): 2 adjacent → merge_word_span dispatched", async () => {
+  it("D-56 — Merge words (smoke): 2 adjacent → merge_words_run dispatched", async () => {
     const user = userEvent.setup();
     await bootWith(baseProject());
     await clickLaneWord(user, "alpha");
@@ -278,10 +278,10 @@ describe("OpsToolbar action dispatches", () => {
     clearDispatches();
     await user.click(btn(/Merge words/i));
 
-    const d = dispatches().filter((d) => d.tool === "merge_word_span");
+    const d = dispatches().filter((d) => d.tool === "merge_words_run");
     expect(d).toHaveLength(1);
     expect(d[0].args.gi).toBe(0);
-    expect(d[0].args.li).toBe(0);
+    expect(d[0].args.ids).toEqual([0, 1]);
   });
 
   it("D-57 — Break line on mid-line cue dispatches break_line", async () => {
