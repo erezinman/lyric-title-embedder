@@ -105,12 +105,18 @@ def get_project(ctx):
                    "suppress": list(grp.get("suppress") or []),
                    "lines": [{"toks": [{"ids": list(t["ids"]), "sep": t.get("sep", ""),
                                         "del": t.get("del", False),
-                                        "style": dict(t.get("style") or {})}
-                                       for t in ln["toks"]]} for ln in grp["lines"]]}
-                  for grp in p["layout"]]
+                                        "style": dict(t.get("style") or {}),
+                                        "anims_resolved":
+                                            engine.anim.resolve_animations(p, gi, li, ti)}
+                                       for ti, t in enumerate(ln["toks"])]}
+                             for li, ln in enumerate(grp["lines"])]}
+                  for gi, grp in enumerate(p["layout"])]
+        # Animations replace the legacy fade model: never surface the legacy globals
+        # fade keys in the project payload (post-migration shape — AD-OLD-06).
+        gl = {k: v for k, v in p["globals"].items() if k not in ("fade_in_ms", "fade_out_ms")}
         return {"words": [dict(w) for w in p["words"]], "layout": layout,
                 "anim_tags": copy.deepcopy(p.get("anim_tags", [])),
-                "globals": dict(p["globals"]),
+                "globals": gl,
                 "global_style": {k: g[k] for k in STYLE_KEYS},
                 "placement": {k: g.get(k) for k in _PLACE_KEYS},
                 "video": ctx.video_path()}
@@ -170,6 +176,54 @@ def delete_words(ctx, word_ids):
 
 def restore_words(ctx, word_ids):
     _do(ctx, "toggle_word_del", set(word_ids), False); return ctx.run(lambda: [_word_view(ctx, w) for w in word_ids])
+
+# ── animations ────────────────────────────────────────────────────────────────
+# The four animation tools wrap the engine mutations through the same _do/session
+# rails (snapshot → mutate → on_change → broadcast → autosave). scope ∈
+# {"global","group","tag"}; ref = None | gi | [word_ids]. Engine validation errors
+# surface as ValueError (→ 422 at /api/call); a bad scope is also a ValueError.
+
+def _anim_view(ctx, scope, ref):
+    """The updated entity view after an animation edit. For group/tag scopes this is
+    the carrier's animations+suppress; for global the globals' list."""
+    p = ctx.session.project
+    if scope == "group":
+        return _event_view(ctx, ref)
+    if scope == "tag":
+        idset = set(ref)
+        for t in (p.get("anim_tags") or []):
+            if set(t["ids"]) == idset:
+                return {"scope": "tag", "ids": list(t["ids"]),
+                        "animations": list(t.get("anims") or []),
+                        "suppress": list(t.get("suppress") or [])}
+        return {"scope": "tag", "ids": list(ref or []), "animations": [], "suppress": []}
+    return {"scope": "global",
+            "animations": list((p.get("globals") or {}).get("animations") or [])}
+
+def add_animation(ctx, scope, ref=None, anim=None):
+    if scope not in ("global", "group", "tag"):
+        raise ValueError(f"unknown scope {scope!r}")
+    _do(ctx, "anim_add", scope, ref, anim)
+    return ctx.run(lambda: _anim_view(ctx, scope, ref))
+
+def remove_animation(ctx, scope, ref=None, anim_id=None):
+    if scope not in ("global", "group", "tag"):
+        raise ValueError(f"unknown scope {scope!r}")
+    _do(ctx, "anim_remove", scope, ref, anim_id)
+    return ctx.run(lambda: _anim_view(ctx, scope, ref))
+
+def restore_animation(ctx, scope, ref=None, anim_id=None):
+    if scope not in ("global", "group", "tag"):
+        raise ValueError(f"unknown scope {scope!r}")
+    _do(ctx, "anim_restore", scope, ref, anim_id)
+    return ctx.run(lambda: _anim_view(ctx, scope, ref))
+
+def set_animation_props(ctx, scope, ref=None, anim_id=None, partial=None):
+    if scope not in ("global", "group", "tag"):
+        raise ValueError(f"unknown scope {scope!r}")
+    _do(ctx, "anim_set_props", scope, ref, anim_id, partial or {})
+    return ctx.run(lambda: _anim_view(ctx, scope, ref))
+
 
 def undo(ctx): ctx.run(lambda: ctx.session.undo()); return get_state(ctx)
 

@@ -239,7 +239,9 @@ def anim_restore(project, scope, ref, anim_id):
 
 def anim_set_props(project, scope, ref, anim_id, partial):
     """Merge a partial prop update onto an animation; validates the merged result.
-    Settable: mode, step, step_unit, segments, enabled, name."""
+    Settable: mode, step, step_unit, segments, enabled, name. Plus the drag-retime
+    path: a {"t0": {"offset": ms}} / {"t1": {"offset": ms}} partial writes the offset
+    onto every segment's matching endpoint (against its existing anchor)."""
     lst = _anim_list(project, scope, ref)
     allowed = ("mode", "step", "step_unit", "segments", "enabled", "name")
     for a in lst:
@@ -249,6 +251,17 @@ def anim_set_props(project, scope, ref, anim_id, partial):
         for k, v in partial.items():
             if k in allowed:
                 merged[k] = v
+        for ep in ("t0", "t1"):                  # drag-retime: offset delta vs anchor
+            if ep in partial and isinstance(partial[ep], dict):
+                d = partial[ep]
+                for s in merged["segments"]:
+                    t = s[ep]
+                    if "anchor" in d:
+                        t["anchor"] = d["anchor"]
+                    if "unit" in d:
+                        t["unit"] = d["unit"]
+                    if "offset" in d:                # delta against the existing offset
+                        t["offset"] = t.get("offset", 0) + d["offset"]
         _anim.validate_animation(project, scope, ref, merged)
         a.clear()
         a.update(merged)

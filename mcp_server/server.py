@@ -58,6 +58,20 @@ def build_server(ctx, name="karaoke-subtitle-studio"):
     @mcp.tool()
     def restore_words(word_ids: list) -> list: return tools.restore_words(ctx, word_ids)
     @mcp.tool()
+    def add_animation(scope: str, ref=None, anim: Optional[dict] = None) -> dict:
+        return tools.add_animation(ctx, scope, ref, anim)
+    @mcp.tool()
+    def remove_animation(scope: str, ref=None, anim_id: Optional[str] = None) -> dict:
+        return tools.remove_animation(ctx, scope, ref, anim_id)
+    @mcp.tool()
+    def restore_animation(scope: str, ref=None, anim_id: Optional[str] = None) -> dict:
+        return tools.restore_animation(ctx, scope, ref, anim_id)
+    @mcp.tool()
+    def set_animation_props(scope: str, ref=None, anim_id: Optional[str] = None,
+                            partial: Optional[dict] = None) -> dict:
+        return tools.set_animation_props(ctx, scope, ref, anim_id, partial)
+
+    @mcp.tool()
     def undo() -> dict: return tools.undo(ctx)
     @mcp.tool()
     def redo() -> dict: return tools.redo(ctx)

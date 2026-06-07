@@ -185,7 +185,10 @@ def t_get_project_minimal_shape():
           and "pos" in pj["placement"]
           and "animations" in pj["layout"][0] and "suppress" in pj["layout"][0]
           and "fade" not in pj["layout"][0] and "style" in pj["layout"][0]
-          and set(pj["layout"][0]["lines"][0]["toks"][0].keys()) == {"ids", "sep", "del", "style"})
+          # REWRITE (animations AD-GET-01): each token now also carries its per-cue
+          # flat resolved animation list for the UI/strips.
+          and set(pj["layout"][0]["lines"][0]["toks"][0].keys())
+              == {"ids", "sep", "del", "style", "anims_resolved"})
     json.dumps(pj)
     return (ok, sorted(keys))
 
