@@ -1,0 +1,32 @@
+<!-- @dsCard group="Components" name="Animations IA — 3 options" subtitle="Where caption animations live: Inspector section vs Animate tab vs Modal" viewport="1320x1000" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Animations IA — options</title>
+<link rel="stylesheet" href="../../colors_and_type.css" />
+<link rel="stylesheet" href="ia.css" />
+</head>
+<body>
+<div class="wrap">
+  <header class="page-h">
+    <div class="eyebrow">Information architecture · preview</div>
+    <h1>Where do caption animations live?</h1>
+    <p>Three placements for the animation authoring surface, shown in the real editor chrome. Every jargon term —
+      <span class="tip" data-tip="Each word/line appears one after another, staggered by reading order.">Cascade</span>,
+      <span class="tip" data-tip="Words reveal left-to-right like they're being typed, one glyph group at a time.">Typewriter</span>,
+      <span class="tip" data-tip="A bouncy overshoot as each cue lands, then settles to its final size.">Pop</span> —
+      carries a hover explainer (dotted underline). Hover any of them.</p>
+    <div class="legend">
+      <span><i class="sw over"></i> overridden at this scope</span>
+      <span><i class="sw inh"></i> inherited (global → group → cue)</span>
+      <span><i class="sw tipkey"></i> hover-explained term</span>
+    </div>
+  </header>
+  <div id="opts"></div>
+</div>
+<div id="tip-layer"></div>
+<script src="ia.js"></script>
+</body>
+</html>

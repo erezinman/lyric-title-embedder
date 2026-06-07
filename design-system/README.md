@@ -176,6 +176,7 @@ the three is an "AI-slop" default (no Inter/Roboto).
 | `SKILL.md` | Agent-Skill entry point (Claude Code compatible) for designing in-brand. |
 | `HANDOFF_v3.md` | Developer handoff for building v3 for real (Tauri/web shell over the Python core; perf + preview architecture; feature→engine map). |
 | `HANDOFF_real-model.md` | Reconciles the UI kit with the **real engine model** (ground-truth `project` shape, daemon API, the global→group→cue style waterfall) + the design decisions behind the v3 editor. |
+| `HANDOFF_animations.md` | **Caption animations feature** — authoring IA (Inspector append-model), timeline animation strips (fill-by-type, ≤3+overflow, 2-click select→focus, drag-retime), data-model + daemon additions, React build checklist. Prototypes: `ui_kits/desktop-app/animations-ia.html`, `timeline-anim.html`. |
 | `assets/` | `logo-mark.svg`, `logo-glyph.svg`. |
 | `preview/` | Design-system specimen cards (type, colors, spacing, components, brand) shown in the Design System tab. `card.css` is shared scaffolding. |
 | `ui_kits/desktop-app/` | The interactive **merged editor** UI kit (Project Library → Timeline-Dock editor). See its own README for component contracts. |

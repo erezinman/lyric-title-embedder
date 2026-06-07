@@ -1,0 +1,35 @@
+<!-- @dsCard group="Components" name="Timeline animation strips" subtitle="Per-cue animation bars synced to the time axis: gradient / alpha / wipe / stack / glyph; 2-click select→focus + drag-retime" viewport="1320x900" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Timeline animation strips</title>
+<link rel="stylesheet" href="../../colors_and_type.css" />
+<link rel="stylesheet" href="tl-anim.css" />
+</head>
+<body>
+<div class="wrap">
+  <header class="page-h">
+    <div class="eyebrow">Timeline · concept preview</div>
+    <h1>Animations on the cue track</h1>
+    <p>Each animation shows as a strip in the <b>bottom third</b> of its cue block. The strip's left/right edges are its
+      <b>start/end on the same time axis</b> as the track, and its fill <i>is</i> the legend — a color change renders the
+      actual gradient, alpha renders an opacity ramp, typewriter a left-to-right wipe. <b>Click once</b> selects the cue;
+      <b>click again</b> on a strip focuses that animation (its edges become drag handles). Use the controls to scrub,
+      zoom, and toggle the muted/active treatment.</p>
+    <div class="toolbar">
+      <button id="play" class="t-btn">▶ Play</button>
+      <label class="t-ctl">Zoom <input id="zoom" type="range" min="0.5" max="2.4" step="0.05" value="1" /></label>
+      <label class="t-ctl"><input id="mute" type="checkbox" checked /> Mute strips until hover/selected</label>
+      <span class="t-read" id="read">t = 0.00s</span>
+    </div>
+  </header>
+
+  <div class="legend" id="legend"></div>
+  <section class="board" id="board"></section>
+  <aside class="focus" id="focus"></aside>
+</div>
+<script src="tl-anim.js"></script>
+</body>
+</html>
