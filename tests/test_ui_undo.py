@@ -170,16 +170,16 @@ def t_undo_redo_add_break():
 # ══════════════════════════════════════════════════════════════════════════════
 def t_undo_redo_set_layout_props():
     s0 = snap()
-    app.set_layout_props(0, None, None, 3.5, "lines"); pump(2)
+    app.set_layout_props(0, None, None, 3.5); pump(2)
     s1 = snap()
     app.undo(); pump(2)
     after_undo = snap()
     app.redo(); pump(2)
     after_redo = snap()
     g = after_redo["layout"][0]
-    ok = (after_undo == s0 and after_redo == s1
-          and g["linger"] == 3.5 and g["accumulate"] == "lines")
-    return ok, f"linger={g['linger']} acc={g['accumulate']}"
+    # accumulate no longer settable via the tool (animations migration)
+    ok = (after_undo == s0 and after_redo == s1 and g["linger"] == 3.5)
+    return ok, f"linger={g['linger']}"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -218,7 +218,7 @@ def t_multi_step_chain_and_full_undo_redo():
     s3 = snap()
     app.toggle_word_del({2}, True); pump(2)
     s4 = snap()
-    app.set_layout_props(0, None, None, 1.5, "words"); pump(2)
+    app.set_layout_props(0, None, None, 1.5); pump(2)
     s5 = snap()
 
     # undo 5 times — must match recorded intermediates in reverse
@@ -399,7 +399,7 @@ def t_interleaved_6ops_full_undo():
     wid = app._project["layout"][1]["lines"][0]["toks"][0]["ids"][0]
     app.set_cue_style({wid}, {"primary": "#FF00FF"}); pump(2) # op4: cue style
     app.toggle_word_del({8, 9}, True); pump(2)                 # op5: word del
-    app.set_layout_props(1, None, None, 2.0, "lines"); pump(2) # op6: layout props
+    app.set_layout_props(1, None, None, 2.0); pump(2) # op6: layout props
 
     s6 = snap()
 

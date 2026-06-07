@@ -117,7 +117,7 @@ def t_full_file_roundtrip_via_tmp():
     # Add fout tag on words 0..2
     app.make_tag("fout_tags", {0, 1, 2}); pump(2)
     # Set linger on group 0
-    app.set_layout_props(0, None, None, 3.0, "words"); pump(2)
+    app.set_layout_props(0, None, None, 3.0); pump(2)
     # Remember build output before save
     pre_build, _ = v2.build_ass_v2(app.cfg(), app._groups)
     # Save to /tmp
@@ -290,14 +290,14 @@ def t_linger_global_vs_per_group():
     """set_global('linger', L) extends event windows for groups without per-group linger;
     a per-group linger override is unaffected by the global change."""
     # Group 0: set explicit linger
-    app.set_layout_props(0, None, None, 5.0, "words"); pump(2)
+    app.set_layout_props(0, None, None, 5.0); pump(2)
     end0_before = app._groups[0]["end"]
     base_e0 = max(app._project["words"][i]["end"]
                   for g in [app._project["layout"][0]]
                   for ln in g["lines"] for tok in ln["toks"] for i in tok["ids"])
     expected_end0 = base_e0 + 5.0
     # Group 1: no override, inherits global (default 0.0)
-    app.set_layout_props(1, None, None, None, "words"); pump(2)
+    app.set_layout_props(1, None, None, None); pump(2)
     end1_before = app._groups[1]["end"] if len(app._groups) > 1 else None
     # Change global linger
     app.set_global("linger", 2.5); pump(2)
