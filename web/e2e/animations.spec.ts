@@ -171,9 +171,10 @@ test("AP-5 â€” drag a focused strip handle by +Npx retimes offsets; drag back â‰
       const h = document.querySelector('.astrip[data-aid="g_drag"] .h.h-r') as HTMLElement;
       const b = h.getBoundingClientRect();
       const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
-      h.dispatchEvent(new PointerEvent("pointerdown", { clientX: cx, clientY: cy, bubbles: true, pointerId: 1 }));
-      window.dispatchEvent(new PointerEvent("pointermove", { clientX: cx + dx, clientY: cy, bubbles: true, pointerId: 1 }));
-      window.dispatchEvent(new PointerEvent("pointerup", { clientX: cx + dx, clientY: cy, bubbles: true, pointerId: 1 }));
+      // altKey bypasses magnet snapping: this spec asserts the RAW px<->ms retime contract (cf. jsdom AT-11)
+      h.dispatchEvent(new PointerEvent("pointerdown", { clientX: cx, clientY: cy, bubbles: true, pointerId: 1, altKey: true }));
+      window.dispatchEvent(new PointerEvent("pointermove", { clientX: cx + dx, clientY: cy, bubbles: true, pointerId: 1, altKey: true }));
+      window.dispatchEvent(new PointerEvent("pointerup", { clientX: cx + dx, clientY: cy, bubbles: true, pointerId: 1, altKey: true }));
     }, dx);
   };
 
