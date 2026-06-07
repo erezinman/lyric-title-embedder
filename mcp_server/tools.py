@@ -171,6 +171,14 @@ def merge_word_span(ctx, gi, li, ti_first, ti_last, sep=""):
     _do(ctx, "merge_token_span", gi, li, ti_first, ti_last, sep)
     return ctx.run(lambda: _event_view(ctx, gi))
 
+def unmerge_words(ctx, gi, li, ti):
+    _do(ctx, "unmerge_token", gi, li, ti)
+    return ctx.run(lambda: _event_view(ctx, gi))
+
+def merge_words_run(ctx, gi, ids):
+    _do(ctx, "merge_word_run", gi, list(ids))
+    return ctx.run(lambda: _event_view(ctx, gi))
+
 def delete_words(ctx, word_ids):
     _do(ctx, "toggle_word_del", set(word_ids), True); return ctx.run(lambda: [_word_view(ctx, w) for w in word_ids])
 

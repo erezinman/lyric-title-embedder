@@ -137,6 +137,83 @@ def merge_token_span(project, gi, li, ti_first, ti_last, sep=""):
                                    "del": toks[ti_first].get("del", False),
                                    "style": dict(toks[ti_first].get("style") or {})}]
 
+def unmerge_token(project, gi, li, ti):
+    """Split a merged token [gi][li][ti] into one token per word id. Each split
+    token inherits an independent COPY of the merged token's style and del flag;
+    sep resets to "" (split words carry no glue). One call = one undo step.
+    ValueError if the token is not merged (< 2 ids)."""
+    toks = project["layout"][gi]["lines"][li]["toks"]
+    if not (0 <= ti < len(toks)):
+        raise ValueError(f"unmerge_token: ti {ti} out of range for {len(toks)} tokens")
+    tok = toks[ti]
+    if len(tok["ids"]) < 2:
+        raise ValueError(f"unmerge_token: token at [{gi}][{li}][{ti}] is not merged")
+    solos = [{"ids": [i], "sep": "", "del": tok.get("del", False),
+              "style": dict(tok.get("style") or {})} for i in tok["ids"]]
+    toks[ti:ti + 1] = solos
+
+
+def merge_word_run(project, gi, ids):
+    """Merge a contiguous run of word ids within group `gi` into a single token.
+    The run must be layout-contiguous (consecutive in the group's flattened token
+    order); it MAY span line breaks — the \\N's strictly INSIDE the run are dropped
+    while breaks outside are preserved. ids may belong to >1 token (already-merged
+    toks included). Keeps the LEFT-most token's style and del flag (same semantics
+    as merge_token_span). One call = one undo step.
+
+    ValueError if any id is missing, lives in another group, or the selected
+    tokens are not a contiguous run."""
+    idset = set(ids)
+    if not idset:
+        raise ValueError("merge_word_run: empty id set")
+    # reject ids that live outside this group
+    for ogi, g in enumerate(project["layout"]):
+        if ogi == gi:
+            continue
+        for ln in g["lines"]:
+            for t in ln["toks"]:
+                if idset & set(t["ids"]):
+                    raise ValueError("merge_word_run: ids span more than one group")
+    g = project["layout"][gi]
+    # flatten the group's tokens with their owning line index, in layout order
+    flat = [(li, ti, t) for li, ln in enumerate(g["lines"])
+            for ti, t in enumerate(ln["toks"])]
+    sel_pos = [k for k, (_, _, t) in enumerate(flat) if idset & set(t["ids"])]
+    if not sel_pos:
+        raise ValueError("merge_word_run: no selected ids found in group")
+    lo, hi = sel_pos[0], sel_pos[-1]
+    # contiguity: every flattened token between the first and last selected must be selected
+    if sel_pos != list(range(lo, hi + 1)):
+        raise ValueError("merge_word_run: selected words are not a contiguous run")
+    if lo == hi:
+        return  # single token already covers the run — nothing to merge
+    merged_ids = [i for _, _, t in flat[lo:hi + 1] for i in t["ids"]]
+    left = flat[lo][2]
+    run_first_line = flat[lo][0]
+    run_last_line = flat[hi][0]
+    new_tok = {"ids": merged_ids, "sep": " ",
+               "del": left.get("del", False),
+               "style": dict(left.get("style") or {})}
+    # The run collapses lines [run_first_line..run_last_line] into one: every \N
+    # strictly inside the run is dropped, outer breaks kept. The merged token lands
+    # on run_first_line; tokens that trailed on run_last_line (after `hi`) join it.
+    def _relabel(li):
+        return run_first_line if run_first_line <= li <= run_last_line else li
+    rebuilt = [(li, t) for li, _, t in flat[:lo]]
+    rebuilt.append((run_first_line, new_tok))         # merged tok lives on the run's first line
+    rebuilt += [(_relabel(li), t) for li, _, t in flat[hi + 1:]]
+    lines = []
+    cur = []
+    for k, (li, t) in enumerate(rebuilt):
+        cur.append(t)
+        nxt = rebuilt[k + 1][0] if k + 1 < len(rebuilt) else None
+        if nxt is not None and nxt != li:
+            lines.append({"toks": cur}); cur = []
+    if cur:
+        lines.append({"toks": cur})
+    g["lines"] = lines
+
+
 def layout_merge(project, gidxs):
     idx = sorted(set(gidxs))
     if len(idx) < 2 or idx != list(range(idx[0], idx[-1] + 1)):

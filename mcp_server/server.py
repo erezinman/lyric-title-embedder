@@ -54,6 +54,12 @@ def build_server(ctx, name="karaoke-subtitle-studio"):
     def merge_word_span(gi: int, li: int, ti_first: int, ti_last: int, sep: str = "") -> dict:
         return tools.merge_word_span(ctx, gi, li, ti_first, ti_last, sep)
     @mcp.tool()
+    def unmerge_words(gi: int, li: int, ti: int) -> dict:
+        return tools.unmerge_words(ctx, gi, li, ti)
+    @mcp.tool()
+    def merge_words_run(gi: int, ids: list) -> dict:
+        return tools.merge_words_run(ctx, gi, ids)
+    @mcp.tool()
     def delete_words(word_ids: list) -> list: return tools.delete_words(ctx, word_ids)
     @mcp.tool()
     def restore_words(word_ids: list) -> list: return tools.restore_words(ctx, word_ids)
