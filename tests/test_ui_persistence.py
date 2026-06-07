@@ -5,6 +5,7 @@ import karaoke_subtitle_gui as v2
 import time
 
 app = v2.AppV2()
+app.withdraw()  # headless: keep the window off-screen during test runs
 def pump(n=8):
     for _ in range(n):
         app.update(); time.sleep(0.02)
@@ -270,12 +271,19 @@ def t_fade_out_default_reactivity():
     app.set_global("fade_out_ms", 1500); pump(2)
     app._rebuild_render(); pump(2)
     rws = render_words()
-    all_fout = [(w["fout_ms"], w["fout_at"]) for w in rws if w["fout_at"] is not None]
-    # Group 0 inherits global -> fout_ms should be 1500
-    inherited_ok = any(ms == 1500 for ms, _ in all_fout)
-    # Group 1 override -> fout_ms should still be 333
-    override_ok = any(abs(ms - 333.0) < 1e-3 for ms, _ in all_fout)
-    return (inherited_ok and override_ok), f"fout pairs={all_fout}"
+    # Fades are now animations: read each word's migrated fade_out duration (ms)
+    # from its resolved "anims" instead of the removed fout_ms/fout_at fields.
+    all_fout = []
+    for w in rws:
+        for a in w.get("anims", []):
+            if a["channel"] == "alpha" and a["name"] == "fade_out":
+                s = a["segments"][0]
+                all_fout.append(round((s["end_s"] - s["start_s"]) * 1000))
+    # Group 0 inherits global -> fade_out duration should be 1500
+    inherited_ok = any(ms == 1500 for ms in all_fout)
+    # Group 1 override -> fade_out duration should still be 333
+    override_ok = any(abs(ms - 333) < 1 for ms in all_fout)
+    return (inherited_ok and override_ok), f"fout durations={all_fout}"
 
 
 def t_linger_global_vs_per_group():

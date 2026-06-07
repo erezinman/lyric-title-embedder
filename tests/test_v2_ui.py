@@ -5,6 +5,7 @@ import karaoke_subtitle_gui as v2
 import time
 
 app = v2.AppV2()
+app.withdraw()  # headless: keep the window off-screen during test runs
 def pump(n=8):
     for _ in range(n):
         app.update(); time.sleep(0.02)
@@ -155,27 +156,40 @@ def t_merge_prev():
     nt1 = len(app._project["layout"][gi]["lines"][0]["toks"])
     return (nt1 == nt0 - 1), f"toks {nt0}->{nt1}"
 
+# Fades are now animations: render-words carry a resolved "anims" list instead of
+# fout_ms/fout_at. These two tests are rewritten to assert the same intent (global
+# fade-out duration reactivity; trigger override + clear) via the migrated fade_out
+# animation's duration / start time.
+def _fade_outs():
+    return [a for w in render_words() for a in w.get("anims", [])
+            if a["channel"] == "alpha" and a["name"] == "fade_out"]
+
+def _fo_dur_ms(a):
+    s = a["segments"][0]
+    return round((s["end_s"] - s["start_s"]) * 1000)
+
 def t_global_reactivity_render():
     # tag a fade-out (inherits global dur), then change global -> render dur changes
     ids = {0, 1, 2}
     app.make_tag("fout_tags", ids); pump(2)
-    dur0 = next(w["fout_ms"] for w in render_words() if w["fout_at"] is not None)
+    dur0 = _fo_dur_ms(_fade_outs()[0])
     ed.g_fout.set("1750"); ed._set_global("fade_out_ms", ed.g_fout); pump(2)
-    dur1 = next(w["fout_ms"] for w in render_words() if w["fout_at"] is not None)
+    dur1 = _fo_dur_ms(_fade_outs()[0])
     return (dur0 == 1000 and dur1 == 1750), f"{dur0}->{dur1}"
 
 def t_tag_override_and_clear():
     # Tags now only carry {ids, trigger}; dur is a group-level fade override.
-    # Test: set trigger override -> render reflects it; clear -> back to word-end default.
+    # Test: set trigger override -> migrated fade_out begins at it; clear -> back to
+    # word-end default.
     ids = {3, 4, 5}
     app.make_tag("fout_tags", ids); pump(2)
     ti = len(app._project["fout_tags"]) - 1
     app.set_tag_props("fout_tags", ti, 99.0); pump(2)
-    foats0 = [w["fout_at"] for w in render_words() if w["fout_at"] is not None]
+    foats0 = [a["segments"][0]["start_s"] for a in _fade_outs()]
     ov = any(abs(x - 99.0) < 1e-6 for x in foats0)
     # clear trigger override -> back to last-word-end default
     app.set_tag_props("fout_tags", ti, None); pump(2)
-    foats = [w["fout_at"] for w in render_words() if w["fout_at"] is not None]
+    foats = [a["segments"][0]["start_s"] for a in _fade_outs()]
     reverted = all(abs(x - 99.0) > 1e-6 for x in foats)
     return (ov and reverted), f"override={ov} reverted={reverted}"
 

@@ -5,6 +5,7 @@ import karaoke_subtitle_gui as v2
 import time
 
 app = v2.AppV2()
+app.withdraw()  # headless: keep the window off-screen during test runs
 def pump(n=8):
     for _ in range(n):
         app.update(); time.sleep(0.02)

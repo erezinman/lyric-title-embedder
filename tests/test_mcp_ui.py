@@ -6,6 +6,7 @@ import karaoke_subtitle_gui as v2
 from mcp_server.context import UIContext
 
 app = v2.AppV2()
+app.withdraw()  # headless: keep the window off-screen during test runs
 def pump(n=10):
     for _ in range(n): app.update(); time.sleep(0.02)
 pump(14); time.sleep(0.3); pump(8)
