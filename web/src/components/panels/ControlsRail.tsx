@@ -1,5 +1,6 @@
 // ControlsRail.tsx — source/output (real names) + placement (alignment editable,
-// \pos toggle) + disabled animation presets (engine lacks them).
+// \pos toggle). The old "Animation presets — Coming soon" stub was removed: the
+// engine now has animations and the real entry is the Inspector AnimSection.
 import { Icon } from "../icons/Icon";
 import { AlignGrid } from "../atoms/AlignGrid";
 import type { Project } from "../../types";
@@ -56,19 +57,6 @@ export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos }:
         {posOn
           ? "Pin coordinate comes from dragging the preview box."
           : "Margins come from dragging the preview box edges."}
-      </p>
-
-      <div className="sec-t spacer disabled-sec">
-        <Icon name="sparkles" size={13} />Animation preset
-        <span className="soon">Coming soon</span>
-      </div>
-      <div className="chips disabled">
-        {["Karaoke Bounce", "Pop", "Glow", "Typewriter"].map((p) => (
-          <span key={p} className="chip" aria-disabled="true">{p}</span>
-        ))}
-      </div>
-      <p className="wf-note" style={{ textAlign: "left", marginTop: 10, lineHeight: 1.5 }}>
-        Per-word entrance animations aren&apos;t in the render engine yet — disabled until then.
       </p>
     </div>
   );
