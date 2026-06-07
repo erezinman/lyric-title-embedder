@@ -33,3 +33,4 @@ web/vite.config.js
 # Local media / design-system source bundles
 /Clip.mp4
 *.zip
+/*.CSV

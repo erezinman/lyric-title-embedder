@@ -16,6 +16,7 @@
 //   onSetProps(scope, ref, anim_id, partial)
 import { useState } from "react";
 import { Icon } from "../icons/Icon";
+import { TimingModePicker } from "./TimingModePicker";
 import type { Project, Animation } from "../../types";
 import { globalRows, groupRows, cueRows, inheritedCount, type AnimRow } from "../../model/animRows";
 import { PRESETS, buildPreset, freshAnimId, type PresetKey } from "../../model/animPresets";
@@ -176,6 +177,10 @@ function AnimOwnRow({
             aria-label={row.anim.enabled ? "Disable" : "Enable"}
             onClick={() => onSetProps(tierScope, ref, row.id, { enabled: !row.anim.enabled })}
           >{row.anim.enabled ? "Disable" : "Enable"}</button>
+          <TimingModePicker
+            anim={row.anim}
+            onChange={(partial) => onSetProps(tierScope, ref, row.id, partial)}
+          />
         </div>
       )}
     </div>

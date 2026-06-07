@@ -173,6 +173,31 @@ describe("AI-4A append model", () => {
     expect((d[0].args.partial as Record<string, unknown>)).toHaveProperty("enabled");
   });
 
+  it("AM-10 — the edit row renders the TimingModePicker; choosing Together dispatches set_animation_props {mode}", async () => {
+    const user = userEvent.setup();
+    await bootWith(withAnimations(baseProject(), {
+      tags: [{ ids: [0], anims: [anim({ id: "t_pop", name: "pop", channel: "scale_x", mode: "percue" })], suppress: [] }],
+    }));
+    await openInspector(user);
+    await selectWord(user, "alpha");
+
+    const cueTier = animSection().querySelector(".tier.append.cue") as HTMLElement;
+    const row = within(cueTier).getByText("pop").closest(".ov-row") as HTMLElement;
+    await user.click(within(row).getByRole("button", { name: /Edit/i }));
+
+    // the picker is in the expanded edit area
+    const picker = cueTier.querySelector(".tm-row") as HTMLElement;
+    expect(picker).not.toBeNull();
+    clearDispatches();
+    await user.click(within(cueTier).getByRole("button", { name: /Together/i }));
+
+    const d = dispatchesOf("set_animation_props");
+    expect(d.length).toBe(1);
+    expect(d[0].args.scope).toBe("cue");
+    expect(d[0].args.anim_id).toBe("t_pop");
+    expect((d[0].args.partial as Record<string, unknown>).mode).toBe("together");
+  });
+
   it("AI-06 — revert (↺) an own animation removes the override (remove_animation)", async () => {
     const user = userEvent.setup();
     await bootWith(withAnimations(baseProject(), {
