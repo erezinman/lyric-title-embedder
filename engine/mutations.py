@@ -160,3 +160,26 @@ def layout_split_event(project, gi, li):
         a = {**g, "lines": g["lines"][:li], "win_start": None, "win_end": None}
         b = {**g, "lines": g["lines"][li:], "win_start": None, "win_end": None}
         project["layout"] = L[:gi] + [a, b] + L[gi + 1:]
+
+# ── animations (RED-PHASE STUBS, animations feature) ─────────────────────────
+# Session-recorded mutations matching engine/anim.py's spec. Stubs raise
+# NotImplementedError so the AE-undo tests fail for the right reason. These are
+# NOT imported by any existing module/path (existing suite stays green).
+
+def anim_add(project, scope, ref, anim):
+    """Validate and append an animation at scope/ref (multi-channel presets arrive
+    as sibling records sharing group_id)."""
+    raise NotImplementedError("mutations.anim_add")
+
+def anim_remove(project, scope, ref, anim_id):
+    """Delete an own animation (and group_id siblings); tombstone an inherited id
+    at a narrower scope. Idempotent no-op otherwise."""
+    raise NotImplementedError("mutations.anim_remove")
+
+def anim_restore(project, scope, ref, anim_id):
+    """Remove a tombstone (suppress entry); idempotent no-op."""
+    raise NotImplementedError("mutations.anim_restore")
+
+def anim_set_props(project, scope, ref, anim_id, partial):
+    """Merge a partial prop update onto an animation; validates the merged result."""
+    raise NotImplementedError("mutations.anim_set_props")
