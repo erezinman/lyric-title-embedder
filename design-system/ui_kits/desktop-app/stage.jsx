@@ -29,7 +29,7 @@ function TopBar({ project, time, dur, playing, aiConnected, exportOpen, onPlay, 
       {aiConnected && (() => {
         const MCP = { mcp: "http://127.0.0.1:8137/mcp", ws: "ws://127.0.0.1:8137/ws", api: "http://127.0.0.1:8137/api/call", auth: "Bearer KSS_MCP_TOKEN" };
         const rows = [
-          ["Host", "127.0.0.1", "127.0.0.1"], ["Port", "8137", "8137"],
+          ["Host", "127.0.0.1", "127.0.0.1"], ["Port", "8137 (default)", "8137"],
           ["MCP", MCP.mcp, MCP.mcp], ["WebSocket", MCP.ws, MCP.ws],
           ["API", "POST 127.0.0.1:8137/api/call", MCP.api], ["Auth", "Bearer KSS_MCP_\u2022\u2022\u2022\u2022", MCP.auth],
         ];
@@ -45,7 +45,7 @@ function TopBar({ project, time, dur, playing, aiConnected, exportOpen, onPlay, 
                 </button>
               ))}
               <button className="ai-pop-copy" onClick={() => copyMcp(cfg, "cfg")}><Icon name="download" size={12} />{copied === "cfg" ? "Copied ✓" : "Copy agent config (JSON)"}</button>
-              <p className="ai-pop-note">Loopback bind only · CORS: 127.0.0.1:5173</p>
+              <p className="ai-pop-note">Loopback bind · auth only if KSS_MCP_TOKEN set · CORS 127.0.0.1:5173 / localhost:5173</p>
             </div>
           </span>
         );
