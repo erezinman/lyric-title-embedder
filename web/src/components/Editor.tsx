@@ -17,6 +17,8 @@ import { Waveform } from "./stage/Waveform";
 import { WordTrack } from "./stage/WordTrack";
 import type { TrackWord } from "./stage/WordTrack";
 import { StyleWaterfall } from "./panels/StyleWaterfall";
+import { AnimSection } from "./panels/AnimSection";
+import type { AnimScope } from "./panels/AnimSection";
 import { TimingPanel } from "./panels/TimingPanel";
 import { CueLanes } from "./panels/CueLanes";
 import { OpsToolbar } from "./panels/OpsToolbar";
@@ -449,6 +451,25 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     dispatch("remove_animation", { scope: "tag", ref: tag.ids, anim_id: target.id });
   }
 
+  // ---- animation Inspector handlers (AnimSection dispatch contract) ----
+  function animAdd(scope: AnimScope, ref: number | number[] | null, anim: import("../types").Animation) {
+    dispatch("add_animation", { scope, ref, anim });
+  }
+  function animRemove(scope: AnimScope, ref: number | number[] | null, anim_id: string) {
+    dispatch("remove_animation", { scope, ref, anim_id });
+  }
+  function animRestore(scope: AnimScope, ref: number | number[] | null, anim_id: string) {
+    dispatch("restore_animation", { scope, ref, anim_id });
+  }
+  function animSetProps(scope: AnimScope, ref: number | number[] | null, anim_id: string, partial: Record<string, unknown>) {
+    dispatch("set_animation_props", { scope, ref, anim_id, partial });
+  }
+  function selectCues(ids: number[]) {
+    if (ids.length === 0) return;
+    setSelectedWords(new Set(ids));
+    anchorRef.current = ids[0];
+  }
+
   function setLayoutProp(patch: Partial<{ linger: number; win_start: number | null; win_end: number | null }>) {
     if (!P) return;
     const g = P.layout[sel.gi];
@@ -646,6 +667,17 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                   onClearStyle={clearStyle}
                 />
                 {tok && <TimingPanel key={sel.tok ? `${sel.gi}-${sel.tok.li}-${sel.tok.ti}` : "none"} tok={tok} project={P} unlocked={timingsUnlocked} onToggleLock={() => setTimingsUnlocked((u) => !u)} onSetTime={setCueTime} onSetText={setCueText} />}
+                <AnimSection
+                  project={P}
+                  scope={sel.scope}
+                  gi={sel.gi}
+                  selWid={wid}
+                  onAdd={animAdd}
+                  onRemove={animRemove}
+                  onRestore={animRestore}
+                  onSetProps={animSetProps}
+                  onSelectCues={selectCues}
+                />
               </>
             )}
           </div>

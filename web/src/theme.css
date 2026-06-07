@@ -578,3 +578,72 @@ select.select { appearance: none; background: var(--surface-3); color: var(--tex
 .es-l svg { color: var(--accent); }
 .es-grp { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--text-2); }
 .es-note { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--text-3); }
+
+/* ── Animations Inspector (AnimSection) — ported from ui_kits/desktop-app/ia.css ── */
+.anim-section { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.anim-section .sec-t.cyan svg { color: var(--cyan); }
+.tier.append { border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 9px; background: var(--surface-2); overflow: hidden; }
+.tier.append .tier-h { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: color-mix(in srgb, var(--surface-3) 60%, transparent); border-bottom: 1px solid var(--border); font-family: var(--font-display); font-weight: 600; font-size: 11px; }
+.tier.append .tier-body { padding: 7px 10px 9px; }
+.tier.append .ttag { font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: .06em; border-radius: 4px; padding: 1px 6px; }
+.tier.append .ttag.cue { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.tier.append .ttag.group { color: var(--violet-soft, var(--violet)); background: color-mix(in srgb, var(--violet) 16%, transparent); }
+.tier.append .ttag.global { color: var(--text-2); background: var(--surface-3); }
+.empty-row { font-size: 11px; color: var(--text-3); font-style: italic; padding: 5px 2px; }
+.ov-row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: var(--radius-sm); background: var(--surface-3); margin-bottom: 5px; flex-wrap: wrap; }
+.ov-row .ov-ic { width: 18px; flex: 0 0 18px; display: grid; place-items: center; color: var(--accent); }
+.ov-row .ov-ic.cyan { color: var(--cyan); }
+.ov-main { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 7px; }
+.ov-row b { font-family: var(--font-display); font-size: 12px; font-weight: 600; }
+.ov-sub { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ov-act { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--border); background: transparent; color: var(--text-3); cursor: pointer; font-size: 11px; flex: 0 0 auto; }
+.ov-act:hover { color: var(--text-1); border-color: var(--border-strong); }
+.ov-row.anim-ov { box-shadow: inset 3px 0 0 var(--cyan); }
+.ov-row.inherited { opacity: .72; }
+.ov-row.tomb { background: transparent; border: 1px dashed color-mix(in srgb, var(--text-3) 45%, transparent); }
+.ov-row.tomb .ov-ic { color: var(--danger, #ff5a7a); }
+.ov-row.tomb b { color: var(--text-3); text-decoration: line-through; font-weight: 500; }
+.tomb-lbl { font-family: var(--font-mono); font-size: 9px; letter-spacing: .04em; text-transform: uppercase; color: var(--danger, #ff5a7a); background: color-mix(in srgb, var(--danger, #ff5a7a) 12%, transparent); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
+.cues-chip { font-family: var(--font-mono); font-size: 10px; color: var(--cyan); background: color-mix(in srgb, var(--cyan) 12%, transparent); border: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent); border-radius: var(--radius-pill); padding: 1px 8px; cursor: pointer; }
+.add-row { display: flex; gap: 6px; margin-top: 4px; }
+.add-btn { flex: 1; height: 28px; border-radius: var(--radius-sm); border: 1px dashed var(--border-strong); background: transparent; color: var(--text-2); font: inherit; font-size: 11px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.add-btn:hover { border-color: var(--accent); color: var(--text-1); }
+.add-btn.cyan:hover { border-color: var(--cyan); }
+.add-btn .caret { color: var(--text-3); font-size: 9px; }
+.inh-disc { margin-top: 8px; width: 100%; text-align: left; background: transparent; border: 0; color: var(--text-3); font: inherit; font-size: 10.5px; cursor: pointer; padding: 3px 2px; }
+.inh-disc:hover { color: var(--text-2); }
+.preset-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 6px 0 4px; }
+.preset { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-2); padding: 8px 6px; text-align: center; cursor: pointer; font: inherit; font-size: 11px; color: var(--text-1); }
+.preset:hover:not(:disabled) { border-color: var(--cyan); }
+.preset:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ── Timing-mode picker (TimingModePicker) — ported from tm.css ── */
+.tm-row { display: flex; flex-direction: column; gap: 0; border-radius: var(--radius-md); background: var(--surface-2); border: 1px solid var(--border); box-shadow: inset 3px 0 0 var(--cyan); overflow: visible; margin: 7px 0; }
+.tm-row .tm-mode-line { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 9px 10px 10px; }
+.tm-mode-line .ml-lbl { font-size: 9.5px; font-family: var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); display: inline-flex; align-items: center; gap: 5px; }
+.seg { display: flex; gap: 0; flex: 1; min-width: 0; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: visible; background: var(--surface-3); }
+.seg-b { flex: 1; min-width: 0; height: 30px; border: 0; border-right: 1px solid var(--border); background: transparent; color: var(--text-2); font: inherit; font-size: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; cursor: pointer; padding: 0 2px; }
+.seg-b:last-child { border-right: 0; }
+.seg-b .sb-l { font-family: var(--font-display); font-size: 8.5px; font-weight: 600; white-space: nowrap; }
+.seg-b:hover { color: var(--text-1); background: color-mix(in srgb, var(--cyan) 7%, transparent); }
+.seg-b.on { background: color-mix(in srgb, var(--cyan) 16%, transparent); color: var(--cyan); }
+.seg-b.seq { flex: 0 0 auto; min-width: 96px; color: var(--text-3); }
+.seg-b.seq.on { color: var(--violet-soft, var(--violet)); background: color-mix(in srgb, var(--violet) 16%, transparent); }
+.tm-row .md-pop { position: absolute; top: calc(100% + 5px); right: 0; z-index: 30; min-width: 168px; background: var(--surface-4); border: 1px solid var(--border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-pop); padding: 5px; }
+.md-grp { font-family: var(--font-mono); font-size: 8.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); padding: 7px 8px 3px; }
+.md-item { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; color: var(--text-1); }
+.md-item:hover { background: var(--surface-3); }
+.md-item.on { background: color-mix(in srgb, var(--cyan) 12%, transparent); }
+.md-item .mi-ck { margin-left: auto; color: var(--cyan); }
+.substep { display: flex; align-items: center; gap: 9px; margin: 0 10px 10px; padding: 8px 9px; border-radius: var(--radius-sm); background: var(--surface-3); border: 1px solid var(--border); }
+.substep .ss-lbl { font-size: 10.5px; color: var(--text-2); flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; }
+.substep.na { background: transparent; border-style: dashed; border-color: var(--border); }
+.substep.na .ss-lbl { color: var(--text-3); }
+.substep.na .na-txt { font-size: 11px; color: var(--text-3); font-style: italic; }
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-2); overflow: hidden; height: 26px; }
+.stepper button { width: 24px; height: 24px; border: 0; background: transparent; color: var(--text-2); font-size: 14px; cursor: pointer; }
+.stepper .sv { min-width: 34px; text-align: center; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-1); border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+.unit { display: flex; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; height: 26px; margin-left: auto; }
+.unit button { height: 24px; padding: 0 8px; border: 0; background: transparent; color: var(--text-3); font: inherit; font-size: 10.5px; font-family: var(--font-mono); cursor: pointer; border-right: 1px solid var(--border); }
+.unit button:last-child { border-right: 0; }
+.unit button.on { background: color-mix(in srgb, var(--cyan) 16%, transparent); color: var(--cyan); }

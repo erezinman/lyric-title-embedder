@@ -39,7 +39,10 @@ describe("Editor integration", () => {
     act(() => FakeWS.last!.emit({ type: "state", state: projectWithGroup0() }));
     await userEvent.click(await screen.findByText("Verse 1"));        // select the group
     await userEvent.click(screen.getByText("Inspector"));             // open inspector rail tab
-    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
+    // disambiguate: the animations section also has a "GROUP" tag chip — pick the style tier (.tier3)
+    const groupTier = screen.getAllByText("GROUP")
+      .map((el) => el.closest(".tier3"))
+      .find((el): el is HTMLElement => el != null) as HTMLElement;
     // find the Bold row's toggle within the GROUP tier and click it
     const boldRow = within(groupTier).getByText(/Bold/i).closest(".prow") as HTMLElement;
     await userEvent.click(boldRow.querySelector(".toggle, .pv-ctl, [class*='toggle']") as Element);

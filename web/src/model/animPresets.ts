@@ -53,3 +53,81 @@ export function freshAnimId(existing: Iterable<string>): string {
   const taken = new Set(existing);
   for (let i = 1; ; i++) { const id = "a" + i; if (!taken.has(id)) return id; }
 }
+
+// ── Canonical v1 preset set (reconciliation §5 / HANDOFF §4.1) ───────────────
+// Each preset instantiates one or more channel records. Multi-channel presets
+// (Pop, Blur in) emit sibling records sharing a group_id (SPEC-GAP-2 ruling) —
+// remove/restore/suppress act on the whole group; the UI renders one row per
+// group_id keyed on the lead anim id.
+export type PresetKey =
+  | "fade_in" | "fade_out" | "sweep" | "pop" | "color_flash"
+  | "wipe_in" | "blur_in" | "slide";
+
+export interface PresetDef {
+  key: PresetKey;
+  /** Human label shown in the picker. */
+  label: string;
+  /** Icon name (Icon.tsx). */
+  icon: string;
+  /** Channels this preset writes (1 = single record; >1 = sibling group). */
+  channels: AnimChannel[];
+  /** Default timing mode (HANDOFF §4.1 table). */
+  mode: import("../types").TimingMode;
+  /** Slide/move is model-enforced group/global only — disabled at cue/tag scope. */
+  groupGlobalOnly?: boolean;
+}
+
+import type { AnimChannel } from "../types";
+
+export const PRESETS: PresetDef[] = [
+  { key: "fade_in",     label: "Fade in",     icon: "sparkles", channels: ["alpha"],                 mode: "percue" },
+  { key: "fade_out",    label: "Fade out",    icon: "sparkles", channels: ["alpha"],                 mode: "percue" },
+  { key: "sweep",       label: "Sweep",       icon: "waveform", channels: ["karaoke_fill"],          mode: "percue" },
+  { key: "pop",         label: "Pop",         icon: "sparkles", channels: ["scale_x", "scale_y"],    mode: "percue" },
+  { key: "color_flash", label: "Color flash", icon: "sparkles", channels: ["primary"],               mode: "percue" },
+  { key: "wipe_in",     label: "Wipe in",     icon: "type",     channels: ["clip_rect"],             mode: "typewriter" },
+  { key: "blur_in",     label: "Blur in",     icon: "sparkles", channels: ["blur"],                  mode: "percue" },
+  { key: "slide",       label: "Slide",       icon: "fwd",      channels: ["move"],                  mode: "together", groupGlobalOnly: true },
+];
+
+export const presetByKey = (k: PresetKey): PresetDef => PRESETS.find((p) => p.key === k)!;
+
+/**
+ * Build the Animation record(s) for a preset. `nextId(i)` yields fresh, unique
+ * ids for each channel record. Multi-channel presets share a group_id (= the
+ * lead record's id). Returns the array of sibling records (length = channels).
+ */
+export function buildPreset(key: PresetKey, nextId: (i: number) => string): Animation[] {
+  const def = presetByKey(key);
+  const multi = def.channels.length > 1;
+  const leadId = nextId(0);
+  const groupId = multi ? leadId : null;
+  return def.channels.map((channel, i) => {
+    const id = i === 0 ? leadId : nextId(i);
+    return {
+      id,
+      name: def.key,
+      group_id: groupId,
+      channel,
+      mode: def.mode,
+      step: def.mode === "cascade" || def.mode === "typewriter" ? 80 : null,
+      step_unit: def.mode === "cascade" || def.mode === "typewriter" ? ("ms" as const) : null,
+      segments: presetSegments(channel),
+      enabled: true,
+    } as Animation;
+  });
+}
+
+function presetSegments(channel: AnimChannel): AnimSegment[] {
+  switch (channel) {
+    case "alpha":        return [seg(time("cue_start", 0), time("cue_start", 250), "FF", "00")];
+    case "scale_x":
+    case "scale_y":      return [seg(time("cue_start", 0), time("cue_start", 180), 1, 1.18)];
+    case "primary":      return [seg(time("cue_start", 0), time("cue_start", 200), null, 1)];
+    case "clip_rect":    return [seg(time("cue_start", 0), time("cue_start", 300), 0, 1)];
+    case "blur":         return [seg(time("cue_start", 0), time("cue_start", 250), 8, 0)];
+    case "karaoke_fill": return [seg(time("cue_start", 0), time("cue_end", 0), null, 1)];
+    case "move":         return [seg(time("cue_start", 0), time("cue_start", 300), 0, 1)];
+    default:             return [seg(time("cue_start", 0), time("cue_start", 250), null, 1)];
+  }
+}
