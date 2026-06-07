@@ -66,3 +66,60 @@ describe("bbox geometry", () => {
     expect(r2.r).toBe(1920); expect(r2.b).toBe(1080);
   });
 });
+
+// Q2 — symmetric resize (Shift modifier): one shared delta to BOTH opposing
+// margins, keeping the center fixed; stop at min width without sliding center.
+describe("bbox symmetric resize (Q2)", () => {
+  const cx = (b: { l: number; r: number }) => (b.l + b.r) / 2;
+  const cy = (b: { t: number; b: number }) => (b.t + b.b) / 2;
+
+  it("'e' handle symmetric: dragged edge +dx, opposite edge -dx, center fixed", () => {
+    const b = { l: 100, t: 100, r: 300, b: 300 };
+    const r = applyResize(b, "e", 40, 0, 1920, 1080, 40, true);
+    expect(r.r).toBe(340);                 // dragged edge +40
+    expect(r.l).toBe(60);                  // opposite edge mirrored -40
+    expect(cx(r)).toBeCloseTo(cx(b), 5);   // center fixed
+    expect(r.t).toBe(100); expect(r.b).toBe(300); // vertical untouched
+  });
+
+  it("'w' handle symmetric: dragged edge +dx, opposite edge -dx, center fixed", () => {
+    const b = { l: 100, t: 100, r: 300, b: 300 };
+    const r = applyResize(b, "w", -40, 0, 1920, 1080, 40, true);
+    expect(r.l).toBe(60);                  // dragged left edge -40
+    expect(r.r).toBe(340);                 // opposite edge mirrored +40
+    expect(cx(r)).toBeCloseTo(cx(b), 5);
+  });
+
+  it("'n' handle symmetric: vertical shared delta, center fixed", () => {
+    const b = { l: 100, t: 100, r: 300, b: 300 };
+    const r = applyResize(b, "n", 0, -50, 1920, 1080, 40, true);
+    expect(r.t).toBe(50);                  // dragged top edge -50
+    expect(r.b).toBe(350);                 // opposite edge mirrored +50
+    expect(cy(r)).toBeCloseTo(cy(b), 5);
+  });
+
+  it("symmetric stops at min width WITHOUT sliding the center", () => {
+    const b = { l: 100, t: 100, r: 300, b: 300 }; // center x = 200, width 200
+    // collapse 'e' inward hugely; min width 40 → half-width 20 → l=180, r=220
+    const r = applyResize(b, "e", -10000, 0, 1920, 1080, 40, true);
+    expect(r.r - r.l).toBeGreaterThanOrEqual(40);
+    expect(r.r - r.l).toBeCloseTo(40, 5);
+    expect(cx(r)).toBeCloseTo(200, 5);     // center did NOT slide
+    expect(r.l).toBe(180); expect(r.r).toBe(220);
+  });
+
+  it("symmetric corner 'se' applies shared delta on both axes, center fixed", () => {
+    const b = { l: 100, t: 100, r: 300, b: 300 };
+    const r = applyResize(b, "se", 30, 20, 1920, 1080, 40, true);
+    expect(r.r).toBe(330); expect(r.l).toBe(70);  // x mirrored
+    expect(r.b).toBe(320); expect(r.t).toBe(80);  // y mirrored
+    expect(cx(r)).toBeCloseTo(cx(b), 5);
+    expect(cy(r)).toBeCloseTo(cy(b), 5);
+  });
+
+  it("default (symmetric=false) is unchanged from per-side behavior", () => {
+    const b = { l: 100, t: 100, r: 300, b: 300 };
+    expect(applyResize(b, "e", 40, 0, 1920, 1080)).toEqual(applyResize(b, "e", 40, 0, 1920, 1080, 40, false));
+    expect(applyResize(b, "e", 40, 0, 1920, 1080, 40, false)).toEqual({ l: 100, t: 100, r: 340, b: 300 });
+  });
+});

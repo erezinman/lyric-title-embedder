@@ -68,7 +68,27 @@ export function applyMove(box: Box, dx: number, dy: number, W: number, H: number
 }
 
 export function applyResize(box: Box, handle: string, dx: number, dy: number,
-                            W: number, H: number, min = 40): Box {
+                            W: number, H: number, min = 40, symmetric = false): Box {
+  // Q2 — symmetric (Shift): apply one shared delta to BOTH opposing margins,
+  // keeping the center fixed; clamp the half-extent at min/2 so collapsing past
+  // the minimum width stops without sliding the center.
+  if (symmetric) {
+    let { l, t, r, b } = box;
+    if (handle.includes("w") || handle.includes("e")) {
+      const cx = (l + r) / 2;
+      // signed outward movement of the dragged edge from the center
+      const half = handle.includes("e") ? (r + dx) - cx : cx - (l + dx);
+      const h = Math.max(min / 2, half);
+      l = cx - h; r = cx + h;
+    }
+    if (handle.includes("n") || handle.includes("s")) {
+      const cy = (t + b) / 2;
+      const half = handle.includes("s") ? (b + dy) - cy : cy - (t + dy);
+      const h = Math.max(min / 2, half);
+      t = cy - h; b = cy + h;
+    }
+    return { l, t, r, b };
+  }
   let { l, t, r, b } = box;
   if (handle.includes("w")) l = clamp(l + dx, 0, r - min);
   if (handle.includes("e")) r = clamp(r + dx, l + min, W);

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, fireEvent } from "@testing-library/react";
 import { PreviewStage } from "./PreviewStage";
-import type { PlacementState } from "../../model/bbox";
+import { boxFromState, marginsFromBox, applyResize, type PlacementState } from "../../model/bbox";
 
 const placement: PlacementState = { align: 2, play_w: 1920, play_h: 1080,
   margin_l: 80, margin_r: 80, margin_v: 60, pos: null };
@@ -88,6 +88,65 @@ describe("PreviewStage drag", () => {
     const { onPlacement, box } = setup();
     fireEvent.pointerDown(box, { clientX: 200, clientY: 400, button: 0 });
     fireEvent.pointerUp(window, { clientX: 201, clientY: 400 });
+    expect(onPlacement).not.toHaveBeenCalled();
+  });
+});
+
+// Q2 — Shift = symmetric resize: one shared delta to both opposing margins,
+// center fixed; min-width center-stop; default per-side unaffected; Shift+Esc cancel.
+describe("PreviewStage Q2 symmetric resize (Shift)", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  const W = 1920, H = 1080, SCALE = 0.5;
+  const scr = (canvasDelta: number) => canvasDelta * SCALE;
+  const handle = (c: HTMLElement, h: string) => c.querySelector(`.bbox .${h}`) as HTMLElement;
+
+  it("Shift+'e' resize dispatches symmetric margins (center fixed: both l and r move)", () => {
+    const { onPlacement, container } = setup();
+    const b0 = boxFromState(placement);
+    const e = handle(container, "e");
+    fireEvent.pointerDown(e, { clientX: 480, clientY: 412, button: 0, shiftKey: true });
+    fireEvent.pointerMove(window, { clientX: 480 + scr(60), clientY: 412, shiftKey: true });
+    fireEvent.pointerUp(window, { clientX: 480 + scr(60), clientY: 412, shiftKey: true });
+    const expected = marginsFromBox(applyResize(b0, "e", 60, 0, W, H, 40, true), placement);
+    expect(onPlacement).toHaveBeenCalledTimes(1);
+    expect(onPlacement.mock.calls[0][0]).toEqual(expected);
+    // both margins changed symmetrically (center fixed): margin_l decreased, margin_r decreased
+    expect(expected.margin_l).toBeLessThan(placement.margin_l);
+    expect(expected.margin_r).toBeLessThan(placement.margin_r);
+  });
+
+  it("Shift symmetric stops at min width without sliding the center", () => {
+    const { onPlacement, container } = setup();
+    const b0 = boxFromState(placement);
+    const e = handle(container, "e");
+    fireEvent.pointerDown(e, { clientX: 480, clientY: 412, button: 0, shiftKey: true });
+    fireEvent.pointerMove(window, { clientX: 480 - scr(5000), clientY: 412, shiftKey: true });
+    fireEvent.pointerUp(window, { clientX: 480 - scr(5000), clientY: 412, shiftKey: true });
+    const oracle = applyResize(b0, "e", -5000, 0, W, H, 40, true);
+    expect(oracle.r - oracle.l).toBeCloseTo(40, 5);
+    expect((oracle.l + oracle.r) / 2).toBeCloseTo((b0.l + b0.r) / 2, 5); // center fixed
+    expect(onPlacement.mock.calls[0][0]).toEqual(marginsFromBox(oracle, placement));
+  });
+
+  it("without Shift the 'e' resize is the default per-side behavior", () => {
+    const { onPlacement, container } = setup();
+    const b0 = boxFromState(placement);
+    const e = handle(container, "e");
+    fireEvent.pointerDown(e, { clientX: 480, clientY: 412, button: 0 });
+    fireEvent.pointerMove(window, { clientX: 480 + scr(60), clientY: 412 });
+    fireEvent.pointerUp(window, { clientX: 480 + scr(60), clientY: 412 });
+    const expected = marginsFromBox(applyResize(b0, "e", 60, 0, W, H), placement);
+    expect(onPlacement.mock.calls[0][0]).toEqual(expected);
+    expect(expected.margin_l).toBe(placement.margin_l); // left untouched
+  });
+
+  it("Shift+Esc cancels a symmetric resize — nothing dispatched", () => {
+    const { onPlacement, container } = setup();
+    const e = handle(container, "e");
+    fireEvent.pointerDown(e, { clientX: 480, clientY: 412, button: 0, shiftKey: true });
+    fireEvent.pointerMove(window, { clientX: 480 + scr(60), clientY: 412, shiftKey: true });
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.pointerUp(window, { clientX: 480 + scr(60), clientY: 412, shiftKey: true });
     expect(onPlacement).not.toHaveBeenCalled();
   });
 });

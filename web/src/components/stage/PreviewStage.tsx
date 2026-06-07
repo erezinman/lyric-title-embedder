@@ -204,14 +204,16 @@ export function PreviewStage({
     setPreview(startBox);
     setReadout({ x: e.clientX, y: e.clientY });
 
-    const compute = (e2: { clientX: number; clientY: number }): Box => {
+    const compute = (e2: { clientX: number; clientY: number; shiftKey?: boolean }): Box => {
       const d = dragRef.current!;
       const scale = (stageRef.current?.getBoundingClientRect().width || Wc) / Wc;
       const dx = (e2.clientX - d.x0) / scale;
       const dy = (e2.clientY - d.y0) / scale;
+      // Q2: Shift held during a handle resize = symmetric (both opposing margins
+      // share one delta, center fixed). Read live so toggling Shift mid-drag works.
       return d.mode === "move"
         ? applyMove(d.start, dx, dy, Wc, Hc)
-        : applyResize(d.start, d.mode, dx, dy, Wc, Hc);
+        : applyResize(d.start, d.mode, dx, dy, Wc, Hc, 40, !!e2.shiftKey);
     };
 
     const onPointermove = (e2: PointerEvent) => {
