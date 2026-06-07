@@ -149,10 +149,14 @@ describe("PreviewStage audit — word selection", () => {
 describe("PreviewStage audit — body drag (4 directions)", () => {
   const b0 = boxFromState(base);
 
+  // Q4: snap is now always-on during a placement drag. These tests assert the
+  // PURE drag math (applyMove/applyResize) against the bbox oracle, so they hold
+  // Alt (the documented snap-bypass) to isolate the geometry from the snap layer.
+  // The snap layer has its own coverage in PreviewStage.drag.test.tsx + bbox.test.ts.
   const dragBody = (s: ReturnType<typeof setup>, sx: number, sy: number) => {
-    fireEvent.pointerDown(s.box(), { clientX: 400, clientY: 300, button: 0 });
-    fireEvent.pointerMove(window, { clientX: 400 + sx, clientY: 300 + sy });
-    fireEvent.pointerUp(window, { clientX: 400 + sx, clientY: 300 + sy });
+    fireEvent.pointerDown(s.box(), { clientX: 400, clientY: 300, button: 0, altKey: true });
+    fireEvent.pointerMove(window, { clientX: 400 + sx, clientY: 300 + sy, altKey: true });
+    fireEvent.pointerUp(window, { clientX: 400 + sx, clientY: 300 + sy, altKey: true });
   };
 
   it("B-09 — drag RIGHT: margins == marginsFromBox(applyMove(+canvas,0))", () => {
@@ -220,9 +224,9 @@ describe("PreviewStage audit — body drag (4 directions)", () => {
     mockRect(r.container);
     // drag 1: +40 canvas right
     let box = r.container.querySelector(".bbox") as HTMLElement;
-    fireEvent.pointerDown(box, { clientX: 400, clientY: 300, button: 0 });
-    fireEvent.pointerMove(window, { clientX: 400 + scr(40), clientY: 300 });
-    fireEvent.pointerUp(window, { clientX: 400 + scr(40), clientY: 300 });
+    fireEvent.pointerDown(box, { clientX: 400, clientY: 300, button: 0, altKey: true });
+    fireEvent.pointerMove(window, { clientX: 400 + scr(40), clientY: 300, altKey: true });
+    fireEvent.pointerUp(window, { clientX: 400 + scr(40), clientY: 300, altKey: true });
     const first = onPlacement.mock.calls[0][0]; // {margin_l:120,...}
     expect(first).toEqual(marginsFromBox(applyMove(b0, 40, 0, W, H), base));
 
@@ -233,9 +237,9 @@ describe("PreviewStage audit — body drag (4 directions)", () => {
 
     // drag 2: -40 canvas left from the echoed box
     box = r.container.querySelector(".bbox") as HTMLElement;
-    fireEvent.pointerDown(box, { clientX: 400, clientY: 300, button: 0 });
-    fireEvent.pointerMove(window, { clientX: 400 - scr(40), clientY: 300 });
-    fireEvent.pointerUp(window, { clientX: 400 - scr(40), clientY: 300 });
+    fireEvent.pointerDown(box, { clientX: 400, clientY: 300, button: 0, altKey: true });
+    fireEvent.pointerMove(window, { clientX: 400 - scr(40), clientY: 300, altKey: true });
+    fireEvent.pointerUp(window, { clientX: 400 - scr(40), clientY: 300, altKey: true });
     const second = onPlacement.mock.calls[1][0];
     const expectedBack = marginsFromBox(applyMove(boxFromState(echoed), -40, 0, W, H), echoed);
     expect(second).toEqual(expectedBack);
@@ -264,9 +268,9 @@ describe("PreviewStage audit — body drag (4 directions)", () => {
     // drag 1: +100 canvas right — box width 1760, max l = 160, so r hits the wall (1920)
     // applyMove clamps: l=160 (not 180), r=1920, margin_r=0, margin_l=160
     let box = r.container.querySelector(".bbox") as HTMLElement;
-    fireEvent.pointerDown(box, { clientX: 400, clientY: 300, button: 0 });
-    fireEvent.pointerMove(window, { clientX: 400 + scr(100), clientY: 300 });
-    fireEvent.pointerUp(window, { clientX: 400 + scr(100), clientY: 300 });
+    fireEvent.pointerDown(box, { clientX: 400, clientY: 300, button: 0, altKey: true });
+    fireEvent.pointerMove(window, { clientX: 400 + scr(100), clientY: 300, altKey: true });
+    fireEvent.pointerUp(window, { clientX: 400 + scr(100), clientY: 300, altKey: true });
     const first = onPlacement.mock.calls[0][0];
     // Oracle: applyMove clamps l to min(80+100,160)=160 → {ml:160, mr:0, mv:60}
     expect(first).toEqual(marginsFromBox(applyMove(b0, 100, 0, W, H), base));
@@ -281,9 +285,9 @@ describe("PreviewStage audit — body drag (4 directions)", () => {
     // From l=160, drag -100 → l=clamp(160-100,0,160)=60; r=1820 → margin_r=100
     // This is intentionally NOT the original {80,80} — the clamp ate the overshoot
     box = r.container.querySelector(".bbox") as HTMLElement;
-    fireEvent.pointerDown(box, { clientX: 400, clientY: 300, button: 0 });
-    fireEvent.pointerMove(window, { clientX: 400 - scr(100), clientY: 300 });
-    fireEvent.pointerUp(window, { clientX: 400 - scr(100), clientY: 300 });
+    fireEvent.pointerDown(box, { clientX: 400, clientY: 300, button: 0, altKey: true });
+    fireEvent.pointerMove(window, { clientX: 400 - scr(100), clientY: 300, altKey: true });
+    fireEvent.pointerUp(window, { clientX: 400 - scr(100), clientY: 300, altKey: true });
     const second = onPlacement.mock.calls[1][0];
     // Oracle: applyMove from echoed box, -100 → {ml:60, mr:100, mv:60}
     const echoedBox = boxFromState(echoed);
@@ -302,11 +306,12 @@ describe("PreviewStage audit — resize handles", () => {
   const b0 = boxFromState(base);
   const HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 
+  // Q4: hold Alt to bypass the always-on snap and assert pure resize geometry.
   const dragHandle = (s: ReturnType<typeof setup>, h: string, cdx: number, cdy: number) => {
     const el = s.handle(h);
-    fireEvent.pointerDown(el, { clientX: 480, clientY: 412, button: 0 });
-    fireEvent.pointerMove(window, { clientX: 480 + scr(cdx), clientY: 412 + scr(cdy) });
-    fireEvent.pointerUp(window, { clientX: 480 + scr(cdx), clientY: 412 + scr(cdy) });
+    fireEvent.pointerDown(el, { clientX: 480, clientY: 412, button: 0, altKey: true });
+    fireEvent.pointerMove(window, { clientX: 480 + scr(cdx), clientY: 412 + scr(cdy), altKey: true });
+    fireEvent.pointerUp(window, { clientX: 480 + scr(cdx), clientY: 412 + scr(cdy), altKey: true });
   };
 
   for (const h of HANDLES) {
@@ -360,9 +365,9 @@ describe("PreviewStage audit — resize handles", () => {
     };
     mockRect(r.container);
     let w = r.container.querySelector(".bbox .w") as HTMLElement;
-    fireEvent.pointerDown(w, { clientX: 40, clientY: 412, button: 0 });
-    fireEvent.pointerMove(window, { clientX: 40 + scr(40), clientY: 412 });
-    fireEvent.pointerUp(window, { clientX: 40 + scr(40), clientY: 412 });
+    fireEvent.pointerDown(w, { clientX: 40, clientY: 412, button: 0, altKey: true });
+    fireEvent.pointerMove(window, { clientX: 40 + scr(40), clientY: 412, altKey: true });
+    fireEvent.pointerUp(window, { clientX: 40 + scr(40), clientY: 412, altKey: true });
     const first = onPlacement.mock.calls[0][0];
     expect(first).toEqual(marginsFromBox(applyResize(boxFromState(base), "w", 40, 0, W, H), base));
 
@@ -370,9 +375,9 @@ describe("PreviewStage audit — resize handles", () => {
     r.rerender(renderAt(echoed));
     mockRect(r.container);
     w = r.container.querySelector(".bbox .w") as HTMLElement;
-    fireEvent.pointerDown(w, { clientX: 40, clientY: 412, button: 0 });
-    fireEvent.pointerMove(window, { clientX: 40 - scr(40), clientY: 412 });
-    fireEvent.pointerUp(window, { clientX: 40 - scr(40), clientY: 412 });
+    fireEvent.pointerDown(w, { clientX: 40, clientY: 412, button: 0, altKey: true });
+    fireEvent.pointerMove(window, { clientX: 40 - scr(40), clientY: 412, altKey: true });
+    fireEvent.pointerUp(window, { clientX: 40 - scr(40), clientY: 412, altKey: true });
     const second = onPlacement.mock.calls[1][0];
     expect(second).toEqual(marginsFromBox(applyResize(boxFromState(echoed), "w", -40, 0, W, H), echoed));
     expect(second).toEqual({ margin_l: 80, margin_r: 80, margin_v: 60 });
@@ -468,9 +473,9 @@ describe("PreviewStage audit — pin mode", () => {
 
   it("B-27 — pin drag commits pos == anchorXY(applyMove(...))", () => {
     const s = setup(pin);
-    fireEvent.pointerDown(s.box(), { clientX: 480, clientY: 510, button: 0 });
-    fireEvent.pointerMove(window, { clientX: 480 + scr(40), clientY: 510 + scr(-60) });
-    fireEvent.pointerUp(window, { clientX: 480 + scr(40), clientY: 510 + scr(-60) });
+    fireEvent.pointerDown(s.box(), { clientX: 480, clientY: 510, button: 0, altKey: true });
+    fireEvent.pointerMove(window, { clientX: 480 + scr(40), clientY: 510 + scr(-60), altKey: true });
+    fireEvent.pointerUp(window, { clientX: 480 + scr(40), clientY: 510 + scr(-60), altKey: true });
     const expectedPos = anchorXY(applyMove(pb, 40, -60, W, H), pin.align);
     expect(s.onPlacement).toHaveBeenCalledTimes(1);
     expect(s.onPlacement.mock.calls[0][0]).toEqual({ pos: expectedPos });
@@ -512,9 +517,9 @@ describe("PreviewStage audit — pin mode", () => {
     };
     mockRect(r.container);
     let box = r.container.querySelector(".pinbox") as HTMLElement;
-    fireEvent.pointerDown(box, { clientX: 480, clientY: 510, button: 0 });
-    fireEvent.pointerMove(window, { clientX: 480 + scr(40), clientY: 510 });
-    fireEvent.pointerUp(window, { clientX: 480 + scr(40), clientY: 510 });
+    fireEvent.pointerDown(box, { clientX: 480, clientY: 510, button: 0, altKey: true });
+    fireEvent.pointerMove(window, { clientX: 480 + scr(40), clientY: 510, altKey: true });
+    fireEvent.pointerUp(window, { clientX: 480 + scr(40), clientY: 510, altKey: true });
     const first = onPlacement.mock.calls[0][0];
     expect(first).toEqual({ pos: anchorXY(applyMove(pb, 40, 0, W, H), pin.align) });
 
@@ -522,9 +527,9 @@ describe("PreviewStage audit — pin mode", () => {
     r.rerender(renderAt(echoed));
     mockRect(r.container);
     box = r.container.querySelector(".pinbox") as HTMLElement;
-    fireEvent.pointerDown(box, { clientX: 480, clientY: 510, button: 0 });
-    fireEvent.pointerMove(window, { clientX: 480 - scr(40), clientY: 510 });
-    fireEvent.pointerUp(window, { clientX: 480 - scr(40), clientY: 510 });
+    fireEvent.pointerDown(box, { clientX: 480, clientY: 510, button: 0, altKey: true });
+    fireEvent.pointerMove(window, { clientX: 480 - scr(40), clientY: 510, altKey: true });
+    fireEvent.pointerUp(window, { clientX: 480 - scr(40), clientY: 510, altKey: true });
     const second = onPlacement.mock.calls[1][0];
     expect(second).toEqual({ pos: anchorXY(applyMove(boxFromState(echoed), -40, 0, W, H), echoed.align) });
     expect(second).toEqual({ pos: [960, 1020] });
@@ -538,8 +543,8 @@ describe("PreviewStage audit — readout chip", () => {
   const b0 = boxFromState(base);
   it("B-31 — chip L·R·V matches marginsFromBox of the live preview box", () => {
     const s = setup();
-    fireEvent.pointerDown(s.box(), { clientX: 400, clientY: 300, button: 0 });
-    fireEvent.pointerMove(window, { clientX: 400 + scr(60), clientY: 300 }); // +60 canvas x
+    fireEvent.pointerDown(s.box(), { clientX: 400, clientY: 300, button: 0, altKey: true });
+    fireEvent.pointerMove(window, { clientX: 400 + scr(60), clientY: 300, altKey: true }); // +60 canvas x
     const ro = s.container.querySelector(".drag-readout") as HTMLElement;
     const m = marginsFromBox(applyMove(b0, 60, 0, W, H), base);
     expect(ro.textContent).toBe(`L ${m.margin_l} · R ${m.margin_r} · V ${m.margin_v}`);

@@ -184,6 +184,15 @@ svg.lucide { display: block; }
 .bbox .s{left:50%;bottom:-5px;transform:translateX(-50%);cursor:ns-resize}.bbox .sw{left:-5px;bottom:-5px;cursor:nesw-resize}.bbox .w{left:-5px;top:50%;transform:translateY(-50%);cursor:ew-resize}
 .bbox .nw:hover{transform:scale(1.5)}.bbox .ne:hover{transform:scale(1.5)}.bbox .se:hover{transform:scale(1.5)}.bbox .sw:hover{transform:scale(1.5)}
 .bbox .n:hover,.bbox .s:hover{transform:translateX(-50%) scale(1.5)}.bbox .e:hover,.bbox .w:hover{transform:translateY(-50%) scale(1.5)}
+/* Q4: placement snap guides — centre + 5%/10% safe lines, shown only while a
+   drag is active (faint). The matched line brightens on lock. Ported from the
+   kit theme.css §9 (.ph-guides faint lines + .snap-vline/.snap-hline lock). */
+.snap-guides { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.snap-guide-line { position: absolute; pointer-events: none; }
+.snap-guide-line.vline { top: 0; bottom: 0; width: 0; border-left: 1px dashed color-mix(in srgb, var(--cyan) 20%, transparent); }
+.snap-guide-line.hline { left: 0; right: 0; height: 0; border-top: 1px dashed color-mix(in srgb, var(--cyan) 20%, transparent); }
+.snap-guide-line.vline.locked { border-left: 1px solid var(--cyan); box-shadow: 0 0 6px color-mix(in srgb, var(--cyan) 70%, transparent); }
+.snap-guide-line.hline.locked { border-top: 1px solid var(--cyan); box-shadow: 0 0 6px color-mix(in srgb, var(--cyan) 70%, transparent); }
 /* pinned (\pos) crosshair */
 .pinbox { position: absolute; width: 34px; height: 34px; transform: translate(-50%, -50%); z-index: 4; cursor: grab; }
 .pinbox.dragging { cursor: grabbing; }

@@ -51,9 +51,10 @@ describe("PreviewStage drag", () => {
 
   it("body drag dispatches margins once on release (margin mode)", () => {
     const { onPlacement, box } = setup();
-    fireEvent.pointerDown(box, { clientX: 200, clientY: 400, button: 0 });
-    fireEvent.pointerMove(window, { clientX: 250, clientY: 400 });   // +50 screen px / scale 0.5 => +100 canvas
-    fireEvent.pointerUp(window, { clientX: 250, clientY: 400 });
+    // Alt bypasses the always-on Q4 snap so this asserts the raw move geometry.
+    fireEvent.pointerDown(box, { clientX: 200, clientY: 400, button: 0, altKey: true });
+    fireEvent.pointerMove(window, { clientX: 250, clientY: 400, altKey: true });   // +50 screen px / scale 0.5 => +100 canvas
+    fireEvent.pointerUp(window, { clientX: 250, clientY: 400, altKey: true });
     expect(onPlacement).toHaveBeenCalledTimes(1);
     const partial = onPlacement.mock.calls[0][0];
     // Derivation (W=1920,H=1080, align=2 bottom-center, scale=960/1920=0.5):
@@ -119,9 +120,10 @@ describe("PreviewStage Q2 symmetric resize (Shift)", () => {
     const { onPlacement, container } = setup();
     const b0 = boxFromState(placement);
     const e = handle(container, "e");
-    fireEvent.pointerDown(e, { clientX: 480, clientY: 412, button: 0, shiftKey: true });
-    fireEvent.pointerMove(window, { clientX: 480 - scr(5000), clientY: 412, shiftKey: true });
-    fireEvent.pointerUp(window, { clientX: 480 - scr(5000), clientY: 412, shiftKey: true });
+    // Alt bypasses Q4 snap so the collapsed edge isn't pulled to the centre line.
+    fireEvent.pointerDown(e, { clientX: 480, clientY: 412, button: 0, shiftKey: true, altKey: true });
+    fireEvent.pointerMove(window, { clientX: 480 - scr(5000), clientY: 412, shiftKey: true, altKey: true });
+    fireEvent.pointerUp(window, { clientX: 480 - scr(5000), clientY: 412, shiftKey: true, altKey: true });
     const oracle = applyResize(b0, "e", -5000, 0, W, H, 40, true);
     expect(oracle.r - oracle.l).toBeCloseTo(40, 5);
     expect((oracle.l + oracle.r) / 2).toBeCloseTo((b0.l + b0.r) / 2, 5); // center fixed
@@ -148,5 +150,52 @@ describe("PreviewStage Q2 symmetric resize (Shift)", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     fireEvent.pointerUp(window, { clientX: 480 + scr(60), clientY: 412, shiftKey: true });
     expect(onPlacement).not.toHaveBeenCalled();
+  });
+});
+
+// Q4 — placement snap + safe-area guides. Stage scale 0.5 (960/1920); canvas px
+// = screen px * 2. base box: align-2 bottom-center l=80,r=1840,b=1020,t=825.6.
+describe("PreviewStage Q4 snap + safe-area guides", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  const SCALE = 0.5;
+  const scr = (canvasDelta: number) => canvasDelta * SCALE;
+  const handle = (c: HTMLElement, h: string) => c.querySelector(`.bbox .${h}`) as HTMLElement;
+
+  it("guides render ONLY while a drag is active", () => {
+    const { container, box } = setup();
+    expect(container.querySelector(".snap-guides")).toBeNull();
+    fireEvent.pointerDown(box, { clientX: 400, clientY: 300, button: 0 });
+    fireEvent.pointerMove(window, { clientX: 430, clientY: 320 });
+    expect(container.querySelector(".snap-guides")).toBeTruthy();
+    // faint guide lines present
+    expect(container.querySelectorAll(".snap-guide-line").length).toBeGreaterThan(0);
+    fireEvent.pointerUp(window, { clientX: 430, clientY: 320 });
+    expect(container.querySelector(".snap-guides")).toBeNull();
+  });
+
+  it("'e' edge locks to the 90% safe line within tolerance; brightened class on lock", () => {
+    const { onPlacement, container } = setup();
+    // base r = 1840; drag e LEFT to ~1735 (near 1728 = 90%): canvas dx = -105
+    const e = handle(container, "e");
+    fireEvent.pointerDown(e, { clientX: 480, clientY: 412, button: 0 });
+    fireEvent.pointerMove(window, { clientX: 480 + scr(-105), clientY: 412 });
+    // a brightened (locked) vertical guide is present mid-drag
+    expect(container.querySelector(".snap-guide-line.locked")).toBeTruthy();
+    fireEvent.pointerUp(window, { clientX: 480 + scr(-105), clientY: 412 });
+    // committed margin_r reflects the SNAPPED right edge (1728 → margin_r 192)
+    const m = onPlacement.mock.calls[0][0];
+    expect(m.margin_r).toBe(1920 - 1728);
+  });
+
+  it("Alt bypasses snapping: no lock, committed value is the raw edge", () => {
+    const { onPlacement, container } = setup();
+    const e = handle(container, "e");
+    fireEvent.pointerDown(e, { clientX: 480, clientY: 412, button: 0, altKey: true });
+    fireEvent.pointerMove(window, { clientX: 480 + scr(-105), clientY: 412, altKey: true });
+    expect(container.querySelector(".snap-guide-line.locked")).toBeNull();
+    fireEvent.pointerUp(window, { clientX: 480 + scr(-105), clientY: 412, altKey: true });
+    // raw right edge 1840-105 = 1735 → margin_r 185 (NOT 192)
+    const m = onPlacement.mock.calls[0][0];
+    expect(m.margin_r).toBe(1920 - 1735);
   });
 });

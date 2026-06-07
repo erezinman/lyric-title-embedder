@@ -1,8 +1,9 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { getFrameUrl } from "../../api/client";
 import { initJassub, type JassubClient } from "../../preview/jassubClient";
-import { boxFromState, marginsFromBox, anchorXY, applyMove, applyResize, posActive, alignRow, alignCol } from "../../model/bbox";
-import type { Box, PlacementState } from "../../model/bbox";
+import { boxFromState, marginsFromBox, anchorXY, applyMove, applyResize, posActive, alignRow, alignCol,
+  snapPlacement, snapPoint, snapTargetsX, snapTargetsY } from "../../model/bbox";
+import type { Box, PlacementState, SnapLocks } from "../../model/bbox";
 
 // Live preview renders the real .ass via jassub (libass-in-wasm). Disable with
 // VITE_JASSUB=0 (tests/e2e that don't want wasm). Default ON.
@@ -53,6 +54,9 @@ export function PreviewStage({
 }: PreviewStageProps) {
   const [preview, setPreview] = useState<Box | null>(null);
   const [readout, setReadout] = useState<{ x: number; y: number } | null>(null);
+  // Q4: which canvas centre/safe lines the dragged edge/point locked onto (for
+  // brightening the matched guide). null per-axis = no lock.
+  const [locks, setLocks] = useState<SnapLocks>({ x: null, y: null });
   // Visual band height (canvas px), session-local. The model only persists the
   // anchored margin; without this, resizing the non-anchored edge would snap
   // back to the default 18% band as soon as the placement push lands.
@@ -205,23 +209,36 @@ export function PreviewStage({
     setPreview(startBox);
     setReadout({ x: e.clientX, y: e.clientY });
 
-    const compute = (e2: { clientX: number; clientY: number; shiftKey?: boolean }): Box => {
+    // compute the (snap-adjusted) preview box + which guide lines locked.
+    // Q4: snap the dragged edge/point to centre + 5%/10% safe lines (Alt bypasses).
+    const compute = (e2: { clientX: number; clientY: number; shiftKey?: boolean; altKey?: boolean }): { box: Box; locks: SnapLocks } => {
       const d = dragRef.current!;
       const scale = (stageRef.current?.getBoundingClientRect().width || Wc) / Wc;
       const dx = (e2.clientX - d.x0) / scale;
       const dy = (e2.clientY - d.y0) / scale;
       // Q2: Shift held during a handle resize = symmetric (both opposing margins
       // share one delta, center fixed). Read live so toggling Shift mid-drag works.
-      return d.mode === "move"
+      const raw = d.mode === "move"
         ? applyMove(d.start, dx, dy, Wc, Hc)
         : applyResize(d.start, d.mode, dx, dy, Wc, Hc, 40, !!e2.shiftKey);
+      const bypass = !!e2.altKey;
+      if (posActive(placementRef.current)) {
+        // pin: snap the anchor point, shift the box to keep the anchor on it
+        const pl2 = placementRef.current;
+        const [ax0, ay0] = anchorXY(raw, pl2.align);
+        const sp = snapPoint(ax0, ay0, Wc, Hc, { bypass });
+        return { box: applyMove(raw, sp.x - ax0, sp.y - ay0, Wc, Hc), locks: sp.locks };
+      }
+      return snapPlacement(raw, d.mode, Wc, Hc, { bypass });
     };
 
     const onPointermove = (e2: PointerEvent) => {
       const d = dragRef.current;
       if (!d || d.cancelled) return;
       if (Math.abs(e2.clientX - d.x0) >= 3 || Math.abs(e2.clientY - d.y0) >= 3) d.moved = true;
-      setPreview(compute(e2));
+      const { box: b, locks: lk } = compute(e2);
+      setPreview(b);
+      setLocks(lk);
       setReadout({ x: e2.clientX, y: e2.clientY });
     };
 
@@ -229,7 +246,7 @@ export function PreviewStage({
       const d = dragRef.current;
       if (!d) return;
       if (d.moved && !d.cancelled) {
-        const final = compute(e2);
+        const final = compute(e2).box;
         const pl2 = placementRef.current;
         if (posActive(pl2)) {
           onPlacementRef.current({ pos: anchorXY(final, pl2.align) });
@@ -243,6 +260,7 @@ export function PreviewStage({
       }
       dragRef.current = null;
       setPreview(null);
+      setLocks({ x: null, y: null });
       setReadout(null);
       removeListeners();
     };
@@ -255,6 +273,7 @@ export function PreviewStage({
         d.cancelled = true;
         dragRef.current = null;
         setPreview(null);
+        setLocks({ x: null, y: null });
         setReadout(null);
         removeListeners();
       }
@@ -263,6 +282,7 @@ export function PreviewStage({
     const onPointercancel = () => {
       dragRef.current = null;
       setPreview(null);
+      setLocks({ x: null, y: null });
       setReadout(null);
       removeListeners();
     };
@@ -339,6 +359,22 @@ export function PreviewStage({
               Render exact frame @ t
             </button>
           </>
+        )}
+        {/* Q4: snap guides — centre + 5%/10% safe-area lines. Rendered ONLY while a
+            placement drag is active (faint); the matched line brightens on lock. */}
+        {preview && (
+          <div className="snap-guides">
+            {snapTargetsX(W).map((x) => (
+              <span key={`x${x}`}
+                className={"snap-guide-line vline" + (locks.x === x ? " locked" : "")}
+                style={{ left: pct(x, W) }} />
+            ))}
+            {snapTargetsY(H).map((y) => (
+              <span key={`y${y}`}
+                className={"snap-guide-line hline" + (locks.y === y ? " locked" : "")}
+                style={{ top: pct(y, H) }} />
+            ))}
+          </div>
         )}
         {pinned ? (
           <div

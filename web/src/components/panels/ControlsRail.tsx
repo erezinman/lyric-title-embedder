@@ -65,9 +65,10 @@ export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos, o
       {/* The "Animation presets — Coming soon" stub was removed; the real entry is
           the Inspector's AnimSection. Point at it rather than leaving a dead gap. */}
       <div className="sec-t spacer"><Icon name="sparkles" size={13} />Animations</div>
-      <button type="button" className="rail-link" onClick={() => onOpenInspector?.()}>
+      <button type="button" className="rail-link" onClick={() => onOpenInspector?.()}
+        title="Open the Inspector to edit animations">
         <Icon name="sparkles" size={13} />
-        Edit animations in the Inspector
+        Edit animations
         <Icon name="fwd" size={12} />
       </button>
     </div>

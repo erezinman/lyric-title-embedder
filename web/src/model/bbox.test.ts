@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { boxFromState, marginsFromBox, anchorXY, applyMove, applyResize, posActive } from "./bbox";
+import { boxFromState, marginsFromBox, anchorXY, applyMove, applyResize, posActive,
+  snapTargetsX, snapTargetsY, snapPlacement, snapPoint } from "./bbox";
 import type { PlacementState } from "./bbox";
 
 const base: PlacementState = { align: 2, play_w: 1920, play_h: 1080,
@@ -121,5 +122,72 @@ describe("bbox symmetric resize (Q2)", () => {
     const b = { l: 100, t: 100, r: 300, b: 300 };
     expect(applyResize(b, "e", 40, 0, 1920, 1080)).toEqual(applyResize(b, "e", 40, 0, 1920, 1080, 40, false));
     expect(applyResize(b, "e", 40, 0, 1920, 1080, 40, false)).toEqual({ l: 100, t: 100, r: 340, b: 300 });
+  });
+});
+
+// Q4 — placement snap + safe-area guide targets (2D, on margins).
+describe("bbox snap targets (Q4)", () => {
+  it("snapTargetsX = center + 5%/10%/90%/95% of width", () => {
+    expect(snapTargetsX(1920)).toEqual([96, 192, 960, 1728, 1824]);
+  });
+  it("snapTargetsY = 5%/10%/center/90%/95% of height", () => {
+    expect(snapTargetsY(1080)).toEqual([54, 108, 540, 972, 1026]);
+  });
+});
+
+describe("bbox snapPlacement (Q4)", () => {
+  const W = 1920, H = 1080;
+  const tol = 0.018 * W; // ~34.56 px in canvas space
+
+  it("resize 'e': dragged right edge locks to the nearest target within tolerance", () => {
+    // right edge at 1700 → nearest target 1728 (90%), within tol ~34.56
+    const box = { l: 80, t: 800, r: 1700, b: 1020 };
+    const { box: snapped, locks } = snapPlacement(box, "e", W, H, { tol });
+    expect(snapped.r).toBe(1728);
+    expect(snapped.l).toBe(80);       // only the dragged edge moved
+    expect(locks.x).toBe(1728);
+    expect(locks.y).toBeNull();
+  });
+
+  it("resize 'e': no lock when the edge is outside tolerance", () => {
+    const box = { l: 80, t: 800, r: 1500, b: 1020 }; // 1500 far from any target
+    const { box: snapped, locks } = snapPlacement(box, "e", W, H, { tol });
+    expect(snapped.r).toBe(1500);
+    expect(locks.x).toBeNull();
+  });
+
+  it("Alt bypass: no snap even when within tolerance", () => {
+    const box = { l: 80, t: 800, r: 1700, b: 1020 };
+    const { box: snapped, locks } = snapPlacement(box, "e", W, H, { tol, bypass: true });
+    expect(snapped.r).toBe(1700);
+    expect(locks.x).toBeNull();
+    expect(locks.y).toBeNull();
+  });
+
+  it("move: whole box shifts so the nearest reference snaps; both axes can lock", () => {
+    // center-x at 950 (→ snaps to 960, +10 shift); top at 100 (→ snaps to 108, +8 shift)
+    const box = { l: 150, t: 100, r: 1750, b: 900 }; // cx = 950
+    const { box: snapped, locks } = snapPlacement(box, "move", W, H, { tol });
+    expect((snapped.l + snapped.r) / 2).toBe(960); // center-x locked
+    expect(locks.x).toBe(960);
+    // width preserved
+    expect(snapped.r - snapped.l).toBe(1600);
+    // top edge near 108 (10%) → locks y
+    expect(snapped.t).toBe(108);
+    expect(locks.y).toBe(108);
+  });
+
+  it("pin: snapPoint locks the anchor to center/ safe targets within tol", () => {
+    const { x, y, locks } = snapPoint(955, 50, W, H, { tol });
+    expect(x).toBe(960);              // center-x
+    expect(y).toBe(54);               // 5% top
+    expect(locks.x).toBe(960);
+    expect(locks.y).toBe(54);
+  });
+
+  it("pin: Alt bypass leaves the point untouched", () => {
+    const { x, y, locks } = snapPoint(955, 50, W, H, { tol, bypass: true });
+    expect(x).toBe(955); expect(y).toBe(50);
+    expect(locks.x).toBeNull(); expect(locks.y).toBeNull();
   });
 });
