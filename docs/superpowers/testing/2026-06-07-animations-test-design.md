@@ -741,7 +741,7 @@ FINDINGS as authority.
 
 ---
 
-## 12. SPEC-GAP items (flagged, not invented)
+## 12. SPEC-GAP items — ALL RULED (product owner, 2026-06-07)
 
 - **SPEC-GAP-1 — UI `mode` field vs settled anchor+stagger.** The designer's `Animation` carries
   a literal `mode`/`step` field (HANDOFF §4); the settled model has **no `mode` field** — modes
@@ -749,28 +749,32 @@ FINDINGS as authority.
   (AM-*) assert "mode" semantics but the **stored shape** the dispatch writes
   (`{mode}` convenience field vs `{segments[].t0.anchor, stagger}`) is unresolved. Resolution
   used by this design: tests assert the **observable** timing behaviour (AE-TM-*) as ground truth
-  and assert the UI dispatch by *named mode*; the exact serialized field is left to the engine
-  spec. **Needs a ruling** before AM-02/AD-SP write exact `args.partial` paths.
+  and assert the UI dispatch by *named mode*. **RULED: literal `mode` field, stored** — the
+  Animation record carries `mode` (+ `step`/`step_unit` for sequence modes) so it round-trips
+  through save/load; the compiler expands mode → anchor+stagger at compile time; raw per-endpoint
+  anchors remain the Advanced/custom representation (mode `"custom"`/absent ⇒ anchors are
+  authoritative). AM-02/AD-SP-* assert `args.partial.mode` / `.step` / `.step_unit` literally,
+  and AE adds a persistence test: save → load → `mode` survives verbatim.
 
 - **SPEC-GAP-2 — Pop = one anim or two.** Pop maps to `scale_x + scale_y` (two channels). The
   model is "one animation = one channel" (questions §1.2). So Pop is **two** Animation records,
   or the preset is a UI grouping over two. AI-03/AI-19 assert "the correct channel(s)" abstractly;
   the count (1 vs 2 records, and whether `remove` removes both) needs the engine spec. Same for
-  Blur-in "glow" (blur + outline alpha, reconciliation §3).
+  Blur-in "glow" (blur + outline alpha, reconciliation §3). **RULED: as recommended — two
+  records sharing a `group_id`; `remove`/`restore`/`suppress` act on the whole group.**
 
 - **SPEC-GAP-3 — segment ordering: reject vs normalize.** AE-MOD-03 asserts out-of-order
   segments are rejected; the spec says segments are "ordered" but does not state whether the
   mutation layer **rejects** or **sorts**. Flagged; default assumption = reject (predictability),
-  to be confirmed.
+  **RULED: reject (as recommended).**
 
 - **SPEC-GAP-4 — stagger on a single-member scope.** AE-MOD-07: is a `stagger` on a cue-of-one /
-  global-with-one-member an error or inert? Spec is silent. Default assumption = inert (no-op),
-  to be confirmed.
+  global-with-one-member an error or inert? Spec is silent. **RULED: inert (as recommended).**
 
 - **SPEC-GAP-5 — remove/restore idempotency error codes.** AD-RM-03 / AD-RS-02: removing an
   already-tombstoned id or restoring a non-tombstoned id — error vs no-op is unspecified.
-  Default assumption = idempotent no-op (returns current state), consistent with the existing
-  toggle-style tools; to be confirmed.
+  **RULED: idempotent no-op (as recommended)** — returns current state, consistent with the
+  existing toggle-style tools.
 
 ---
 

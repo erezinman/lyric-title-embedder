@@ -123,11 +123,25 @@ interface AnimSegment {
 interface Animation {
   id: string;                // stable id — referenced by suppression
   name: string;              // preset id ("fade_in", "pop", …) or "custom"
+  group_id?: string;         // multi-channel presets (Pop = scale_x + scale_y,
+                             //   Blur-in = blur + outline alpha) are SIBLING
+                             //   records sharing a group_id; remove/restore/
+                             //   suppress act on the whole group (ruled 2026-06-07)
   channel: AnimChannel;
-  segments: AnimSegment[];   // ordered, non-overlapping WITHIN one animation;
-                             // chaining is first-class: e.g. alpha 0→50% in 20ms,
-                             // then 50→100% in 80ms = two segments
-  stagger?: AnimStagger;     // optional per-member offset on top of the anchor
+  mode?: TimingMode;         // STORED literal (ruled 2026-06-07): "percue" |
+                             //   "perline" | "together" | "cascade" | "typewriter"
+                             //   | "reverse" | "centerout" | "jitter" | "custom".
+                             //   Compiler expands mode → anchors+stagger at compile
+                             //   time; "custom"/absent ⇒ the raw per-endpoint
+                             //   anchors below are authoritative (Advanced view).
+  step?: number;             // sequence modes only (cascade/typewriter/advanced)
+  step_unit?: "ms" | "frac";
+  segments: AnimSegment[];   // ordered (out-of-order REJECTED by the mutation
+                             // layer — ruled), non-overlapping WITHIN one
+                             // animation; chaining is first-class: e.g. alpha
+                             // 0→50% in 20ms, then 50→100% in 80ms = two segments
+  stagger?: AnimStagger;     // raw representation (what `mode` compiles into);
+                             //   inert on single-member scopes (ruled)
   enabled: boolean;          // soft on/off without deleting
 }
 
