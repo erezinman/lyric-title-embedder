@@ -4,6 +4,7 @@ import { computeMove, computeResize, dragMode } from "../../model/edit";
 import type { TimeUpdate } from "../../model/edit";
 import type { Project, Token, ResolvedAnim } from "../../types";
 import { layoutStrips, stripStyle, typeColor, typeGlyph, type StripLayout } from "../../model/animStrips";
+import { collectTargets, snap, type NearLine, type SnapTarget } from "../../model/snap";
 
 export interface TrackWord {
   wid: number;
@@ -61,6 +62,14 @@ interface WordTrackProps {
   onAnimRetime?: (wid: number, aid: string, edge: "t0" | "t1", deltaMs: number) => void;
   /** override the seconds→px scale (horizontal zoom); default = areaPx/dur. */
   pxPerSecOverride?: number;
+  /** magnet snapping on? (default true). Alt held during a drag inverts it. */
+  magnet?: boolean;
+}
+
+/** active snap visualisation (lock guide + soft near-lines), in seconds. */
+interface SnapViz {
+  hit: SnapTarget | null;
+  near: NearLine[];
 }
 
 const MIN_ANIM_MS = 50; // clamp: a strip never shrinks below 50ms (HANDOFF §3)
@@ -75,6 +84,11 @@ interface DragState {
   resizeTok: Token | null;
   edge: "start" | "end";
   movedEnough: boolean;
+  // snap inputs (seconds)
+  exclude: Set<number>; // dragged block wids (never snap an edge to itself)
+  groupS: number; // min start of the moving group (for move-snap)
+  groupE: number; // max end of the moving group
+  edgeSec: number; // original time of the resized edge (for resize-snap)
 }
 
 // Expanded cues timeline: one labelled lane per layout event, cue blocks
@@ -99,12 +113,17 @@ export function WordTrack({
   onCollapseOverflow,
   onAnimRetime,
   pxPerSecOverride,
+  magnet = true,
 }: WordTrackProps) {
   const progress = dur ? time / dur : 0;
   const lanes = (events ?? []).filter((ev) => words.some((w) => w.gi === ev.gi));
 
   // preview: map from wid -> { start, end } during live drag
   const [preview, setPreview] = useState<Map<number, { start: number; end: number }>>(new Map());
+  // snap visualisation while a drag is locked / near a candidate
+  const [snapViz, setSnapViz] = useState<SnapViz | null>(null);
+  // source-linking (§11): the hovered group/global-sourced anim id, if any.
+  const [hoverSid, setHoverSid] = useState<string>("");
 
   // measured track-area width (px) for the strip seconds→px scale + MIN_PX glyph
   // threshold. Falls back to a nominal width before layout / in jsdom.
@@ -123,6 +142,40 @@ export function WordTrack({
   durRef.current = dur;
   const onRetimeRef = useRef(onRetime);
   onRetimeRef.current = onRetime;
+  // refs for snap inputs (read inside stable drag closures)
+  const wordsRef = useRef(words);
+  wordsRef.current = words;
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
+  const timeRef = useRef(time);
+  timeRef.current = time;
+  const magnetRef = useRef(magnet);
+  magnetRef.current = magnet;
+
+  /** event boundary spans (min start / max end of each event's words) in seconds. */
+  const eventSpans = useCallback((): { s: number; e: number }[] => {
+    const ws = wordsRef.current;
+    const out: { s: number; e: number }[] = [];
+    for (const ev of eventsRef.current) {
+      const mine = ws.filter((w) => w.gi === ev.gi);
+      if (!mine.length) continue;
+      out.push({ s: Math.min(...mine.map((w) => w.s)), e: Math.max(...mine.map((w) => w.e)) });
+    }
+    return out;
+  }, []);
+
+  /** all snap targets for a block drag, excluding the dragged block wids. */
+  const blockTargets = useCallback(
+    (exclude: Set<number>): SnapTarget[] =>
+      collectTargets(
+        wordsRef.current.map((w) => ({ wid: w.wid, s: w.s, e: w.e })),
+        timeRef.current,
+        eventSpans(),
+        { start: 0, end: durRef.current },
+        exclude,
+      ),
+    [eventSpans],
+  );
 
   // drag state ref
   const dragRef = useRef<DragState | null>(null);
@@ -151,6 +204,40 @@ export function WordTrack({
     return () => removeListeners();
   }, [removeListeners]);
 
+  // Compute the magnet-corrected dt for a raw dt, plus the snap visualisation.
+  // Group move snaps by ONE delta (kit: pick the better of the two raw edges);
+  // resize snaps the single moving edge. Returns { dt, viz }.
+  const applySnap = useCallback(
+    (drag: DragState, rawDt: number, altHeld: boolean): { dt: number; viz: SnapViz | null } => {
+      const pxPerSec = drag.areaPx / durRef.current;
+      const opts = { enabled: magnetRef.current, altHeld };
+      const targets = blockTargets(drag.exclude);
+
+      if (drag.mode === "move") {
+        const rawS = drag.groupS + rawDt;
+        const rawE = drag.groupE + rawDt;
+        const a = snap(rawS, targets, pxPerSec, opts);
+        const b = snap(rawE, targets, pxPerSec, opts);
+        const da = a.target ? Math.abs(a.sec - rawS) : Infinity;
+        const db = b.target ? Math.abs(b.sec - rawE) : Infinity;
+        let corr = 0;
+        let hit: SnapTarget | null = null;
+        if (a.target && da <= db) { corr = a.sec - rawS; hit = a.target; }
+        else if (b.target) { corr = b.sec - rawE; hit = b.target; }
+        const near = a.nearLines.length >= b.nearLines.length ? a.nearLines : b.nearLines;
+        const viz = opts.enabled !== altHeld ? { hit, near } : null;
+        return { dt: rawDt + corr, viz };
+      }
+      // resize: snap the single moving edge
+      const raw = drag.edgeSec + rawDt;
+      const r = snap(raw, targets, pxPerSec, opts);
+      const corr = r.target ? r.sec - raw : 0;
+      const viz = opts.enabled !== altHeld ? { hit: r.target, near: r.nearLines } : null;
+      return { dt: rawDt + corr, viz };
+    },
+    [blockTargets],
+  );
+
   // Start a drag - sets up window listeners
   const startDrag = useCallback(
     (state: DragState) => {
@@ -166,7 +253,9 @@ export function WordTrack({
         if (Math.abs(dx) >= 3) drag.movedEnough = true;
         if (!drag.movedEnough) return;
 
-        const dt = (dx / drag.areaPx) * durRef.current;
+        const rawDt = (dx / drag.areaPx) * durRef.current;
+        const { dt, viz } = applySnap(drag, rawDt, e.altKey);
+        setSnapViz(viz);
 
         let updates: TimeUpdate[] = [];
         if (drag.mode === "move") {
@@ -191,7 +280,8 @@ export function WordTrack({
 
         if (!drag.cancelled && drag.movedEnough && proj && retimeFn) {
           const dx = e.clientX - drag.startX;
-          const dt = (dx / drag.areaPx) * durRef.current;
+          const rawDt = (dx / drag.areaPx) * durRef.current;
+          const { dt } = applySnap(drag, rawDt, e.altKey);
 
           let updates: TimeUpdate[] = [];
           if (drag.mode === "move") {
@@ -205,6 +295,7 @@ export function WordTrack({
 
         dragRef.current = null;
         setPreview(new Map());
+        setSnapViz(null);
         removeListeners();
       };
 
@@ -216,6 +307,7 @@ export function WordTrack({
           drag.cancelled = true;
           dragRef.current = null;
           setPreview(new Map());
+          setSnapViz(null);
           removeListeners();
         }
       };
@@ -224,6 +316,7 @@ export function WordTrack({
       const onPointercancel = () => {
         dragRef.current = null;
         setPreview(new Map());
+        setSnapViz(null);
         removeListeners();
       };
 
@@ -233,7 +326,7 @@ export function WordTrack({
       window.addEventListener("keydown", onKeydown);
       window.addEventListener("pointercancel", onPointercancel);
     },
-    [removeListeners]
+    [removeListeners, applySnap]
   );
 
   const handleBlockPointerDown = useCallback(
@@ -289,6 +382,15 @@ export function WordTrack({
       e.preventDefault();
       e.stopPropagation();
 
+      // snap inputs: the moving wids' track span + which edge is being resized
+      const movingWids = new Set<number>(
+        mode === "move" ? affectedToks.flatMap((t) => t.ids) : thisTok.ids,
+      );
+      const movingWords = words.filter((w) => movingWids.has(w.wid));
+      const groupS = movingWords.length ? Math.min(...movingWords.map((w) => w.s)) : w.s;
+      const groupE = movingWords.length ? Math.max(...movingWords.map((w) => w.e)) : w.e;
+      const edgeSec = edge === "start" ? groupS : groupE;
+
       startDrag({
         active: true,
         cancelled: false,
@@ -299,6 +401,10 @@ export function WordTrack({
         resizeTok,
         edge,
         movedEnough: false,
+        exclude: movingWids,
+        groupS,
+        groupE,
+        edgeSec,
       });
     },
     [unlocked, project, onRetime, selectedWords, words, startDrag]
@@ -321,6 +427,7 @@ export function WordTrack({
   const animDragRef = useRef<{
     wid: number; aid: string; edge: "t0" | "t1";
     startX: number; pxPerSec: number; s: number; e: number; cancelled: boolean;
+    targets: SnapTarget[];
   } | null>(null);
   const animHandlersRef = useRef<{ move: (e: PointerEvent) => void; up: (e: PointerEvent) => void; key: (e: KeyboardEvent) => void; cancel: () => void } | null>(null);
 
@@ -343,13 +450,38 @@ export function WordTrack({
       if (!an) return;
       const starts = an.segments.map((s) => s.start_s);
       const ends = an.segments.map((s) => s.end_s);
+      // snap candidates (§11): cue edges, OTHER strips on the cue, the playhead,
+      // and the window ends. The dragged strip's own edges are excluded.
+      const stripTargets: SnapTarget[] = [
+        { sec: 0, kind: "edge" },
+        { sec: durRef.current, kind: "edge" },
+        { sec: timeRef.current, kind: "playhead" },
+        { sec: w.s, kind: "block" },
+        { sec: w.e, kind: "block" },
+      ];
+      for (const other of w.anims ?? []) {
+        if (other.id === strip.aid) continue;
+        for (const seg of other.segments) {
+          stripTargets.push({ sec: seg.start_s, kind: "anim" }, { sec: seg.end_s, kind: "anim" });
+        }
+      }
       animDragRef.current = {
         wid: w.wid, aid: strip.aid, edge, startX: e.clientX, pxPerSec,
         s: Math.min(...starts), e: Math.max(...ends), cancelled: false,
+        targets: stripTargets,
       };
-      const computeDeltaMs = (d: NonNullable<typeof animDragRef.current>, clientX: number): number => {
-        const minMs = MIN_ANIM_MS / 1000;
+      // magnet-snap the dragged edge's raw seconds before the 50ms clamp, so the
+      // {t0|t1:{offset}} dispatch contract and the clamp stay unchanged.
+      const snappedRawSec = (d: NonNullable<typeof animDragRef.current>, clientX: number, altHeld: boolean): { rawSec: number; viz: SnapViz | null } => {
         const rawSec = (clientX - d.startX) / d.pxPerSec;
+        const edgeSec = (d.edge === "t0" ? d.s : d.e) + rawSec;
+        const r = snap(edgeSec, d.targets, d.pxPerSec, { enabled: magnetRef.current, altHeld });
+        const viz = magnetRef.current !== altHeld ? { hit: r.target, near: r.nearLines } : null;
+        return { rawSec: rawSec + (r.target ? r.sec - edgeSec : 0), viz };
+      };
+      const computeDeltaMs = (d: NonNullable<typeof animDragRef.current>, clientX: number, altHeld: boolean): number => {
+        const minMs = MIN_ANIM_MS / 1000;
+        const rawSec = snappedRawSec(d, clientX, altHeld).rawSec;
         if (d.edge === "t0") {
           // left handle: clamp so start never passes (end - 50ms)
           const maxStart = d.e - minMs;
@@ -361,13 +493,18 @@ export function WordTrack({
         const newEnd = Math.max(d.e + rawSec, minEnd);
         return Math.round((newEnd - d.e) * 1000);
       };
-      const move = () => {};
+      const move = (ev: PointerEvent) => {
+        const d = animDragRef.current;
+        if (!d || d.cancelled) return;
+        setSnapViz(snappedRawSec(d, ev.clientX, ev.altKey).viz);
+      };
       const up = (ev: PointerEvent) => {
         const d = animDragRef.current;
         animDragRef.current = null;
+        setSnapViz(null);
         removeAnimListeners();
         if (!d || d.cancelled) return;
-        const deltaMs = computeDeltaMs(d, ev.clientX);
+        const deltaMs = computeDeltaMs(d, ev.clientX, ev.altKey);
         if (deltaMs !== 0 && onAnimRetime) onAnimRetime(d.wid, d.aid, d.edge, deltaMs);
       };
       const key = (ev: KeyboardEvent) => {
@@ -375,10 +512,11 @@ export function WordTrack({
           ev.stopImmediatePropagation();
           if (animDragRef.current) animDragRef.current.cancelled = true;
           animDragRef.current = null;
+          setSnapViz(null);
           removeAnimListeners();
         }
       };
-      const cancel = () => { animDragRef.current = null; removeAnimListeners(); };
+      const cancel = () => { animDragRef.current = null; setSnapViz(null); removeAnimListeners(); };
       animHandlersRef.current = { move, up, key, cancel };
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", up);
@@ -403,6 +541,22 @@ export function WordTrack({
     },
     [selId, onSelectStrip, onFocusStrip, onExpandOverflow, onCollapseOverflow]
   );
+
+  // Active source-link id: a group/global-sourced anim that's hovered or focused
+  // lights up every other in-view strip sharing the same source (anim) id.
+  const focusedSrc = (() => {
+    if (!animFocus) return null;
+    const fw = words.find((w) => w.wid === animFocus.wid);
+    const fa = fw?.anims?.find((a) => a.id === animFocus.aid);
+    return fa && (fa.src === "group" || fa.src === "global") ? fa.id : null;
+  })();
+  const linkSid = hoverSid || focusedSrc || "";
+  /** is this strip part of the active source-link set? */
+  const isLinked = (aid: string, src: StripLayout["src"]): boolean =>
+    !!linkSid && aid === linkSid && (src === "group" || src === "global");
+  /** the group/global source id for a strip (for hover-link), else "". */
+  const stripSid = (aid: string, src: StripLayout["src"]): string =>
+    src === "group" || src === "global" ? aid : "";
 
   return (
     <div className={"wt" + (unlocked ? " unlocked" : "")}>
@@ -498,8 +652,11 @@ export function WordTrack({
                             key={strip.kind === "bar" || strip.kind === "glyph" ? strip.aid : `${strip.kind}-${k}`}
                             strip={strip}
                             focused={animFocus?.wid === w.wid && animFocus?.aid === strip.aid}
+                            linked={isLinked(strip.aid, strip.src)}
                             onClick={(ev) => handleStripClick(ev, w, strip)}
                             onHandleDown={(ev, edge) => startAnimDrag(ev, w, strip, edge, pxPerSec)}
+                            onHoverSid={(sid) => setHoverSid(sid)}
+                            sid={stripSid(strip.aid, strip.src)}
                           />
                         ))}
                       </span>
@@ -514,20 +671,53 @@ export function WordTrack({
         className="wt-playhead"
         style={{ left: `calc(var(--tl-gutter) + ${progress} * (100% - var(--tl-gutter)))` }}
       />
+      {snapViz && (
+        <div className="wt-guides" aria-hidden="true">
+          {snapViz.near.map((n) => {
+            if (snapViz.hit && Math.abs(n.sec - snapViz.hit.sec) < 1e-3) return null;
+            const f = dur ? n.sec / dur : 0;
+            return (
+              <div
+                key={`near-${n.sec.toFixed(4)}`}
+                className="snap-guide near"
+                style={{
+                  left: `calc(var(--tl-gutter) + ${f} * (100% - var(--tl-gutter)))`,
+                  opacity: (0.15 + n.opacity * 0.45).toFixed(3),
+                }}
+              />
+            );
+          })}
+          {snapViz.hit && (
+            <div
+              className={"snap-guide" + (snapViz.hit.kind === "playhead" ? " k-playhead" : "")}
+              style={{
+                left: `calc(var(--tl-gutter) + ${(dur ? snapViz.hit.sec / dur : 0)} * (100% - var(--tl-gutter)))`,
+              }}
+            >
+              <span className="sg-tag">{snapViz.hit.sec.toFixed(2)}s</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 // ── one animation strip (bar / glyph / overflow / collapse) ──────────────────
 function AnimStripEl({
-  strip, focused, onClick, onHandleDown,
+  strip, focused, linked, sid, onClick, onHandleDown, onHoverSid,
 }: {
   strip: StripLayout;
   focused: boolean;
+  linked: boolean;
+  sid: string;
   onClick: (e: React.MouseEvent) => void;
   onHandleDown: (e: React.PointerEvent, edge: "t0" | "t1") => void;
+  onHoverSid: (sid: string) => void;
 }) {
   const common = `${strip.left}px`;
+  // hover a group/global strip → light up its source-link set; leave → clear.
+  const hover = { onMouseEnter: () => onHoverSid(sid), onMouseLeave: () => onHoverSid("") };
   if (strip.kind === "collapse") {
     return (
       <button className="astrip collapse" data-aid="collapse" onClick={onClick} title="Collapse stack">
@@ -552,9 +742,11 @@ function AnimStripEl({
   if (strip.kind === "glyph") {
     return (
       <button
-        className={"astrip glyph t-" + strip.vt + (focused ? " foc" : "")}
+        className={"astrip glyph t-" + strip.vt + (focused ? " foc" : "") + (linked ? " linked" : "")}
         data-aid={strip.aid}
+        data-sid={sid}
         onClick={onClick}
+        {...hover}
         style={{ left: common, top: `${strip.top}%`, height: `${strip.height}%` }}
         title="too short — zoom in to expand"
       >
@@ -571,9 +763,11 @@ function AnimStripEl({
   // real bar
   return (
     <button
-      className={"astrip t-" + strip.vt + (focused ? " foc" : "") + (strip.warning ? " warn" : "")}
+      className={"astrip t-" + strip.vt + (focused ? " foc" : "") + (strip.warning ? " warn" : "") + (linked ? " linked" : "")}
       data-aid={strip.aid}
+      data-sid={sid}
       onClick={onClick}
+      {...hover}
       style={{ left: common, width: `${strip.width}px`, top: `${strip.top}%`, height: `${strip.height}%`,
                ...stripStyle(strip.vt, typeColor(strip.vt)) }}
     >

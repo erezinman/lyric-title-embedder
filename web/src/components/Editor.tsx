@@ -65,6 +65,29 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   // timing lock toggle (default locked)
   const [timingsUnlocked, setTimingsUnlocked] = useState(false);
 
+  // magnet snapping (on by default, persisted). Alt momentarily inverts it and
+  // tints the toggle amber while held.
+  const [magnet, setMagnet] = useState(() => {
+    try { return localStorage.getItem("kss.magnet") !== "0"; } catch { return true; }
+  });
+  const toggleMagnet = useCallback(() => {
+    setMagnet((m) => {
+      const next = !m;
+      try { localStorage.setItem("kss.magnet", next ? "1" : "0"); } catch { /* private mode */ }
+      return next;
+    });
+  }, []);
+  const [altHeld, setAltHeld] = useState(false);
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { if (e.key === "Alt" || e.altKey) setAltHeld(true); };
+    const up = (e: KeyboardEvent) => { if (e.key === "Alt" || !e.altKey) setAltHeld(false); };
+    const blur = () => setAltHeld(false);
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", blur);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("blur", blur); };
+  }, []);
+
   // ── animation focus (2-click on a strip) — shared by track + Inspector ──
   const [animFocus, setAnimFocus] = useState<AnimFocus | null>(null);
   // cue word ids whose +N overflow stack is expanded inline on the track
@@ -808,6 +831,14 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   const dur = Math.max(8, ...P.words.map((w) => w.end)) + 1.5;
   const capWords = computeCapWords();
   const trackWords = computeTrackWords();
+  // event/group boundary spans (min start / max end of each event's track words)
+  // for the playhead/block magnet candidates.
+  const tlEventBounds = P.layout
+    .map((_, gi) => {
+      const mine = trackWords.filter((w) => w.gi === gi);
+      return mine.length ? { s: Math.min(...mine.map((w) => w.s)), e: Math.max(...mine.map((w) => w.e)) } : null;
+    })
+    .filter((b): b is { s: number; e: number } => b !== null);
   const tok = currentTok();
   const wid = selWid();
   const fade = fadeMembership();
@@ -985,7 +1016,27 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
         <div className="dock-body">
           {dockTab === "timeline" && (
             <div className="timeline-col">
-              <Waveform dur={dur} time={time} onSeek={setTime} />
+              <div className="tl-toolrow">
+                <button
+                  className={"snap-toggle" + (magnet ? " on" : "") + (altHeld ? " alt" : "")}
+                  onClick={toggleMagnet}
+                  title="Magnet snapping — Alt during a drag inverts it"
+                  aria-pressed={magnet}
+                >
+                  <Icon name="magnet" size={14} />
+                  Magnet
+                  <span className="st-state">{altHeld ? (magnet ? "off" : "on") : magnet ? "on" : "off"}</span>
+                </button>
+                <span className="tl-hint">Drag edges to snap · hold <b>Alt</b> to free</span>
+              </div>
+              <Waveform
+                dur={dur}
+                time={time}
+                onSeek={setTime}
+                blocks={trackWords.map((w) => ({ wid: w.wid, s: w.s, e: w.e }))}
+                eventBounds={tlEventBounds}
+                magnet={magnet}
+              />
               <WordTrack
                 words={trackWords}
                 events={P.layout.map((g, gi) => ({ gi, label: g.label }))}
@@ -997,6 +1048,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                 onSelect={selectCue}
                 project={P}
                 unlocked={timingsUnlocked}
+                magnet={magnet}
                 onRetime={(updates) => dispatch("set_word_times", { updates })}
                 animFocus={animFocus}
                 expandedCues={expandedCues}
