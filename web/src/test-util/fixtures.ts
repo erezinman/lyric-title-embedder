@@ -91,6 +91,44 @@ export const withFadeAnims = (p: Project): Project =>
     ],
   });
 
+// ── withResolved — attach per-cue resolved animation lists ───────────────────
+// The daemon fills tok.anims_resolved (flat per-cue list the strips consume).
+// This builder lets audit tests place resolved lists on a cue keyed by its lead
+// word id, without re-deriving anchors. Shape mirrors engine.anim.resolve_animations:
+//   ResolvedAnim = {id,name,channel,group_id,segments:[{start_s,end_s,...}],src,warning}
+import type { ResolvedAnim } from "../types";
+
+/** Build a ResolvedAnim with one segment over [start_s, end_s]. */
+export function resolved(
+  p: Partial<ResolvedAnim> & { id: string; channel: ResolvedAnim["channel"] },
+  start_s: number,
+  end_s: number,
+): ResolvedAnim {
+  return {
+    id: p.id,
+    name: p.name ?? "custom",
+    group_id: p.group_id ?? null,
+    channel: p.channel,
+    segments: p.segments ?? [{ start_s, end_s, from: null, to: 1, accel: 1 }],
+    src: p.src ?? "tag",
+    warning: p.warning ?? null,
+  };
+}
+
+/** Attach a resolved animation list to the cue whose lead word id is `wid`. */
+export function withResolved(p: Project, byWid: Record<number, ResolvedAnim[]>): Project {
+  return mutate(p, (d) => {
+    for (const g of d.layout) {
+      for (const ln of g.lines) {
+        for (const tok of ln.toks) {
+          const list = byWid[tok.ids[0]];
+          if (list) tok.anims_resolved = JSON.parse(JSON.stringify(list));
+        }
+      }
+    }
+  });
+}
+
 export const withPos = (p: Project, pos: [number, number] = [960, 540]): Project =>
   mutate(p, (d) => { d.placement.pos = pos; d.placement.use_pos = true; });
 

@@ -2,7 +2,8 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { colorForIndex } from "../../model/palette";
 import { computeMove, computeResize, dragMode } from "../../model/edit";
 import type { TimeUpdate } from "../../model/edit";
-import type { Project, Token } from "../../types";
+import type { Project, Token, ResolvedAnim } from "../../types";
+import { layoutStrips, stripStyle, typeColor, typeGlyph, type StripLayout } from "../../model/animStrips";
 
 export interface TrackWord {
   wid: number;
@@ -14,7 +15,12 @@ export interface TrackWord {
   ti: number;
   del?: boolean;
   frac?: boolean;
+  /** flat resolved animation list for this cue (daemon-filled tok.anims_resolved). */
+  anims?: ResolvedAnim[];
 }
+
+/** Focused animation: a (cue word, anim id) pair, shared with the Inspector. */
+export interface AnimFocus { wid: number; aid: string; }
 
 export interface TrackEvent {
   gi: number;
@@ -34,7 +40,26 @@ interface WordTrackProps {
   project?: Project;
   unlocked?: boolean;
   onRetime?: (updates: TimeUpdate[]) => void;
+  // ── animation strips (cluster AT) ──
+  /** focused animation (2-click), shared with the Inspector. */
+  animFocus?: AnimFocus | null;
+  /** cue word ids whose +N overflow stack is expanded inline. */
+  expandedCues?: Set<number>;
+  /** 1st click on a strip/cue → select the cue. */
+  onSelectStrip?: (wid: number) => void;
+  /** 2nd click on a strip (cue already selected) → focus that animation. */
+  onFocusStrip?: (wid: number, aid: string) => void;
+  /** click +N on the selected cue → expand inline. */
+  onExpandOverflow?: (wid: number) => void;
+  /** click the ✕ collapse chip → collapse. */
+  onCollapseOverflow?: (wid: number) => void;
+  /** drag a focused strip's handle → retime (edge t0|t1, signed delta ms). */
+  onAnimRetime?: (wid: number, aid: string, edge: "t0" | "t1", deltaMs: number) => void;
+  /** override the seconds→px scale (horizontal zoom); default = areaPx/dur. */
+  pxPerSecOverride?: number;
 }
+
+const MIN_ANIM_MS = 50; // clamp: a strip never shrinks below 50ms (HANDOFF §3)
 
 interface DragState {
   active: boolean;
@@ -62,12 +87,30 @@ export function WordTrack({
   project,
   unlocked = false,
   onRetime,
+  animFocus = null,
+  expandedCues,
+  onSelectStrip,
+  onFocusStrip,
+  onExpandOverflow,
+  onCollapseOverflow,
+  onAnimRetime,
+  pxPerSecOverride,
 }: WordTrackProps) {
   const progress = dur ? time / dur : 0;
   const lanes = (events ?? []).filter((ev) => words.some((w) => w.gi === ev.gi));
 
   // preview: map from wid -> { start, end } during live drag
   const [preview, setPreview] = useState<Map<number, { start: number; end: number }>>(new Map());
+
+  // measured track-area width (px) for the strip seconds→px scale + MIN_PX glyph
+  // threshold. Falls back to a nominal width before layout / in jsdom.
+  const areaElRef = useRef<HTMLDivElement | null>(null);
+  const [areaPx, setAreaPx] = useState(1000);
+  useEffect(() => {
+    const el = areaElRef.current;
+    if (el) { const w = el.getBoundingClientRect().width; if (w > 0) setAreaPx(w); }
+  });
+  const pxPerSec = pxPerSecOverride ?? (dur ? areaPx / dur : 100);
 
   // Keep latest props in refs so stable callbacks can always see current values
   const projectRef = useRef(project);
@@ -268,6 +311,95 @@ export function WordTrack({
     [onSelect]
   );
 
+  // ── strip-handle drag → retime the focused animation ──
+  // Mirrors the body-drag listener machinery: window pointer listeners, Esc/cancel
+  // abort with no dispatch, px→ms via the area scale, ≥50ms clamp.
+  const animDragRef = useRef<{
+    wid: number; aid: string; edge: "t0" | "t1";
+    startX: number; pxPerSec: number; s: number; e: number; cancelled: boolean;
+  } | null>(null);
+  const animHandlersRef = useRef<{ move: (e: PointerEvent) => void; up: (e: PointerEvent) => void; key: (e: KeyboardEvent) => void; cancel: () => void } | null>(null);
+
+  const removeAnimListeners = useCallback(() => {
+    const h = animHandlersRef.current;
+    if (!h) return;
+    window.removeEventListener("pointermove", h.move);
+    window.removeEventListener("pointerup", h.up);
+    window.removeEventListener("keydown", h.key);
+    window.removeEventListener("pointercancel", h.cancel);
+    animHandlersRef.current = null;
+  }, []);
+  useEffect(() => removeAnimListeners, [removeAnimListeners]);
+
+  const startAnimDrag = useCallback(
+    (e: React.PointerEvent, w: TrackWord, strip: StripLayout, edge: "t0" | "t1", pxPerSec: number) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const an = w.anims?.find((a) => a.id === strip.aid);
+      if (!an) return;
+      const starts = an.segments.map((s) => s.start_s);
+      const ends = an.segments.map((s) => s.end_s);
+      animDragRef.current = {
+        wid: w.wid, aid: strip.aid, edge, startX: e.clientX, pxPerSec,
+        s: Math.min(...starts), e: Math.max(...ends), cancelled: false,
+      };
+      const computeDeltaMs = (d: NonNullable<typeof animDragRef.current>, clientX: number): number => {
+        const minMs = MIN_ANIM_MS / 1000;
+        const rawSec = (clientX - d.startX) / d.pxPerSec;
+        if (d.edge === "t0") {
+          // left handle: clamp so start never passes (end - 50ms)
+          const maxStart = d.e - minMs;
+          const newStart = Math.min(d.s + rawSec, maxStart);
+          return Math.round((newStart - d.s) * 1000);
+        }
+        // right handle: clamp so end never passes (start + 50ms)
+        const minEnd = d.s + minMs;
+        const newEnd = Math.max(d.e + rawSec, minEnd);
+        return Math.round((newEnd - d.e) * 1000);
+      };
+      const move = () => {};
+      const up = (ev: PointerEvent) => {
+        const d = animDragRef.current;
+        animDragRef.current = null;
+        removeAnimListeners();
+        if (!d || d.cancelled) return;
+        const deltaMs = computeDeltaMs(d, ev.clientX);
+        if (deltaMs !== 0 && onAnimRetime) onAnimRetime(d.wid, d.aid, d.edge, deltaMs);
+      };
+      const key = (ev: KeyboardEvent) => {
+        if (ev.key === "Escape") {
+          ev.stopImmediatePropagation();
+          if (animDragRef.current) animDragRef.current.cancelled = true;
+          animDragRef.current = null;
+          removeAnimListeners();
+        }
+      };
+      const cancel = () => { animDragRef.current = null; removeAnimListeners(); };
+      animHandlersRef.current = { move, up, key, cancel };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+      window.addEventListener("keydown", key);
+      window.addEventListener("pointercancel", cancel);
+    },
+    [onAnimRetime, removeAnimListeners]
+  );
+
+  // 1st click selects the cue; 2nd click (cue already selected) focuses the anim.
+  const handleStripClick = useCallback(
+    (e: React.MouseEvent, w: TrackWord, strip: StripLayout) => {
+      e.stopPropagation();
+      if (strip.kind === "overflow") {
+        if (selId === w.wid) onExpandOverflow?.(w.wid);
+        else onSelectStrip?.(w.wid);
+        return;
+      }
+      if (strip.kind === "collapse") { onCollapseOverflow?.(w.wid); return; }
+      if (selId === w.wid) onFocusStrip?.(w.wid, strip.aid);
+      else onSelectStrip?.(w.wid);
+    },
+    [selId, onSelectStrip, onFocusStrip, onExpandOverflow, onCollapseOverflow]
+  );
+
   return (
     <div className={"wt" + (unlocked ? " unlocked" : "")}>
       {lanes.map((ev) => (
@@ -276,7 +408,7 @@ export function WordTrack({
             <span className="wt-dot" style={{ background: colorForIndex(ev.gi) }} />
             <span className="wt-name">{ev.label}</span>
           </div>
-          <div className="wt-area">
+          <div className="wt-area" ref={lanes[0]?.gi === ev.gi ? areaElRef : undefined}>
             {words
               .filter((w) => w.gi === ev.gi)
               .map((w) => {
@@ -287,16 +419,25 @@ export function WordTrack({
                 const left = (s / dur) * 100;
                 const width = Math.max(0.4, ((e - s) / dur) * 100);
                 const isMulti = selectedWords?.has(w.wid) ?? false;
+                // ── animation strips for this cue (cluster AT) ──
+                const anims = w.anims ?? [];
+                const expanded = expandedCues?.has(w.wid) ?? false;
+                const layout = anims.length > 0 ? layoutStrips(anims, s, pxPerSec, expanded) : null;
+                const muted = !(w.wid === selId || isMulti);
                 const cls =
                   "block" +
                   (w.wid === liveId ? " live" : "") +
                   (w.wid === selId || isMulti ? " sel" : "") +
-                  (w.del ? " del" : "");
+                  (w.del ? " del" : "") +
+                  (layout?.exp ? " exp" : "");
                 return (
                   <div
                     key={w.wid}
                     className={cls}
-                    style={{ position: "relative", left: `${left}%`, width: `${width}%`, background: colorForIndex(w.gi) }}
+                    style={{
+                      position: "relative", left: `${left}%`, width: `${width}%`, background: colorForIndex(w.gi),
+                      ...(layout?.exp ? { height: `${layout.cueHeight}px` } : {}),
+                    }}
                     onPointerDown={unlocked ? (ev) => handleBlockPointerDown(ev, w) : undefined}
                     onPointerUp={unlocked ? (ev) => handleBlockPointerUp(ev, w) : undefined}
                     onClick={
@@ -325,6 +466,19 @@ export function WordTrack({
                         }}
                       />
                     )}
+                    {layout && (
+                      <span className={"cue-anims" + (muted ? " muted" : "")}>
+                        {layout.strips.map((strip, k) => (
+                          <AnimStripEl
+                            key={strip.kind === "bar" || strip.kind === "glyph" ? strip.aid : `${strip.kind}-${k}`}
+                            strip={strip}
+                            focused={animFocus?.wid === w.wid && animFocus?.aid === strip.aid}
+                            onClick={(ev) => handleStripClick(ev, w, strip)}
+                            onHandleDown={(ev, edge) => startAnimDrag(ev, w, strip, edge, pxPerSec)}
+                          />
+                        ))}
+                      </span>
+                    )}
                   </div>
                 );
               })}
@@ -336,5 +490,75 @@ export function WordTrack({
         style={{ left: `calc(var(--tl-gutter) + ${progress} * (100% - var(--tl-gutter)))` }}
       />
     </div>
+  );
+}
+
+// ── one animation strip (bar / glyph / overflow / collapse) ──────────────────
+function AnimStripEl({
+  strip, focused, onClick, onHandleDown,
+}: {
+  strip: StripLayout;
+  focused: boolean;
+  onClick: (e: React.MouseEvent) => void;
+  onHandleDown: (e: React.PointerEvent, edge: "t0" | "t1") => void;
+}) {
+  const common = `${strip.left}px`;
+  if (strip.kind === "collapse") {
+    return (
+      <button className="astrip collapse" data-aid="collapse" onClick={onClick} title="Collapse stack">
+        <span className="ov-n">✕</span>
+      </button>
+    );
+  }
+  if (strip.kind === "overflow") {
+    return (
+      <button
+        className="astrip overflow"
+        data-aid="over"
+        onClick={onClick}
+        style={{ left: common, width: `${strip.width}px`, top: `${strip.top}%`, height: `${strip.height}%`,
+                 background: `linear-gradient(90deg, ${strip.stripes})` }}
+        title={`${strip.count} more animations`}
+      >
+        <span className="ov-n">+{strip.count}</span>
+      </button>
+    );
+  }
+  if (strip.kind === "glyph") {
+    return (
+      <button
+        className={"astrip glyph t-" + strip.vt + (focused ? " foc" : "")}
+        data-aid={strip.aid}
+        onClick={onClick}
+        style={{ left: common, top: `${strip.top}%`, height: `${strip.height}%` }}
+        title="too short — zoom in to expand"
+      >
+        <i className="g-ic">{typeGlyph(strip.vt)}</i>
+        {focused && (
+          <>
+            <i className="h h-l" onPointerDown={(e) => onHandleDown(e, "t0")} />
+            <i className="h h-r" onPointerDown={(e) => onHandleDown(e, "t1")} />
+          </>
+        )}
+      </button>
+    );
+  }
+  // real bar
+  return (
+    <button
+      className={"astrip t-" + strip.vt + (focused ? " foc" : "") + (strip.warning ? " warn" : "")}
+      data-aid={strip.aid}
+      onClick={onClick}
+      style={{ left: common, width: `${strip.width}px`, top: `${strip.top}%`, height: `${strip.height}%`,
+               ...stripStyle(strip.vt, typeColor(strip.vt)) }}
+    >
+      {strip.vt === "move" && <i className="arrow">→</i>}
+      {focused && (
+        <>
+          <i className="h h-l" onPointerDown={(e) => onHandleDown(e, "t0")} />
+          <i className="h h-r" onPointerDown={(e) => onHandleDown(e, "t1")} />
+        </>
+      )}
+    </button>
   );
 }

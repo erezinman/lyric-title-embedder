@@ -15,7 +15,7 @@ import { PreviewStage } from "./stage/PreviewStage";
 import type { CapWord } from "./stage/PreviewStage";
 import { Waveform } from "./stage/Waveform";
 import { WordTrack } from "./stage/WordTrack";
-import type { TrackWord } from "./stage/WordTrack";
+import type { TrackWord, AnimFocus } from "./stage/WordTrack";
 import { StyleWaterfall } from "./panels/StyleWaterfall";
 import { AnimSection } from "./panels/AnimSection";
 import type { AnimScope } from "./panels/AnimSection";
@@ -59,6 +59,11 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
 
   // timing lock toggle (default locked)
   const [timingsUnlocked, setTimingsUnlocked] = useState(false);
+
+  // ── animation focus (2-click on a strip) — shared by track + Inspector ──
+  const [animFocus, setAnimFocus] = useState<AnimFocus | null>(null);
+  // cue word ids whose +N overflow stack is expanded inline on the track
+  const [expandedCues, setExpandedCues] = useState<Set<number>>(new Set());
 
   // AI state
   const [aiTier] = useState<"global" | "group" | "cue" | null>(null);
@@ -196,12 +201,15 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
       if (e.key === "Escape") {
         const target = e.target as HTMLElement;
         if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") return;
+        // Esc first clears animation focus back to cue selection (HANDOFF §3);
+        // a second Esc (no focus) clears the selection.
+        if (animFocus) { setAnimFocus(null); return; }
         clearSelection();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [clearSelection]);
+  }, [clearSelection, animFocus]);
 
   // ---- Keyboard nudge (arrow keys) for timing — gated on timingsUnlocked ----
   useEffect(() => {
@@ -394,6 +402,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
             li,
             ti,
             del: tok.del,
+            anims: tok.anims_resolved ?? [],
           });
         }
       }
@@ -468,6 +477,55 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     if (ids.length === 0) return;
     setSelectedWords(new Set(ids));
     anchorRef.current = ids[0];
+  }
+
+  // ── timeline strip handlers (cluster AT) ──
+  // 1st click on a strip/cue selects the cue (clears any anim focus).
+  function selectStrip(wid: number) {
+    setAnimFocus(null);
+    setExpandedCues(new Set());
+    selectWordByWid(wid);
+  }
+  // 2nd click on a strip focuses the animation (Inspector drills into its row).
+  function focusStrip(wid: number, aid: string) {
+    setAnimFocus({ wid, aid });
+    setRailTab("inspector");
+  }
+  function expandOverflow(wid: number) {
+    setExpandedCues((prev) => new Set(prev).add(wid));
+  }
+  function collapseOverflow(wid: number) {
+    setExpandedCues((prev) => { const n = new Set(prev); n.delete(wid); return n; });
+  }
+  // Derive {scope, ref} for an anim mutation from its resolved src + the cue.
+  function animScopeRef(wid: number, aid: string): { scope: AnimScope; ref: number | number[] | null } | null {
+    if (!P) return null;
+    // find the resolved anim on the cue (its src tells us the carrier scope)
+    let res: import("../types").ResolvedAnim | undefined;
+    let gi = 0;
+    outer: for (let g = 0; g < P.layout.length; g++) {
+      for (const ln of P.layout[g].lines) {
+        for (const tk of ln.toks) {
+          if (tk.ids[0] === wid) {
+            res = (tk.anims_resolved ?? []).find((a) => a.id === aid);
+            gi = g;
+            break outer;
+          }
+        }
+      }
+    }
+    if (!res) return null;
+    if (res.src === "global") return { scope: "global", ref: null };
+    if (res.src === "group") return { scope: "group", ref: gi };
+    // tag-sourced: ref = the covering tag's full ids
+    const tag = P.anim_tags.find((t) => t.ids.includes(wid) && t.anims.some((a) => a.id === aid));
+    return { scope: "cue", ref: tag ? tag.ids : [wid] };
+  }
+  // Drag-retime: set_animation_props {scope, ref, anim_id, partial:{t0|t1:{offset:Δms}}}.
+  function animRetime(wid: number, aid: string, edge: "t0" | "t1", deltaMs: number) {
+    const sr = animScopeRef(wid, aid);
+    if (!sr) return;
+    dispatch("set_animation_props", { scope: sr.scope, ref: sr.ref, anim_id: aid, partial: { [edge]: { offset: deltaMs } } });
   }
 
   function setLayoutProp(patch: Partial<{ linger: number; win_start: number | null; win_end: number | null }>) {
@@ -760,6 +818,13 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                 project={P}
                 unlocked={timingsUnlocked}
                 onRetime={(updates) => dispatch("set_word_times", { updates })}
+                animFocus={animFocus}
+                expandedCues={expandedCues}
+                onSelectStrip={selectStrip}
+                onFocusStrip={focusStrip}
+                onExpandOverflow={expandOverflow}
+                onCollapseOverflow={collapseOverflow}
+                onAnimRetime={animRetime}
               />
             </div>
           )}

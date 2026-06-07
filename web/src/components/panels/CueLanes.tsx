@@ -2,6 +2,7 @@ import React from "react";
 import type { Project, Token } from "../../types";
 import { eventWindow, wordSchedule, type WordSched } from "../../model/resolve";
 import { colorForIndex } from "../../model/palette";
+import { animColMarker } from "../../model/animStrips";
 import { Icon } from "../icons/Icon";
 
 export interface CueLanesProps {
@@ -52,6 +53,26 @@ function FadeCell({ sched, kind, project, wid }: FadeCellProps) {
   );
 }
 
+// The 4th ANIMATION column mirrors the FADE columns: override-solid (.ovr) when a
+// tag-sourced anim resolves on the cue, inherited-grey (.inh) for global/group, the
+// suppressed treatment (.supp) when an inherited anim is tombstoned for this cue,
+// else empty (.none). Reads the daemon-resolved per-cue list + suppress carriers.
+function AnimCell({ project, gi, tok }: { project: Project; gi: number; tok: Token }) {
+  const wid = tok.ids[0];
+  const resolved = tok.anims_resolved ?? [];
+  const groupSuppress = project.layout[gi]?.suppress ?? [];
+  const tagSuppress = project.anim_tags
+    .filter((t) => t.ids.includes(wid))
+    .flatMap((t) => t.suppress);
+  const suppressed = groupSuppress.length > 0 || tagSuppress.length > 0;
+  const marker = animColMarker(resolved, suppressed);
+  if (marker === "none") return <span className="lc anim none">· none</span>;
+  if (marker === "supp") return <span className="lc anim supp">⊘ removed</span>;
+  const cls = "lc anim " + (marker === "ovr" ? "ovr" : "inh");
+  const label = resolved.map((a) => a.name).join(", ");
+  return <span className={cls} title={label}><span>{resolved.length > 1 ? `${resolved.length}×` : "●"}</span></span>;
+}
+
 export function CueLanes({
   project, sel, selectedWords, collapsed, aiHotKey,
   onSelectWord, onSelectEvent, onToggleCollapse,
@@ -62,6 +83,7 @@ export function CueLanes({
         <span className="lh layout"><Icon name="layers" size={13} />LAYOUT · cues</span>
         <span className="lh"><Icon name="sparkles" size={13} />FADE-IN</span>
         <span className="lh"><Icon name="sparkles" size={13} />FADE-OUT</span>
+        <span className="lh"><Icon name="sparkles" size={13} />ANIMATION</span>
       </div>
       {project.layout.map((g, gi) => {
         const [s, e] = eventWindow(project, gi);
@@ -120,6 +142,7 @@ export function CueLanes({
                       </span>
                       <FadeCell sched={sched} kind="in" project={project} gi={gi} wid={wid} />
                       <FadeCell sched={sched} kind="out" project={project} gi={gi} wid={wid} />
+                      <AnimCell project={project} gi={gi} tok={tok} />
                     </div>
                   );
                 })}
