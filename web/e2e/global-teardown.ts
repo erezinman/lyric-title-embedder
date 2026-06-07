@@ -7,13 +7,13 @@ const PIDFILE = join(tmpdir(), "kss-e2e-pids.json");
 
 export default async function globalTeardown(): Promise<void> {
   if (!existsSync(PIDFILE)) return;
-  const { daemon, vite, projectsDir } = JSON.parse(readFileSync(PIDFILE, "utf-8"));
-  for (const pid of [vite, daemon]) {
+  const { daemon, vite, viteNoJass, projectsDir } = JSON.parse(readFileSync(PIDFILE, "utf-8"));
+  for (const pid of [vite, viteNoJass, daemon]) {
     if (!pid) continue;
     try { process.kill(-pid, "SIGTERM"); } catch { try { process.kill(pid, "SIGTERM"); } catch { /* gone */ } }
   }
   await new Promise((r) => setTimeout(r, 1000));
-  for (const pid of [vite, daemon]) {
+  for (const pid of [vite, viteNoJass, daemon]) {
     if (!pid) continue;
     try { process.kill(pid, "SIGKILL"); } catch { /* gone */ }
   }

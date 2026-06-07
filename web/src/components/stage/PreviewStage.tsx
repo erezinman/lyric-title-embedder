@@ -1,7 +1,13 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { getFrameUrl } from "../../api/client";
+import { initJassub, type JassubClient } from "../../preview/jassubClient";
 import { boxFromState, marginsFromBox, anchorXY, applyMove, applyResize, posActive, alignRow, alignCol } from "../../model/bbox";
 import type { Box, PlacementState } from "../../model/bbox";
+
+// Live preview renders the real .ass via jassub (libass-in-wasm). Disable with
+// VITE_JASSUB=0 (tests/e2e that don't want wasm). Default ON.
+const JASS = import.meta.env.VITE_JASSUB !== "0";
+const FONT_URL = "/api/font";
 
 export interface CapWord {
   wid: number;
@@ -26,6 +32,10 @@ interface PreviewStageProps {
   playH?: number;
   placement: PlacementState;
   onPlacement: (partial: Record<string, unknown>) => void;
+  /** The current .ass text (fetched by the Editor on every state change); fed to
+   *  jassub via setTrack. When provided AND the feature flag is on, the live mode
+   *  renders the real .ass and the DOM caption layer becomes a transparent overlay. */
+  assText?: string | null;
 }
 
 interface DragState {
@@ -39,7 +49,7 @@ interface DragState {
 
 export function PreviewStage({
   capWords, time, mode, onMode, onRenderExact, onSelectWord, playW, playH,
-  placement, onPlacement,
+  placement, onPlacement, assText,
 }: PreviewStageProps) {
   const [preview, setPreview] = useState<Box | null>(null);
   const [readout, setReadout] = useState<{ x: number; y: number } | null>(null);
@@ -51,6 +61,62 @@ export function PreviewStage({
 
   const pinned = posActive(placement);
   const W = placement.play_w || 1920, H = placement.play_h || 1080;
+
+  // ── jassub live renderer ──────────────────────────────────────────────────
+  // Active only in live mode with the flag on. The canvas renders the real .ass;
+  // the DOM caption layer is demoted to a transparent hit-test/selection overlay.
+  const jassActive = JASS && mode === "live";
+  const jassCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const jassRef = useRef<JassubClient | null>(null);
+  const lastTrackRef = useRef<string | null>(null);
+
+  // init / dispose with the canvas lifecycle
+  const disposeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!jassActive) return;
+    const canvas = jassCanvasRef.current;
+    if (!canvas) return;
+    // A pending dispose from a just-torn-down effect (React 18 StrictMode runs
+    // mount→unmount→mount synchronously) — cancel it and reuse the live worker.
+    if (disposeTimer.current) { clearTimeout(disposeTimer.current); disposeTimer.current = null; }
+    // Size the canvas BEFORE jassub transfers control to its offscreen worker.
+    // After transfer, setting width/height throws — guard so a StrictMode re-run
+    // (or any re-run) can't crash on an already-transferred canvas.
+    try { canvas.width = W; canvas.height = H; } catch { /* already transferred */ }
+    const client = initJassub(canvas, FONT_URL, "DejaVu Sans", assText ?? undefined as unknown as string);
+    jassRef.current = client;
+    lastTrackRef.current = assText ?? null;
+    // expose for e2e pixel sampling / latency probes (harmless in prod)
+    (window as unknown as { __jassub?: JassubClient }).__jassub = client;
+    return () => {
+      // Defer the teardown a tick: in StrictMode the effect immediately re-mounts
+      // and cancels this, keeping the same worker (the canvas can't be reused
+      // after transferControlToOffscreen, so we must NOT destroy+recreate it).
+      disposeTimer.current = setTimeout(() => {
+        client.dispose();
+        if (jassRef.current === client) jassRef.current = null;
+        lastTrackRef.current = null;
+        delete (window as unknown as { __jassub?: JassubClient }).__jassub;
+        disposeTimer.current = null;
+      }, 0);
+    };
+    // re-init only when the canvas mounts/unmounts or play dims change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jassActive, W, H]);
+
+  // push new .ass on every state change (Editor debounces the fetch)
+  useEffect(() => {
+    if (!jassActive || !jassRef.current || assText == null) return;
+    if (assText === lastTrackRef.current) return;
+    lastTrackRef.current = assText;
+    jassRef.current.setTrack(assText).catch(() => { /* worker race on unmount */ });
+  }, [jassActive, assText]);
+
+  // drive the frame clock from the playback time / scrub
+  useEffect(() => {
+    if (!jassActive || !jassRef.current) return;
+    jassRef.current.setTime(time).catch(() => { /* unmount race */ });
+  }, [jassActive, time]);
 
   const applyBandH = useCallback((b: Box, pl: PlacementState, bh: number | null): Box => {
     if (bh == null || posActive(pl)) return b;
@@ -226,7 +292,13 @@ export function PreviewStage({
         {mode === "live" ? (
           <>
             <div className="live-badge"><span className="pulse" />LIVE</div>
-            <div className="cap" style={capStyle}>
+            {/* No width/height attrs: jassub transfers control to an offscreen
+                canvas in its constructor; setting w/h afterwards throws. The
+                init effect sizes it ONCE before construction. */}
+            {jassActive && (
+              <canvas key={`${W}x${H}`} ref={jassCanvasRef} className="jass-canvas" />
+            )}
+            <div className={"cap" + (jassActive ? " jass-overlay" : "")} style={capStyle}>
               {[...new Set(capWords.map((w) => w.li))].sort((a, b) => a - b).map((li) => (
               <div key={li} style={capInnerStyle}>
                 {capWords.filter((w) => w.li === li).map((w) => {
@@ -253,7 +325,7 @@ export function PreviewStage({
               </div>
               ))}
             </div>
-            <div className="approx-badge">CSS approx</div>
+            <div className="approx-badge">{jassActive ? "libass · wasm" : "CSS approx"}</div>
           </>
         ) : (
           <>

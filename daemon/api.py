@@ -44,6 +44,28 @@ def make_routes(ctx, hub):
         png = tools.render_frame(ctx, t)
         return Response(png, media_type="image/png")
 
+    async def font(request):
+        # Serve the configured font file so the in-browser libass (jassub) live
+        # preview shapes with the SAME TTF the export render uses. Resolves the
+        # configured family name to a file via fontconfig (fc-match).
+        import core, subprocess, os
+        cfg = ctx.cfg()
+        family = cfg.get("font") or "DejaVu Sans"
+        path = None
+        if core.FC_MATCH:
+            try:
+                out = subprocess.run([core.FC_MATCH, "-f", "%{file}", family],
+                                     capture_output=True, text=True, timeout=8)
+                path = out.stdout.strip() or None
+            except Exception:
+                path = None
+        if not path or not os.path.isfile(path):
+            return _err(f"font file for {family!r} not found", 404)
+        with open(path, "rb") as fh:
+            data = fh.read()
+        return Response(data, media_type="font/ttf",
+                        headers={"Cache-Control": "no-cache"})
+
     async def burn(request):
         body = await request.json()
         job = tools.burn(ctx, body["out"], body.get("video_in"))
@@ -132,5 +154,5 @@ def make_routes(ctx, hub):
         same = bool(client and client.host in ("127.0.0.1", "::1"))
         return JSONResponse({"same_host": same})
 
-    return call, state, render, ass, ws_endpoint, frame, burn, burn_status, \
+    return call, state, render, ass, ws_endpoint, frame, font, burn, burn_status, \
            projects_list, projects_new, projects_open, projects_save, env, projects_create

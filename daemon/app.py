@@ -19,7 +19,7 @@ class _Auth(BaseHTTPMiddleware):
         return await call_next(request)
 
 def build_app(ctx, hub, token=None, projects_dir="projects"):
-    (call, state, render, ass, ws_endpoint, frame, burn, burn_status,
+    (call, state, render, ass, ws_endpoint, frame, font, burn, burn_status,
      projects_list, projects_new, projects_open, projects_save, env, projects_create) = make_routes(ctx, hub)
 
     @asynccontextmanager
@@ -36,6 +36,7 @@ def build_app(ctx, hub, token=None, projects_dir="projects"):
         Route("/api/ass", ass, methods=["GET"]),
         WebSocketRoute("/ws", ws_endpoint),
         Route("/api/frame", frame, methods=["GET"]),
+        Route("/api/font", font, methods=["GET"]),
         Route("/api/burn", burn, methods=["POST"]),
         Route("/api/burn/{job_id}", burn_status, methods=["GET"]),
         Route("/api/projects", projects_list, methods=["GET"]),

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useProjectStore } from "../api/useProjectStore";
-import { burn } from "../api/client";
+import { burn, getAss } from "../api/client";
 import { TopBar } from "./TopBar";
 import { ExportMenu } from "./ExportMenu";
 import { Icon } from "./icons/Icon";
@@ -93,6 +93,20 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
 
   // keep pRef in sync with P
   useEffect(() => { pRef.current = P; }, [P]);
+
+  // ── live preview .ass feed ──────────────────────────────────────────────
+  // Every committed edit re-broadcasts state over WS (P gets a new reference);
+  // pull the regenerated .ass (debounced ~50ms) and hand it to the jassub live
+  // renderer via PreviewStage. Playback/scrub never re-fetches — only edits do.
+  const [assText, setAssText] = useState<string | null>(null);
+  useEffect(() => {
+    if (!P) return;
+    let cancelled = false;
+    const id = setTimeout(() => {
+      getAss().then((text) => { if (!cancelled) setAssText(text); }).catch(() => { /* daemon hiccup */ });
+    }, 50);
+    return () => { cancelled = true; clearTimeout(id); };
+  }, [P]);
 
   // ---- playback ticker: Play advances the clock until the end of the song ----
   const timeRef = useRef(0);
@@ -754,6 +768,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
             playH={P.placement.play_h}
             placement={P.placement}
             onPlacement={(partial) => dispatch("set_globals", { partial })}
+            assText={assText}
           />
         </main>
       </div>

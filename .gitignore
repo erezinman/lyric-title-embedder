@@ -34,3 +34,4 @@ web/vite.config.js
 /Clip.mp4
 *.zip
 /*.CSV
+.~lock.*

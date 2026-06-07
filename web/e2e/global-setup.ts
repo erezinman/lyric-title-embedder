@@ -10,6 +10,9 @@ const HERE = fileURLToPath(new URL(".", import.meta.url));
 
 export const DAEMON_PORT = 8799;
 export const VITE_PORT = 5199;
+// A second vite with the live renderer disabled (VITE_JASSUB=0) so the AJ tier
+// can assert the feature flag turns the jassub canvas off.
+export const VITE_NOJASS_PORT = 5198;
 const ROOT = resolve(HERE, "..", "..");               // repo root
 const PIDFILE = join(tmpdir(), "kss-e2e-pids.json");
 
@@ -43,10 +46,23 @@ export default async function globalSetup(): Promise<void> {
     },
   );
 
-  writeFileSync(PIDFILE, JSON.stringify({ daemon: daemon.pid, vite: vite.pid, projectsDir }));
+  const viteNoJass = spawn(
+    "npm", ["run", "dev", "--", "--port", String(VITE_NOJASS_PORT), "--strictPort"],
+    {
+      cwd: join(ROOT, "web"),
+      env: { ...process.env, KSS_DAEMON_URL: `http://127.0.0.1:${DAEMON_PORT}`, VITE_JASSUB: "0" },
+      stdio: "ignore",
+      detached: true,
+    },
+  );
+
+  writeFileSync(PIDFILE, JSON.stringify({
+    daemon: daemon.pid, vite: vite.pid, viteNoJass: viteNoJass.pid, projectsDir,
+  }));
 
   await waitFor(`http://127.0.0.1:${DAEMON_PORT}/api/env`);
   await waitFor(`http://localhost:${VITE_PORT}/`);
+  await waitFor(`http://localhost:${VITE_NOJASS_PORT}/`);
 
   // seed the "audit" project from the committed fixture (multipart upload)
   const lyrics = readFileSync(join(HERE, "fixtures", "lyrics.json"));
