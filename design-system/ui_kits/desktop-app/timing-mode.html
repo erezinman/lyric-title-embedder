@@ -1,0 +1,40 @@
+<!-- @dsCard group="Components" name="Timing-mode picker" subtitle="Per-animation-row timing mode: grouped dropdown vs segmented control, where step lives, Typewriter≠Wipe" viewport="1320x1180" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Timing-mode picker</title>
+<link rel="stylesheet" href="colors_and_type.css" />
+<link rel="stylesheet" href="ia.css" />
+<link rel="stylesheet" href="tm.css" />
+</head>
+<body>
+<div class="wrap">
+  <header class="page-h">
+    <div class="eyebrow">Animations · follow-up design (reconciliation §4)</div>
+    <h1>The timing-mode picker</h1>
+    <p>Every animation row needs one more control: <b>when</b> its members fire relative to each
+      other. The decided simple set is
+      <span class="tip" data-term="Per cue">Per cue</span> ·
+      <span class="tip" data-term="Per line">Per line</span> ·
+      <span class="tip" data-term="Together">Together</span> ·
+      <span class="tip" data-term="Cascade">Cascade</span> ·
+      <span class="tip" data-term="Typewriter">Typewriter</span>, with
+      <span class="tip" data-term="Reverse">Reverse</span> ·
+      <span class="tip" data-term="Center-out">Center-out</span> ·
+      <span class="tip" data-term="Jitter">Jitter</span> under Advanced. It's a per-row control,
+      defaulting per preset (fades → Together, Pop/Color → Per cue). Below: the two form factors,
+      where <code>step</code> lives, and the Typewriter-vs-Wipe distinction.</p>
+    <div class="legend">
+      <span><i class="sw over"></i> selected mode</span>
+      <span><i class="sw inh"></i> inherited default</span>
+      <span><i class="sw tipkey"></i> hover-explained term</span>
+    </div>
+  </header>
+  <div id="opts"></div>
+</div>
+<div id="tip-layer"></div>
+<script src="tm.js"></script>
+</body>
+</html>

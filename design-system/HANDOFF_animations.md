@@ -113,6 +113,8 @@ Add an `animations` array at each style scope. An animation:
   "type": "color",            // color | alpha | size | type | move | glow  (extensible)
   "s": 1.55, "e": 2.30,       // start/end in seconds, on the project time axis
   "easing": "out",            // optional; engine default otherwise
+  "mode": "cascade",          // TIMING MODE (see §4.2). default per preset; null ⇒ "percue"
+  "step": 80, "step_unit": "ms",  // sequence spacing — ONLY when mode ∈ {cascade,typewriter,advanced}
   // type-specific:
   "from": "#FFFFFF", "to": "#FF3DA6",   // color
   "dir": "in" | "out" | "up" | "down" | "left" | "right",  // alpha (in/out), move (direction)
@@ -131,7 +133,49 @@ tok.style.anim_removed                    : string[]             // cue tombston
 > onto the group (`LayoutGroup.fade`). Animations follow the same "props live on the scope, color is
 > derived" philosophy — band/strip color comes from `colorForIndex`/type, not stored per anim.
 
-### 4.1 Type → libass primitive (PROVEN by `spikes/libass/FINDINGS.md`)
+### 4.1 Timing mode — the per-animation `mode` field (DECIDED — see `ui_kits/desktop-app/timing-mode.html`)
+
+`mode` controls **when an animation's members fire relative to each other** (the multi-member case:
+a selection / line / group / global animation spanning several cues). Set of modes:
+
+| Mode | `step`? | Reading |
+|---|---|---|
+| `percue` (default) | — | each cue animates at its own time, independently |
+| `perline` | — | a line animates as one, triggered by its first word |
+| `together` | — | all members animate at one shared moment (the group window) |
+| `cascade` | ✓ | members enter one after another, staggered by `step` (rolling wave) |
+| `typewriter` | ✓ | members **start** one after the next (any preset can typewrite) |
+| `reverse` · `centerout` · `jitter` (Advanced) | ✓ | cascade/typewriter variants: last→first · middle→edges · randomized offsets |
+
+**Picker UI — Option B (locked).** A per-animation-row control in the Inspector:
+- The **3 common modes** (`percue` · `perline` · `together`) sit inline as an always-visible
+  segmented switch — the 80% case is one tap.
+- A 4th **`Sequence ▾`** cell opens a grouped popover (Sequence: cascade/typewriter · Advanced:
+  reverse/centerout/jitter) and adopts the active mode's name when one is chosen.
+- The control sits **full-width on its own row under a "TIMING" label** (not inline beside it) — a
+  ~280 px rail can't fit 5 labelled segments without collision (proven in the prototype).
+- Every mode name is **hover-explained** (glossary tooltip) — the nomenclature is jargon-heavy.
+
+**`step` placement (DECIDED).** `step` is a **property of the mode, not a peer control**: it renders
+as an **indented sub-row directly under the mode control**, and **only for sequence modes**
+(cascade/typewriter/advanced). For `percue`/`perline`/`together` the slot shows a dashed "not used"
+placeholder so the row never jumps height. `step` toggles **ms ⇆ %** (% = fraction of the
+animation's span).
+
+**Default mode per preset** (so the common path needs zero timing fiddling):
+
+| Preset | Default `mode` |
+|---|---|
+| Fade / Pop / Glow / Color / Alpha / Size | `percue` |
+| Typewriter / Wipe | `typewriter` |
+| Slide / Move (group & global only) | `together` |
+
+**Typewriter (mode) ≠ Wipe (preset).** The old single "type" effect splits into two orthogonal,
+composable things: **Wipe** is a per-cue glyph reveal *preset* (the `type` → `\clip` rect primitive,
+§4.2) acting on **one** cue; **Typewriter** is a *timing mode* that staggers member **starts**
+**across** cues. Fade-preset + Typewriter-mode over a cue's glyphs = the classic typed-out line.
+
+### 4.2 Type → libass primitive (PROVEN by `spikes/libass/FINDINGS.md`)
 Each UI type compiles to a specific ASS override; the spikes pin down the exact emit rules.
 
 | UI type | libass primitive | Compiler rule (empirical) |
@@ -169,8 +213,13 @@ Resolution endpoint: `get_render` / `get_word` should return the **resolved** an
    (`.astrip`, `.astrip.glyph|.overflow|.collapse`, `.h`, `.cue.exp`) and the render/interaction
    logic from `tl-anim.js` (`stripStyle`, `typeColor`, `typeGlyph`, the click handler, the drag
    pointer handlers).
-6. **Animation preset picker**: the existing disabled "Karaoke Bounce / Pop / Glow / Typewriter"
-   presets become the `＋ Add animation` menu; each preset instantiates a typed `Animation`.
+6. **Animation preset picker + timing mode**: the existing disabled "Karaoke Bounce / Pop / Glow /
+   Typewriter" presets become the `＋ Add animation` menu; each preset instantiates a typed
+   `Animation` with its **default `mode`** (§4.1). Each animation row carries the **Option-B
+   timing-mode control** (segmented 3 + `Sequence ▾`, full-width under a "TIMING" label) and the
+   indented **`step` sub-row** for sequence modes. Port from `ui_kits/desktop-app/timing-mode.html`
+   (`tm.css`/`tm.js`: `.seg`, `.seg-b.seq`, `.md`/`.md-pop`/`.md-item`, `.substep`, the `adv-pop`
+   popover, glossary tooltip wiring). Mode names are hover-explained.
 7. **Preview**: **Exact = jassub (libass-in-wasm) live in the browser** — proven sub-ms per frame at
    full-song scale (§8). `manualRender({mediaTime})` + `setTrack(ass)`; re-`setTrack` on edit (~1ms).
    Keep a CSS Live overlay for the very smoothest scrub if desired, but Exact is now cheap enough to
@@ -178,6 +227,8 @@ Resolution endpoint: `get_render` / `get_word` should return the **resolved** an
 
 ## 7. Open product decisions (defaults chosen; confirm before final)
 - **Cap = 3** (chosen over 2) with inline-expand escape hatch. Revisit if 3 feels dense at small zoom.
+- **Timing-mode picker — RESOLVED (Option B, §4.1):** 3 common modes inline + `Sequence ▾`; `step`
+  nests under the mode; default mode per preset; Typewriter (mode) ≠ Wipe (preset).
 - **Preset list**: Bounce / Pop / Glow / Typewriter + the timeline-native types (color/alpha/size/
   move/glow). Suggest also: **Cascade** (per-word stagger), **Karaoke sweep** (fill wipe synced to
   word timing). Confirm the canonical preset set.
