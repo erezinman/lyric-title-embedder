@@ -1008,10 +1008,6 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
           onBreakLine={breakLine}
           onUngroupEvent={ungroupEvent}
           onDelete={deleteSel}
-          onUndo={() => store.undo().catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)))}
-          onRedo={() => store.redo().catch((e: unknown) => setErrMsg(e instanceof Error ? e.message : String(e)))}
-          canUndo
-          canRedo
         />
         <div className="dock-body">
           {dockTab === "timeline" && (

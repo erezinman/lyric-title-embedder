@@ -9,8 +9,7 @@ describe("OpsToolbar", () => {
     render(<OpsToolbar selCount={2} canGroupFade={true} fadeMembership={null} canMergeWords={true}
       mergeOn={false} canUnmerge={false} canMergeEvents={false} canSplitEvent={false} canBreakLine={false} breakLineOn={false} hasEvent={false} wordDeleted={false}
       onGroupFade={onGroupFade} onClearFade={() => {}} onMergeWords={onMergeWords} onUnmerge={() => {}} onMergeEvents={() => {}}
-      onSplitEvent={() => {}} onBreakLine={() => {}} onUngroupEvent={() => {}} onDelete={() => {}}
-      onUndo={() => {}} onRedo={() => {}} canUndo canRedo />);
+      onSplitEvent={() => {}} onBreakLine={() => {}} onUngroupEvent={() => {}} onDelete={() => {}} />);
     await userEvent.click(screen.getByText(/Group fade-in/i));
     expect(onGroupFade).toHaveBeenCalledWith("in");
     await userEvent.click(screen.getByText(/Merge words/i));

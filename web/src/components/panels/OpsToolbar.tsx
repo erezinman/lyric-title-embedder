@@ -25,10 +25,6 @@ export interface OpsToolbarProps {
   onBreakLine: () => void;
   onUngroupEvent: () => void;
   onDelete: () => void;
-  onUndo: () => void;
-  onRedo: () => void;
-  canUndo: boolean;
-  canRedo: boolean;
 }
 
 export function OpsToolbar({
@@ -36,8 +32,7 @@ export function OpsToolbar({
   canMergeWords, mergeOn, canUnmerge, canMergeEvents, canSplitEvent, canBreakLine, breakLineOn,
   hasEvent, wordDeleted,
   onGroupFade, onClearFade, onMergeWords, onUnmerge, onMergeEvents,
-  onSplitEvent, onBreakLine, onUngroupEvent, onDelete, onUndo, onRedo,
-  canUndo, canRedo,
+  onSplitEvent, onBreakLine, onUngroupEvent, onDelete,
 }: OpsToolbarProps) {
   return (
     <div className="cue-tools-wrap">
@@ -83,13 +78,8 @@ export function OpsToolbar({
           <Icon name={wordDeleted ? "undo" : "close"} size={13} />
           {wordDeleted ? "Restore" : "Delete"}
         </button>
-        <span className="sep" />
-        <button className="minibtn" onClick={onUndo} disabled={!canUndo}>
-          <Icon name="undo" size={13} />Undo
-        </button>
-        <button className="minibtn" onClick={onRedo} disabled={!canRedo}>
-          <Icon name="redo" size={13} />Redo
-        </button>
+        {/* Q7: dock copies removed by designer decision — undo/redo are TopBar-only
+            (plus Ctrl/⌘+Z / Ctrl+Y) since history is global, not dock-scoped. */}
         <span className="sel-count">
           {selCount ? selCount + " selected" : "shift-click words to multi-select"}
         </span>

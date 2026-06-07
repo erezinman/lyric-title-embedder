@@ -201,18 +201,19 @@ void user;
   });
 
   it(
-    "D-52 — OpsToolbar Undo and Redo are always enabled (scoped to .cue-tools-wrap to avoid TopBar ambiguity) — ADJ-05",
+    "D-52 — TopBar Undo and Redo are enabled; the OpsToolbar (dock) has no undo/redo",
     async () => {
-      // ADJ-05: two Undo/Redo locations are the designed layout; scope query to the toolbar container
+      // Q7: dock copies removed by designer decision. Undo/redo are TopBar-only
+      // (history is global, not dock-scoped). Was: asserted two Undo/Redo locations.
       const { container } = render(<Editor projectName="test" onHome={() => {}} />);
       await waitFor(() => expect(FakeWS.last).toBeTruthy());
       emitState(baseProject());
       await waitFor(() => screen.getByText("Verse 1"));
       const wrap = container.querySelector(".cue-tools-wrap") as HTMLElement;
-      const undoBtn = within(wrap).getByRole("button", { name: /Undo/i });
-      const redoBtn = within(wrap).getByRole("button", { name: /Redo/i });
-      expect(undoBtn).not.toBeDisabled();
-      expect(redoBtn).not.toBeDisabled();
+      expect(within(wrap).queryByRole("button", { name: /Undo/i })).toBeNull();
+      expect(within(wrap).queryByRole("button", { name: /Redo/i })).toBeNull();
+      expect(screen.getByTitle("Undo")).not.toBeDisabled();
+      expect(screen.getByTitle("Redo")).not.toBeDisabled();
     }
   );
 });
@@ -434,18 +435,17 @@ describe("OpsToolbar action dispatches", () => {
 // ---------------------------------------------------------------------------
 describe("OpsToolbar undo/redo", () => {
   it(
-    "D-66 — OpsToolbar Undo button dispatches undo (scoped to .cue-tools-wrap to avoid TopBar ambiguity) — ADJ-06",
+    "D-66 — TopBar Undo button dispatches undo (dock copy removed)",
     async () => {
-      // ADJ-06: ambiguous selector fixed by scoping to .cue-tools-wrap (the toolbar container)
+      // Q7: dock copies removed by designer decision. Was: clicked the .cue-tools-wrap
+      // Undo button; now the in-reach undo is the TopBar control (history is global).
       const user = userEvent.setup();
-      const { container } = render(<Editor projectName="test" onHome={() => {}} />);
+      render(<Editor projectName="test" onHome={() => {}} />);
       await waitFor(() => expect(FakeWS.last).toBeTruthy());
       emitState(baseProject());
       await waitFor(() => screen.getByText("Verse 1"));
       clearDispatches();
-      const wrap = container.querySelector(".cue-tools-wrap") as HTMLElement;
-      const undoBtn = within(wrap).getByRole("button", { name: /Undo/i });
-      await user.click(undoBtn);
+      await user.click(screen.getByTitle("Undo"));
 
       const d = dispatches().filter((d) => d.tool === "undo");
       expect(d).toHaveLength(1);
@@ -453,18 +453,17 @@ describe("OpsToolbar undo/redo", () => {
   );
 
   it(
-    "D-67 — OpsToolbar Redo button dispatches redo (scoped to .cue-tools-wrap to avoid TopBar ambiguity) — ADJ-07",
+    "D-67 — TopBar Redo button dispatches redo (dock copy removed)",
     async () => {
-      // ADJ-07: ambiguous selector fixed by scoping to .cue-tools-wrap (the toolbar container)
+      // Q7: dock copies removed by designer decision. Was: clicked the .cue-tools-wrap
+      // Redo button; now the in-reach redo is the TopBar control (history is global).
       const user = userEvent.setup();
-      const { container } = render(<Editor projectName="test" onHome={() => {}} />);
+      render(<Editor projectName="test" onHome={() => {}} />);
       await waitFor(() => expect(FakeWS.last).toBeTruthy());
       emitState(baseProject());
       await waitFor(() => screen.getByText("Verse 1"));
       clearDispatches();
-      const wrap = container.querySelector(".cue-tools-wrap") as HTMLElement;
-      const redoBtn = within(wrap).getByRole("button", { name: /Redo/i });
-      await user.click(redoBtn);
+      await user.click(screen.getByTitle("Redo"));
 
       const d = dispatches().filter((d) => d.tool === "redo");
       expect(d).toHaveLength(1);
