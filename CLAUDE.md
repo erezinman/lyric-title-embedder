@@ -7,8 +7,11 @@ ASS techniques, the code architecture, and conventions/gotchas**.
 ## What this project is
 
 A toolkit to turn **word-level-timed lyrics** into **karaoke-style subtitles** with per-word
-fade-in/out, precise placement, and grouping — as `.ass` (libass) or `.srt`. Primary deliverable is
-the GUI (`karaoke_subtitle_gui.py`); batch scripts exist for headless generation.
+**animations** (fades are one special case — also sweeps/pops/wipes/slides), precise placement,
+and grouping — as `.ass` (libass) or `.srt`. Primary deliverable is now the **React/Vite web
+app** served by the engine **daemon** (real libass-in-wasm live preview); the CustomTkinter GUI
+(`karaoke_subtitle_gui.py`) is frozen/legacy (no animation UI); batch scripts exist for headless
+generation.
 
 ## Background & data provenance (important)
 
@@ -43,10 +46,11 @@ Suno API  ──►  aligned_lyrics.json  ──►  reconstruct_lines + merge_s
                           ┌───────────────────────────────────────────────────────────┤
                           ▼                                                             ▼
                  build_from_api.py / ass_from_api.py                        editable cue project
-                 (headless SRT/ASS variants)                                 layout + fade tags + globals
+                 (headless SRT/ASS variants)                                 layout + animations + globals
                                                                              + per-group/cue style
                                                                                       │
-                                                                          engine/render.py  (bake fades + style)
+                                                                          engine/render.py + engine/anim.py
+                                                                          (bake windows + resolve/emit anims + style)
                                                                                       │
                                                                           render-groups  ──►  engine/ass.py  ──►  .ass
                                                                                       │
@@ -85,12 +89,28 @@ tkinter dependency and can be imported in headless environments.
   paths are **not stored**. Backward-compatible: older files without `style` load as all-inherit.
   Actions renamed **Save project / Load project** in the UI.
 - **`engine/mutations.py`** — every cue/style edit as a pure `(project, …) -> project` function
-  (mutates in place; the controller deep-copies first). Includes the full v2 mutation set
-  (`make_tag`, `clear_tag`, `set_tag_props`, `set_global`, `set_layout_props`, `toggle_word_del`,
-  `add_break`, `merge_prev_word`, `layout_merge`, `layout_ungroup`, `layout_split_event`) plus
-  new **`set_group_style(project, gi, partial)`** and **`set_cue_style(project, ids, partial)`**.
+  (mutates in place; the controller deep-copies first). Cue/layout set: `set_layout_props`
+  (note: **no `accumulate` arg anymore**), `toggle_word_del`, `add_break`, `remove_break`,
+  `merge_prev_word`, `merge_token_span`, **`unmerge_token`** + **`merge_word_run`** (cross-line
+  contiguous merge, drops inner `\N`), `layout_merge`, `layout_ungroup`, `layout_split_event`,
+  `set_group_style`, `set_cue_style`. Animation set: **`anim_add` / `anim_remove` /
+  `anim_restore` / `anim_set_props`** over the three scopes. (Legacy `make_tag`/`clear_tag`/
+  `set_group_fade` linger in the file for the frozen Tk app but are not wired into the
+  daemon/MCP tool surface.)
 - **`engine/ffmpeg.py`** — `burn_cmd`, `frame_cmd`, `probe_duration`, and a headless
   `run(cmd, progress_cb)` that parses `-progress` and calls `progress_cb(frac)` — no tkinter.
+- **`engine/anim.py`** — the **animation system** (fades are now a special case). `validate`/
+  `resolve_animations` (the scope waterfall global → group → tag, narrowest-wins on overlapping
+  channel), `anchor_seconds` (8 anchors `{cue,line,span,event}×{start,end}`, ms/frac offsets),
+  and `emit_anim_tags` (compiles to libass: `\t` chains emitted **narrowest-scope LAST** for
+  last-listed-wins, `\kf` karaoke Sweep with `\k` gap padding, `\clip` wipes, `\move` for
+  group/global-only move, inout S-curve auto-expand). Timing modes percue/perline/together/
+  cascade/typewriter/reverse/centerout/jitter (`custom` = raw anchors). Appearance rule: a cue
+  with **no** alpha animation covering it is visible the whole event.
+- **`engine/anim_migrate.py`** — `migrate_project` / `is_migrated`: converts legacy
+  fade-shaped projects (`fin_tags`/`fout_tags`, `group.fade`, `globals.fade_in_ms/out_ms`,
+  per-event `accumulate`) to the animation model — invoked from `daemon/library.open_project`.
+  Byte-identical `.ass` is gold-tested. Files migrate; the WS/MCP API has **no** compat shim.
 - **`engine/srt.py`** — SRT import: `parse_srt`, `srt_to_lyrics` (one word-atom per SRT word,
   all sharing the cue's `[start,end]`; each word gets a leading space so `merge_subwords` keeps
   atoms distinct through the real loader), `build_srt_layout` (line-break strategies
@@ -147,7 +167,10 @@ See `docs/superpowers/specs/2026-06-03-engine-daemon-design.md` for the full des
   `build_server(ctx).sse_app(mount_path="/mcp")`, adds the `/api` routes and `/ws` WebSocket
   endpoint, optional bearer-token middleware on `/api`, CORS.
 - **`daemon/autosave.py`** — debounced (400ms) autosave of the open project after every
-  change (web and MCP clients never call save explicitly); bound on open/create.
+  change (web and MCP clients never call save explicitly); bound on open/create. The save is
+  **atomic** (`mkstemp` + `os.replace` in `daemon/library.py`).
+- **`daemon/library.open_project`** also **migrates legacy fade-shaped project files** to the
+  animation model on open (`engine/anim_migrate.migrate_project`).
 - **`daemon/library.py`** — project library: self-contained folders under a projects dir
   (`<name>/lyrics.json` + `<name>/project.json`, which also persists a `video` reference —
   folder-relative when uploaded, absolute when a server path). `create_project` is the single
@@ -184,31 +207,39 @@ app is untouched. Needs `poetry install --with mcp` (adds `mcp` SDK + `uvicorn` 
   `CueEditor` (Treeview). Imports only `core.py` and its own UI — not `engine/` — so it stays
   runnable and isolated. `nothing imports old/`.
 
-### v2 project dict (the source of truth)
+### project dict (the source of truth) — animation model
 ```python
 project = {
   "words":  [{text, start, end}],                       # immutable canonical atoms
-  "layout": [{label, win_start, win_end, linger, accumulate, del,
+  "layout": [{label, win_start, win_end, linger, del,
+              "animations": [Anim, …],                   # per-event animations
+              "suppress":   [anim_id, …],                # tombstones for inherited anims
               "style": {},                                # per-group style overrides (all STYLE_KEYS)
               "lines": [{"toks": [{ids, sep, del,
                                    "style": {}}]}]}],   # per-cue overrides (CUE_STYLE_KEYS, no border_style)
-  "fin_tags":  [{ids: set, color: int, trigger, dur}],   # appear-together
-  "fout_tags": [{ids: set, color: int, trigger, dur}],   # fade-together
-  "globals": {fade_in_ms, fade_out_ms, linger},
+  "anim_tags": [{ids: list, anims: [Anim, …], suppress: [anim_id, …]}],  # selection scope; per-cue = tag of one
+  "globals": {animations: [Anim, …], linger},
   "palette": [10 colors],
 }
+# Anim = {id, name, group_id?, channel, mode?, step?, step_unit?,
+#         segments: [{t0, t1, from, to, accel}], stagger?, enabled}
 ```
-Resolution (reactive, most-specific wins): **cue → group → global → built-in**. `None`/absent =
-inherit. Fade-in trigger default = first member word start; fade-out trigger default = last member
-word end. `border_style` is group-level only (constraint C1 — no inline ASS tag exists for it).
+**The legacy fade model is gone**: no `fin_tags`/`fout_tags`, no `group.fade`, no
+`globals.fade_in_ms/fade_out_ms`, no per-event `accumulate` (its modes ≡ the appearance
+animation's timing mode). A fade is just an `alpha` animation.
+
+Style resolution (reactive, most-specific wins): **cue → group → global → built-in**;
+`None`/absent = inherit. `border_style` is group-level only (constraint C1 — no inline ASS tag).
+Animation resolution: **scope** waterfall global → group → tag, narrowest scope wins on an
+overlapping channel; same-scope overlap = both + a warning; `suppress[]` tombstones mute an
+inherited animation at a narrower scope (`engine/anim.resolve_animations`).
 
 ### Render-group contract
-`project_to_render` emits:
-`{start, end, accumulate, group_style: {}, lines: [{words: [{text, start_s, end_s, style: {},
-[fin_ms, fout_at, fout_ms]}]}]}`
-
-The view resolves `group_style` + per-word `style` against `cfg` when drawing or calling
-`build_ass`. v1 render-groups lack these keys → treated as `{}`.
+`project_to_render` bakes appear-times/windows; `engine/anim.py` resolves and emits the
+animation tag chains. The view resolves `group_style` + per-word `style` against `cfg` when
+drawing or calling `build_ass`. `get_project` additionally carries the three animation carriers
+(`globals.animations`, `layout[].animations`+`suppress`, `anim_tags`) plus a per-token
+`anims_resolved` field. v1 render-groups lacking style keys → treated as `{}`.
 
 ## ASS / libass techniques (the rendering core)
 
@@ -216,13 +247,17 @@ The view resolves `group_style` + per-word `style` against `cfg` when drawing or
   where bottom-anchored `MarginV` can't go past the vertical center. Safe because every line break
   is explicit (`\N`), so we never rely on margin wrapping.
 - **`WrapStyle: 2`** — no automatic wrapping; break only on `\N`. So resizing the box never re-wraps.
-- **Per-word fade-in:** each word starts `\alpha&HFF&` (transparent) then `\t(in, in+dur,\alpha&H00&)`.
-  All words present from event start (alpha-hidden), so the layout is fixed — words fade in *in
-  their final place* (no re-centering).
-- **Fade-out:** append `\t(out, out+dur, \alpha&HFF&)`. Per-word/line/group via the tags; faded
-  lines keep their `\N` row so others don't move.
-- **Accumulate modes** collapse to per-word `start_s`: `words` = own time, `lines` = line's first
-  word, `off` = window start. Fade-in groups override to a shared trigger.
+- **Animations → tag chains** (`engine/anim.emit_anim_tags`): a fade-in is an `alpha` animation
+  (`\alpha&HFF&` start, `\t(in, in+dur, \alpha&H00&)`); fade-out appends `\t(out, out+dur,
+  \alpha&HFF&)`. All words present from event start (alpha-hidden) so the layout is fixed —
+  words appear *in their final place*. Other channels: karaoke Sweep uses `\kf` with `\k` gap
+  padding, wipes use `\clip`, group/global move uses `\move`. `\t` chains are emitted
+  **narrowest-scope LAST** (libass last-listed-wins resolves scope conflicts). Inout presets
+  auto-expand to an S-curve via the segment `accel` exponent.
+- **Appearance rule:** if no `alpha` animation covers a cue it is **visible for the whole
+  event** (no implicit fade — fades are opt-in). Timing **modes** (percue/perline/together/
+  cascade/typewriter/reverse/centerout/jitter) sequence multi-member animations — this is what
+  the old `accumulate` words/lines/off collapsed to.
 - **Per-group / per-cue style:** one `[V4+ Styles]` per distinct group `border_style` value; all
   other properties inline as running-delta tags per word. Inline color is 6-digit BGR + trailing
   `&` (e.g. `\1c&H0000FF&`), unlike the 8-digit `&H00RRGGBB` form in Style lines.
@@ -239,18 +274,24 @@ The view resolves `group_style` + per-word `style` against `cfg` when drawing or
 (`python3-tk`). Pillow is the only managed pip dep (optional; graceful fallback).
 
 ## Testing
-- **Python suites** (`tests/test_*.py`, stdlib `t_*` harness, `.venv/bin/python tests/<f>.py`):
-  engine (model/mutations/build-io/srt/merge-span/remove-break/group-align/globals-undo),
-  daemon (api/projects/autosave), tools, library, suno_fetch — ~280 tests. Engine code is
-  TDD-first; Tk suites are batched at the end of a work session.
-- **Web** (`npm --prefix web run test`): 612 vitest/jsdom tests incl. the interaction-audit
-  suites (`web/src/**/*.audit.test.tsx`) — every control's action/revert/double/gating + an
-  exhaustive WS-push→UI external-sync battery. Shared harness: `web/src/test-util/`.
-- **E2E** (`cd web && npx playwright test`): 45 specs against a REAL daemon (temp seeded
-  project) + vite + chromium; asserts the daemon's `/api/state` AND rendered UI/geometry
-  with revert symmetry; per-test reset restores a pristine snapshot (autosave-aware).
-- **Tk** (`poetry run python tests/test_v2_ui.py` + `tests/test_ui_*.py`, display/xvfb): 118
-  checks driving the editor via synthesized events; asserts state/render correctness.
+- **Python suites** (`tests/test_*.py`, pytest-style `test_*` + legacy stdlib `t_*` harness,
+  `.venv/bin/python tests/<f>.py`): engine (model/mutations/build-io/srt/merge-span/unmerge/
+  remove-break/group-align/globals-undo), **anim** (model/anchors/resolve/timing/compile/
+  migration/tools/undo/daemon), daemon (api/projects/autosave), connect, tools, library,
+  suno_fetch — **81 pytest + 20 legacy scripts**. Engine code is TDD-first; Tk suites are
+  batched at the end of a work session (see memory note).
+- **Web** (`npm --prefix web run test`): **722 vitest/jsdom tests / 58 files** incl. the
+  interaction-audit suites (`web/src/**/*.audit.test.tsx`, incl. the `*.anim.audit.*` battery)
+  — every control's action/revert/double/gating + an exhaustive WS-push→UI external-sync
+  battery. Shared harness: `web/src/test-util/` (fakews/dispatch/fixtures incl.
+  `withAnimations`/`withResolved`).
+- **E2E** (`cd web && npx playwright test`): **67 specs / 9 files** against a REAL daemon (temp
+  seeded project) + vite + chromium; asserts the daemon's `/api/state` AND rendered UI/geometry
+  with revert symmetry; per-test reset restores a pristine snapshot (autosave-aware). Includes
+  a **14-spec jassub pixel tier** (`e2e/jassub.spec.ts`) asserting the real libass-in-wasm render.
+- **Tk** (frozen/legacy; **`./run-tk-tests.sh`** — xvfb + self-withdraw): **118** headless
+  checks driving the editor via synthesized events; asserts state/render correctness. Tk gets
+  no animation UI.
 - Audit decision log: `docs/superpowers/testing/2026-06-05-adjudication-log.md`.
 - **docs/FEATURES.md** is the authoritative feature/behavior inventory — keep it current.
 
@@ -298,5 +339,8 @@ The view resolves `group_style` + per-word `style` against `cfg` when drawing or
   (b) full — make a layout group a flat id-set with props structurally identical to fade tags.
   Grouping words into an event should require a contiguous run. Touches model/mutations/serialize.
 - A proper packaged entry point (`ksstudio` console script) if/when it becomes a real package.
-- v3 / Tauri: animation presets, waveform/word-block timeline, Project Library, per-cue placement,
-  synthwave skin — all deferred to the view-only rewrite (`design-system/HANDOFF_v3.md`).
+- **SHIPPED in the web app** (formerly deferred to v3): the general **animation system** with
+  presets (8: Fade in/out, Sweep, Pop, Color flash, Wipe in, Blur in, Slide), a scrubbable
+  **waveform/word-block timeline**, the **Project Library**, a real **font picker**, and a
+  **real libass-in-wasm live preview** (jassub). Still deferred: per-cue `\pos` placement, the
+  Tauri desktop shell, synthwave skin.

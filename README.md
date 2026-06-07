@@ -1,9 +1,18 @@
 # Karaoke Subtitle Studio (v2)
 
-Turn word-timed lyrics (Suno `aligned_lyrics.json`) into **styled, per-word fade-in/out
-subtitles** as `.ass` (libass) or `.srt`, with a **live draggable preview** over your video and
-a **merged single-window editor** — 3-lane cue dock (layout, fade-in, fade-out) and a
-**Style | Inspector** left rail for global, per-group, and per-cue style overrides.
+Turn word-timed lyrics (Suno `aligned_lyrics.json`) into **styled, animated per-word
+subtitles** as `.ass` (libass) or `.srt`, with a **live preview** over your video.
+
+The **primary editor is the React/Vite web app** (served by the engine daemon): a real
+libass-in-wasm live preview, a 4-column cue dock (layout · fade-in · fade-out · animation),
+a draggable/scrubbable waveform, and an Inspector for the style waterfall + the general
+**animation system** (fades, sweeps, pops, wipes, slides — fade is just a special case).
+
+A **legacy CustomTkinter desktop app** still ships (frozen — no animation UI): a merged
+single-window editor with a 3-lane cue dock (layout, fade-in, fade-out) and a
+**Style | Inspector** left rail for global, per-group, and per-cue style overrides. The
+sections below document the Tk app; see **docs/FEATURES.md** for the web editor + animations,
+and **docs/GLOSSARY.md** for vocabulary.
 
 ### Project layout
 
@@ -147,6 +156,10 @@ See [The cue dock](#the-cue-dock) below for full detail.
 
 ## The cue dock
 
+> This describes the **Tk app's** 3-lane fade dock, which is frozen on the legacy fade model.
+> The **web editor** has a 4th **ANIMATION** column and edits the general animation system
+> (fade is just one preset) — see **docs/FEATURES.md** §2a and §5.5.
+
 Three synced panes — **LAYOUT · FADE-IN · FADE-OUT** — one row per word, under collapsible
 per-event headers.
 
@@ -191,8 +204,11 @@ global instantly re-resolves *every* inherited value shown in the table.
 - **Fade-in group** = words appear together. Trigger defaults to the group's first word's start.
 - **Fade-out group** = words fade out together. Trigger defaults to the group's last word's end.
   Faded-out lines keep their `\N` row so remaining lines don't shift.
-- **Accumulate** (per event): `words` = word-by-word reveal; `lines` = whole line at its first
-  word; `off` = all visible for the window.
+- **Accumulate** (per event, **Tk legacy only**): `words` = word-by-word reveal; `lines` =
+  whole line at its first word; `off` = all visible for the window. The per-event `accumulate`
+  field was **removed from the engine model** — in the web/animation path this is now the
+  appearance animation's timing **mode** (percue/perline/together/…). The frozen Tk dock keeps
+  a `words` display fallback.
 
 ### Properties
 - **Inspector** (left rail, changes with selection): layout event → GROUP tier;
@@ -236,29 +252,30 @@ Headless generators (no GUI). Run from the project root so `aligned_lyrics.json`
 ## Testing
 
 ```bash
-# Headless engine / daemon / tools suites (no display; run any tests/test_*.py)
+# Headless engine / daemon / tools / animation suites (no display; run any tests/test_*.py)
 .venv/bin/python tests/test_engine.py
+.venv/bin/python tests/test_anim_compile.py   # animation resolve/compile, etc.
 
-# Web unit+interaction-audit suites (vitest/jsdom, 600+ tests)
+# Web unit+interaction-audit suites (vitest/jsdom — 722 tests / 58 files)
 npm --prefix web run test
 
 # End-to-end (real daemon + chromium; seeds a temp project, asserts /api/state + UI)
+# 67 specs / 9 files, incl. a 14-spec jassub libass-in-wasm pixel tier
 cd web && npx playwright test
 
-# Tk UI regression suites (needs a display or xvfb-run)
-poetry run python tests/test_v2_ui.py
+# Tk UI regression suites (frozen/legacy; headless via xvfb + self-withdraw)
+./run-tk-tests.sh
 ```
 
-`tests/test_v2_ui.py` — 26 checks driving the editor via synthesized `<Button-1>` events at real
-pixel coordinates: selection/drill-down, fade grouping, layout merge/split/ungroup, break/merge/
-delete, global reactivity, undo/redo, per-group/per-cue style set/clear/inherit, project
-round-trip with style, ASS Styles-by-box-mode + inline deltas, detachable dock selection, and
-more. Exits non-zero on any failure.
+Current test matrix: **722 vitest** (58 files) · **67 Playwright e2e** (incl. 14 jassub pixel
+specs) · **81 pytest + 20 legacy stdlib scripts** · **118 Tk headless**.
 
-`tests/test_engine.py` — headless units covering `engine/` and `controller.Session` with no
-display required.
+`tests/test_engine.py` (+ the `test_anim_*` suites) — headless units covering `engine/`,
+the animation model/resolve/compile/migration, and `controller.Session`, no display required.
+Tk suites drive the editor via synthesized events; engine code is TDD-first.
 
-The suites assert **behavior and render-model correctness**, not pixel appearance.
+The suites assert **behavior and render-model correctness**; the jassub pixel tier additionally
+asserts the real libass render.
 
 ---
 
@@ -316,16 +333,18 @@ The server binds to loopback only (`127.0.0.1`). Set `KSS_MCP_TOKEN` to require 
 
 | Category | Tools |
 |----------|-------|
-| **Inspect** | `get_state`, `list_groups`, `get_group`, `list_words`, `get_word`, `get_render`, `get_ass` |
-| **Style / edit** | `set_group_style`, `set_cue_style`, `make_fade_tag` / `clear_fade_tag` / `set_fade_tag_props`, `set_layout_props`, `merge_events` / `ungroup_event` / `split_event`, `break_line` / `merge_words`, `delete_words` / `restore_words`, `set_fade_defaults` |
+| **Inspect** | `get_state`, `get_project`, `list_groups`, `get_group`, `list_words`, `get_word`, `get_render`, `get_ass` |
+| **Style / edit** | `set_group_style`, `set_cue_style`, `set_layout_props`, `merge_events` / `ungroup_event` / `split_event`, `break_line` / `join_lines`, `merge_words` / `merge_word_span` / `merge_words_run` / `unmerge_words`, `delete_words` / `restore_words` |
+| **Animations** | `add_animation` / `remove_animation` / `restore_animation` / `set_animation_props` (scope `global`\|`group`\|`tag`; `cue` aliases `tag`) |
 | **Undo / redo** | `undo`, `redo` |
 | **Globals** | `get_globals`, `set_globals` |
 | **Project / build** | `load_lyrics`, `load_project` / `save_project`, `generate_ass`, `render_frame` (→ PNG), `burn` / `burn_status` |
 | **Resources** | `karaoke://project`, `karaoke://ass` |
 
-### Planned (Spec 2, not yet built)
-
-Word-level timing/text edits, add/remove words, and a generic validated patch tool.
+> The legacy fade tools (`make_fade_tag`, `clear_fade_tag`, `set_fade_tag_props`,
+> `set_group_fade`, `set_fade_defaults`) and per-event `accumulate` were **removed** when the
+> general animation system landed — a fade is now an `alpha` animation. There is no WS/MCP
+> backward-compat shim, but legacy project **files** auto-migrate on open.
 
 ---
 
@@ -371,8 +390,11 @@ The daemon runs **alongside** the CustomTkinter app — both share the `engine/`
 
 ## Known limitations / gotchas
 
-- The on-canvas preview text is a **per-cue approximation** (word-by-word fonts/colors); trust
-  **Render now / Auto** for the exact look.
+- **Web app**: the live preview is now a **real libass render** (jassub-in-wasm), not a CSS
+  approximation — it matches Exact mode. Animations (incl. fades) are edited there, not in Tk.
+- **Tk app only**: the on-canvas preview text is a **per-cue approximation** (word-by-word
+  fonts/colors); trust **Render now / Auto** for the exact look. The Tk app is frozen/legacy
+  and has **no animation UI**.
 - `\pos`-off (margin) mode can't push bottom-anchored text above the vertical center (libass clamp).
 - Box-mode (`BorderStyle`) is **group-level only** — `BorderStyle` has no inline override tag in
   ASS, so all cues in one event share box-mode.

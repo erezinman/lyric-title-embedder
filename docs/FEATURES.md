@@ -1,10 +1,11 @@
 # Karaoke Subtitle Studio — Features & Behaviors Reference
 
-> Authoritative inventory of every feature and its exact behavior, as of 2026-06-06
+> Authoritative inventory of every feature and its exact behavior, as of 2026-06-07
 > (branch lineage: `feat/finish-ui` → `feat/group-alignment` → `feat/designer-fidelity`
-> → `feat/resizable-panels` → `feat/interaction-audit`). Companion to CLAUDE.md
-> (architecture/provenance) and README.md (how-to). Specs live in
-> `docs/superpowers/specs/`; designer rulings in `design-system/HANDOFF_*.md`.
+> → `feat/resizable-panels` → `feat/interaction-audit` → `feat/animations` →
+> `feat/editor-iteration`). Companion to CLAUDE.md (architecture/provenance) and
+> README.md (how-to). Specs live in `docs/superpowers/specs/`; designer rulings in
+> `design-system/HANDOFF_*.md`; vocabulary in `docs/GLOSSARY.md`.
 
 ---
 
@@ -35,38 +36,79 @@ Tk app: karaoke_subtitle_gui.py — same engine, widget-bound globals
   cue's [start,end]**, leading-space trick keeps them distinct through the loader).
 - **Tokens (cues)** `{ids:[wid…], sep, del, style}` — one or more adjacent atoms rendered
   as a unit; `sep:" "` joins with a space, `sep:""` glues. Nothing is pre-merged at import.
-- **Lines** — `\N` boundaries inside an event; **Groups/events** `{label, accumulate
-  (words|lines|off), win_start/end, linger, del, style, fade, lines}` — one ASS Dialogue
-  each. Groups are fully dynamic: merge / split / ungroup / re-break at any time.
+- **Lines** — `\N` boundaries inside an event; **Groups/events** `{label, win_start/end,
+  linger, del, style, animations, suppress, lines}` — one ASS Dialogue each. Groups are
+  fully dynamic: merge / split / ungroup / re-break at any time. (The old per-event
+  `accumulate` field is GONE — its three modes are now expressed as the timing **mode** of
+  the appearance animation; see §2a.)
 - **Style waterfall** `global < group < cue`; STYLE_KEYS (11): font, fontsize, bold,
   primary, outline, back, back_alpha, outline_w, shadow, **border_style**, **align**.
   border_style (no inline per-cue tag) and align (`\an` is event-scoped) are **group-only**
   (CUE_STYLE_KEYS = 9). `null`/absent = inherit; explicit value = override.
-- **Fade waterfall** `global < group` for durations (`fade_in_ms`, `fade_out_ms`); fade
-  **tags** (`fin_tags`/`fout_tags`: `{ids, trigger}`) define which words fade and when
-  (trigger `null` = auto). `linger` (global + per-group) extends the event window.
 - **Placement (global)**: `align` (ASS numpad 1–9), `play_w/h` (canvas = PlayRes),
   `margin_l/r/v`, `use_pos` + `pos [x,y]` — libass pins text at `pos` **only when both**
   `use_pos` and `pos` are set (`posActive` in the web mirrors this).
-- **ASS export is a compilation target**: `project_to_render` bakes appear-times/fades/
-  windows; `build_ass` emits one Style per box-mode, one Dialogue per event, per-word
-  inline deltas + alpha `\t` fades, `{\anN}` once per event when group-align differs,
-  `\pos` when pinned. Regenerated for every export/exact-frame/burn; never parsed back.
+- **ASS export is a compilation target**: `project_to_render` bakes appear-times/windows
+  and `engine/anim.py` resolves+emits the animation tags; `build_ass` emits one Style per
+  box-mode, one Dialogue per event, per-word inline style deltas + the animation `\t`/`\kf`/
+  `\clip`/`\move` chains, `{\anN}` once per event when group-align differs, `\pos` when
+  pinned. Regenerated for every export/exact-frame/burn; never parsed back.
+
+## 2a. Animations (fades are a special case)
+
+The legacy fade model (`fin_tags`/`fout_tags`, `group.fade`, `globals.fade_in_ms/fade_out_ms`,
+per-event `accumulate`, the five `*_fade_*`/`set_fade_defaults` tools) has been **removed and
+replaced by a single general animation system**. A fade-in is now just an `alpha` animation;
+a karaoke sweep, color flash, pop, wipe, blur and slide are other channels.
+
+- **Animation record** `{id, name, group_id?, channel, mode?, step?, step_unit?,
+  segments:[{t0, t1, from, to, accel}], stagger?, enabled}`. `segments` are the keyframes
+  (a single segment = a plain transition; multiple = a curve). `accel` is the libass `\t`
+  acceleration exponent (inout presets auto-expand to an S-curve).
+- **Three scopes (carriers)**, narrowest-to-widest authority:
+  - **`globals.animations`** — project-wide.
+  - **`layout[gi].animations`** + **`layout[gi].suppress`** — per-event.
+  - **`anim_tags`** `[{ids, anims, suppress}]` — **selection scope**; a per-cue animation is
+    just a tag whose `ids` is one cue. (Tool boundary accepts `"cue"` as an alias of `"tag"`.)
+- **8 anchors** — `{cue, line, span, event} × {start, end}`; offsets in **ms** or **frac**.
+  `engine/anim.anchor_seconds` resolves an anchor+offset to an absolute time against the
+  relevant span.
+- **Timing modes** — `percue`, `perline`, `together`, `cascade`, `typewriter`, `reverse`,
+  `centerout`, `jitter` (plus `"custom"` = raw per-member anchors). `step`/`step_unit`
+  (ms or %) and `stagger` parameterize the sequenced modes. **The old `accumulate` words/
+  lines/off map onto these modes** (e.g. word-by-word reveal ≈ `percue`).
+- **Suppression = tombstones**: a wider-scope animation is muted at a narrower scope by
+  listing its id in that carrier's `suppress[]`. Restoring removes the tombstone.
+- **Conflict rule**: same `channel` overlapping in time **across scopes** → narrowest scope
+  wins; **within one scope** → both apply + a validation warning. `move` is **event/global
+  only** (no `\move` per cue — rejected at tag scope).
+- **Appearance rule**: if **no** alpha animation covers a cue, the cue is **visible for the
+  whole event** (no implicit fade). Fades are opt-in now.
+- **Compilation** (`engine/anim.emit_anim_tags`): `\t` chains are emitted **narrowest-scope
+  LAST** (libass last-listed-wins); karaoke Sweep uses `\kf` with `\k` gap padding; wipes use
+  `\clip`; `move` uses `\move`.
+- **Migration**: legacy project **files** auto-migrate on open (`engine/anim_migrate.py`,
+  invoked from `daemon/library.open_project`) — byte-identical `.ass` is gold-tested. There is
+  **no WS/MCP backward-compat shim**: the live API only speaks the animation model.
 
 ## 3. Persistence
 
 - A project = folder `<projects-dir>/<name>/` with `lyrics.json` (source-shaped, enough to
   rebuild atom count/text) + `project.json` `{globals_style, cues_v2, video}`.
-  `cues_v2` carries the **full** truth: layout, tokens, fade tags, AND `words` (exact
-  timings/text overlay on reopen). `video`: folder-relative basename if copied in,
-  absolute path if referenced.
+  `cues_v2` carries the **full** truth: layout (incl. per-event `animations`+`suppress`),
+  tokens, `anim_tags`, `globals.animations`, AND `words` (exact timings/text overlay on
+  reopen). `video`: folder-relative basename if copied in, absolute path if referenced.
+  **Legacy fade-shaped files auto-migrate to the animation model on open** (§2a).
 - **Autosave (daemon)**: every change debounce-saves (400ms) the bound project
   (`daemon/autosave.py`); bound on open/new/create; never crashes the daemon; covers
-  MCP-agent edits with no browser open. There is deliberately no manual save button.
+  MCP-agent edits with no browser open. The write is **atomic** (`mkstemp` + `os.replace`)
+  so a crash mid-save never corrupts `project.json`. There is deliberately no manual save
+  button.
 - **Undo/redo**: `controller.Session` snapshots `(project, aux)` per operation — aux is
   the context's style/placement globals, so **`set_globals` edits (alignment, margins,
   \pos…) are undoable** like everything else. One user gesture = one undo step (atomic
-  multi-merge, batched `set_word_times`). Tk path unaffected (aux hooks default off).
+  multi-merge, batched `set_word_times`, one animation add/remove/restore/set-props). Tk
+  path unaffected (aux hooks default off).
 
 ## 4. Ingestion
 
@@ -100,23 +142,33 @@ Authorization). Never stored.
 Brand → back to library. Play/Pause: rAF ticker advances the clock (visual playback —
 words light up, playheads glide, caption follows; **no audio** — media stays server-side);
 auto-stops at song end; pressing Play in Exact mode switches to Live first (Exact would
-ffmpeg-render per tick). Seek ±2s clamps to [0, dur]. Undo/Redo = server history.
-Export toggles the export popover.
+ffmpeg-render per tick). Seek ±2s clamps to [0, dur]. **Undo/Redo** = server history, and
+the **only** undo/redo controls (dock copies removed); also bound to **Ctrl/⌘+Z** and
+**Ctrl+Y / ⌘⇧Z** with a **press-flash** on the button. A **held-modifier pill** shows the
+active drag modifier (Shift/Alt). The **AI/MCP connect popover** lives on the TopBar pill
+(`GET /api/connect`, a conditional auth row when a token is set, and a copy-to-clipboard
+`mcpServers` JSON). Export toggles the export popover.
 
 ### 5.2 Project tab (ControlsRail)
 Real `<project>/lyrics.json` + video basename ("—" when none). Canvas display-only
-(PlayRes must match the video; editable via Tk/MCP). **Alignment = 3×3 numpad grid
-popover** (spatial: top row 7/8/9), disabled while pinned. **Free placement (\pos)
-toggle**: ON derives `pos` from the current box anchor (never a silent no-op), OFF clears
-both. State-aware note ("Pin coordinate comes from dragging the preview box." ⇄ "Margins
-come from dragging the preview box edges."). Animation presets: honest "Coming soon"
-(engine lacks per-word entrance animations).
+(PlayRes must match the video; editable via Tk/MCP). **Font family** = real picker
+(`GET /api/fonts` via `fc-list`). **Alignment = 3×3 numpad grid popover** (spatial: top
+row 7/8/9), disabled while pinned. **Free placement (\pos) toggle**: ON derives `pos` from
+the current box anchor (never a silent no-op), OFF clears both. State-aware note ("Pin
+coordinate comes from dragging the preview box." ⇄ "Margins come from dragging the preview
+box edges."). Animations are **live**: the rail points at the Inspector's **AnimSection**
+(no dead "Coming soon" stub) — the old placeholder is gone.
 
 ### 5.3 Preview stage
 16:9 canvas that absorbs all free pane space (container-query sized from `.stage-col`;
-ratio holds under any splitter position). Live mode = CSS approximation: caption renders
-**one line per `\N`**, per-word resolved color/em-scale/bold; Exact mode = real libass
-frame via ffmpeg (`/api/frame?t=`). **Margin mode**: dashed box + 8 handles + "margins"
+ratio holds under any splitter position). **Live mode is now a REAL libass render**:
+**jassub** (libass-in-wasm, `web/src/preview/jassubClient.ts`) renders the actual `.ass`
+on a canvas behind the DOM caption layer — the DOM layer became a transparent hit-test/
+selection overlay only. `/api/ass` is fetched on every WS push and handed to jassub via
+`setTrack` (~1-2ms); the daemon serves embedded fonts at `/api/font`. Gated behind the
+`VITE_JASSUB` flag. The old "live = CSS approximation" story is **dead**. Exact mode is
+unchanged = a real server ffmpeg libass frame via `/api/frame?t=`. **Margin mode**: dashed
+box + 8 handles + "margins"
 tag; body drag moves, handles resize; commits ONE `set_globals` of recomputed margins on
 release; the **non-anchored band edge is session-visual only** (the model stores one
 vertical margin per alignment row; band height persists visually across echoes).
@@ -124,8 +176,10 @@ vertical margin per alignment row; band height persists visually across echoes).
 `pos`. Both modes: cursor-following **readout chip** (`L · R · V` / `pos x, y`) during
 drag; Esc cancels (snap back, nothing dispatched); <3px = click, not drag; clamped at
 canvas walls (overshoot intentionally lost — Tk parity). The caption tracks the live box
-during drags. Geometry oracle: `web/src/model/bbox.ts` (mirrors `app_base.py`; middle-row
-band is margin-symmetric by design — libass ignores MarginV for middle alignment).
+during drags. **Shift = symmetric resize**; while dragging there's a **soft snap to center
+plus 5%/10% safe-area guides** (hold **Alt** to bypass the snap). Geometry oracle:
+`web/src/model/bbox.ts` (mirrors `app_base.py`; middle-row band is margin-symmetric by
+design — libass ignores MarginV for middle alignment).
 
 ### 5.4 Inspector
 - **StyleWaterfall** — three tiers (CUE/GROUP/GLOBAL), per-key rows showing resolved value
@@ -136,34 +190,51 @@ band is margin-symmetric by design — libass ignores MarginV for middle alignme
   override. Cue tier has no border_style/align rows. Wire: `set_globals {partial}` /
   `set_group_style {gi, partial}` / `set_cue_style {word_ids, partial}` (multi-select
   applies to all selected words).
-- **FadeDefaultsPanel** — always visible; three steppers (fade-in/out ±50ms, linger ±0.1s,
-  min 0) → `set_fade_defaults` (single changed key).
-- **FadeGroupPanel** — only when the selection is in a fade tag: per-lane trigger ±0.5s /
-  auto / Clear (membership), duration display with `(group)`/`(global)` source.
+- **AnimSection** (replaces the old FadeDefaults/FadeGroup panels) — the animation editor,
+  **append-override model**: the three scope tiers (global / group / cue=selection-tag)
+  start **empty**; each shows **own** rows, **inherited** rows (collapsed under an
+  "Inherited (n)" disclosure) and **tombstone** (suppressed) rows. The cue/tag tier shows a
+  **"N cues"** chip for its membership. A **preset picker** adds animations — **8 presets**:
+  Fade in, Fade out, Sweep, Pop, Color flash, Wipe in, Blur in, **Slide** (Slide/move is
+  group+ only — disabled at cue/tag scope). Wire: `add_animation` / `remove_animation` /
+  `restore_animation` / `set_animation_props {scope, ref, anim_id, partial}` (scope
+  `global|group|tag`, with `cue` accepted as a `tag` alias).
+- **TimingModePicker** — sets an animation's timing mode: 3 inline modes + a **Sequence**
+  popover for the rest; a **step sub-row** toggles its unit ms ⇆ %.
 - **TimingPanel** — lock pill (**default locked**; aria-label is the action); Start/End
   numeric fields (0.05 step on ↑/↓, ×5 with Shift, Enter/blur commit, clamped start<end)
   and text field → `set_word_times` / `set_word_text`; merged cues: timing+text disabled.
   **Server echoes never clobber a focused field** (live-sync only while unfocused).
-- **EventStrip** (on explicit group selection) — accumulate 3-way, linger ±0.1s, window
-  display → `set_layout_props`.
+- **EventStrip** (on explicit group selection) — linger ±0.1s, window display →
+  `set_layout_props` (the 3-way `accumulate` control is GONE — appearance timing now lives
+  in the appearance animation's timing mode).
 
 ### 5.5 Dock
-- Tabs: **Timeline** (honest time ruler + click-seek + per-event lanes of time-positioned
-  cue blocks + spanning playhead) and **Cue lanes** (LAYOUT/FADE-IN/FADE-OUT table).
+- Tabs: **Timeline** (the **Waveform is a scrubbable ruler** — drag or click the playhead to
+  seek + per-event lanes of time-positioned cue blocks + spanning playhead) and **Cue lanes**
+  (now **four** columns: LAYOUT / FADE-IN / FADE-OUT / **ANIMATION**).
 - **Selection model** (shared, bidirectional lanes⇄timeline⇄caption): click = single
   (sets anchor), ctrl/cmd-click = toggle into multi (`.multi` highlight), shift-click =
   time-ordered range; Esc clears (not from inputs); selecting an event header opens
-  EventStrip; chevron collapses a group's rows.
+  EventStrip; chevron collapses a group's rows. Selection is **preserved through merge/
+  unmerge**.
 - **WordTrack editing** (only when timings unlocked): body drag moves a cue (multi-drag
   preserves inter-cue diffs), edge handles resize (blocks <22px are move-only), one
   batched `set_word_times` per gesture, Esc cancels preserving selection; keyboard ←/→
-  nudges ±0.05s (Shift = resize end ±0.25s).
-- **OpsToolbar** (gating in parentheses): Group fade-in/out → `make_tag` (selection),
-  Clear fade → `clear_tag` (selection inside a tag), **Merge words** → one atomic
-  `merge_word_span` (≥2 adjacent same-line words; toast otherwise), **Break line** —
-  toggle: mid-line cue → `break_line` after it; last-of-line cue → `join_lines` (the
-  inverse), Merge events → `merge_events {gidxs:[gi, gi+1]}` (disabled on the last group),
-  Split event `{gi, li}`, Ungroup event, Delete/Restore (soft `del` flag), Undo/Redo.
+  nudges ±0.05s (Shift = resize end ±0.25s). **Merged cues render their per-word
+  sub-segments** on the track. **Magnet snapping** (SNAP_PX 9, near-line previews, toggle
+  persisted, **Alt inverts**) applies across block drag/resize.
+- **WordTrack animation strips** — each cue carries up-to-3 animation strips (fill colored
+  by channel type; cap 3 with a **"+N" inline expand**); 26px glyph chips; **2-click
+  select→focus**; **drag-retime handles** edit `{t0|t1:{offset ms}}` with a 50ms clamp.
+- **OpsToolbar** (gating in parentheses): the **fade buttons are now preset shortcuts**
+  (Fade in/out via `add_animation`, not the dead `make_tag`/`clear_tag`); **Merge words** →
+  one atomic `merge_word_span`/`merge_words_run` (≥2 adjacent words; cross-line contiguous
+  runs allowed, inner `\N` dropped), **Unmerge** → `unmerge_words`; multi-select **Break/
+  Join** semantics: a selection spanning >1 line → **Join**, otherwise **Break** after each;
+  Merge events → `merge_events {gidxs:[gi, gi+1]}` (disabled on the last group), Split event
+  `{gi, li}`, Ungroup event, Delete/Restore (soft `del` flag). **Undo/Redo moved to the
+  TopBar only** (the dock copies were removed).
 
 ### 5.6 Export popover
 Anchored under Export: **Burn video** = primary CTA (output filename defaults
@@ -181,26 +252,32 @@ surface a red toast.
 
 ### 5.8 External sync (the MCP path)
 Every mutating tool's WS push renders the right surface with zero UI interaction, and a
-baseline push reverts it (44-test exhaustive jsdom battery + live side-channel e2e).
-Unsolicited pushes (outside the 1.5s post-local-call window) raise the "AI agent updated
-the project" toast; echoes of your own edits don't.
+baseline push reverts it (exhaustive jsdom battery incl. an `.anim.audit` external-sync
+suite + live side-channel e2e). Unsolicited pushes (outside the 1.5s post-local-call window)
+raise the "AI agent updated the project" toast; echoes of your own edits don't.
 
 ## 6. Daemon API
 
 | Surface | Detail |
 |---|---|
 | `POST /api/call {tool, args}` | dispatches any `mcp_server/tools.py` function by name; 400 unknown/bad-args, 422 engine errors |
-| `GET /api/state` | the `get_project` payload: words, layout, fin/fout_tags, globals (fade/linger), global_style (11 keys), placement (incl. `use_pos`, `pos`), `video` |
+| `GET /api/state` | the `get_project` payload: words, layout (incl. per-event `animations`+`suppress`), `anim_tags`, globals (incl. `animations`, linger), global_style (11 keys), placement (incl. `use_pos`, `pos`), `video`, and per-token `anims_resolved`. **No legacy fade keys** (`fin/fout_tags`, `fade_in_ms/out_ms`, `accumulate`) — migrated away |
 | `WS /ws` | `{type:"state", state}` on every change; `{type:"burn", job}` progress |
-| `GET /api/frame?t=` | exact libass PNG · `GET /api/ass` — the .ass text |
+| `GET /api/frame?t=` | exact server-side libass PNG (Exact mode) · `GET /api/ass` — the .ass text (fetched on every push for the jassub live preview) |
+| `GET /api/font` | embedded font bytes for the jassub live renderer · `GET /api/fonts` — installed family names via `fc-list` (real font picker) |
+| `GET /api/connect` | the AI/MCP connect payload (endpoint + whether auth is required) behind the TopBar pill |
 | `POST /api/burn {out, video_in?}` + `GET /api/burn/{job}` | async ffmpeg job |
 | `GET /api/env` | `{same_host}` — strict loopback check; gates server-path inputs |
-| `GET /api/projects` · `POST /api/projects/create|new|open|save` | library (multipart create; `new` = legacy shim; open binds autosave) |
+| `GET /api/projects` · `POST /api/projects/create|new|open|save` | library (multipart create; `new` = legacy shim; **open auto-migrates legacy fade files** + binds autosave) |
 | `/mcp` | FastMCP SSE mount, same ctx — agent edits broadcast like any other |
 
 Loopback-only bind; optional `KSS_MCP_TOKEN` bearer on `/api`+`/mcp`. Notable tools beyond
-the obvious: `merge_word_span`, `join_lines`, `set_fade_defaults`, `merge_events`,
-`split_event`, `ungroup_event`, `undo`, `redo`, `set_video`, `get_project`.
+the obvious: the **animation set** `add_animation` / `remove_animation` / `restore_animation`
+/ `set_animation_props` (scope `global|group|tag`, `cue` aliases `tag`); `merge_word_span` /
+`merge_words_run` / `unmerge_words`; `join_lines`, `merge_events`, `split_event`,
+`ungroup_event`, `undo`, `redo`, `set_video`, `get_project`. The five legacy fade tools
+(`make_fade_tag`, `clear_fade_tag`, `set_fade_tag_props`, `set_group_fade`,
+`set_fade_defaults`) are **gone** — no backward-compat shim.
 
 ## 7. Running
 
@@ -213,31 +290,38 @@ file). Tk app: `poetry run python karaoke_subtitle_gui.py`. Linux inotify limits
 
 ## 8. Testing
 
-- **Python** (stdlib `t_*` scripts, `.venv/bin/python tests/<f>.py`, run per-task —
-  engine code is TDD-first): engine model/mutations/build-io, merge-span, remove-break,
-  group-align, globals-undo, srt, library-create, autosave, daemon, daemon-projects,
-  finish-ui tools, mcp, mcp-server, suno_fetch — ~280 tests.
-- **Web jsdom** (`npm --prefix web run test`): 612 tests / 49 files, incl. the
-  interaction-audit suites (`*.audit.test.tsx`) covering every control's action/revert/
-  double/gating + the external-sync battery. Shared harness in `web/src/test-util/`
-  (FakeWS, dispatch capture, composable fixtures, localStorage stub).
-- **E2E** (`cd web && npx playwright test`, 45 specs): real daemon on a temp seeded
-  project + real vite + chromium; asserts `/api/state` AND rendered UI/CSS/geometry, with
-  revert symmetry; per-test reset restores a pristine snapshot (autosave-aware).
-- **Tk suites** (batched at session end, `DISPLAY=:1`): 118 tests.
+- **Python** (engine pytest-style `test_*` functions + legacy stdlib `t_*` scripts,
+  `.venv/bin/python tests/<f>.py`, run per-task — engine code is TDD-first): engine model/
+  mutations/build-io, anim (model/anchors/resolve/timing/compile/migration/tools/undo/
+  daemon), merge-span, unmerge, remove-break, group-align, globals-undo, srt, library-create,
+  autosave, daemon, daemon-projects, finish-ui tools, connect, mcp, mcp-server, suno_fetch —
+  **81 pytest + 20 legacy scripts**.
+- **Web jsdom** (`npm --prefix web run test`): **722 tests / 58 files**, incl. the
+  interaction-audit suites (`*.audit.test.tsx`, incl. the `*.anim.audit.*` battery) covering
+  every control's action/revert/double/gating + the external-sync battery. Shared harness in
+  `web/src/test-util/` (FakeWS, dispatch capture, composable fixtures incl.
+  `withAnimations`/`withResolved`, localStorage stub).
+- **E2E** (`cd web && npx playwright test`, **67 specs / 9 files**): real daemon on a temp
+  seeded project + real vite + chromium; asserts `/api/state` AND rendered UI/CSS/geometry,
+  with revert symmetry; per-test reset restores a pristine snapshot (autosave-aware).
+  Includes a dedicated **jassub pixel tier** (`e2e/jassub.spec.ts`, **14 specs**) that asserts
+  the real libass-in-wasm render.
+- **Tk suites** (frozen/legacy; batched at session end via **`./run-tk-tests.sh`** — xvfb +
+  self-withdraw, no animation UI in Tk): **118 tests**.
 - Audit decision log: `docs/superpowers/testing/2026-06-05-adjudication-log.md`
-  (19 adjudicated cases; the campaign found, among others: set_globals bypassing undo,
-  echo-clobbered typing, the stage container-query bug, no persistence at all).
+  (the campaign found, among others: set_globals bypassing undo, echo-clobbered typing, the
+  stage container-query bug, no persistence at all).
 
 ## 9. Known gaps & parked items
 
 - **Tk-parity gaps (web)**: attach/change video after creation; re-import/swap lyrics on a
-  live project; rich font picker (font family effectively not editable from web); margins
-  numeric entry (drag-box covers interactively); canvas W×H editing (deliberate);
-  portable preset file save/load.
+  live project; margins numeric entry (drag-box covers interactively); canvas W×H editing
+  (deliberate); portable preset file save/load. (The **rich font picker is DONE** —
+  `GET /api/fonts` via `fc-list`; no longer a gap.)
 - **No audio playback** in the web (media is server-side; would need a daemon media
   endpoint + synced `<audio>`).
-- **Animation presets** — UI placeholder kept honest; engine support absent.
+- **Animations are SHIPPED** (general animation system; fades are a special case — §2a). The
+  Tk app deliberately gets **no** animation UI (frozen/legacy).
 - **Spec 2 (parked)**: "Connect to Suno" via Playwright persistent profile — fetch
   alignment by song link without manual tokens (design sketched in the create/import spec).
 - Designer questions parked in `design-system/HANDOFF_create-project-questions.md` and
