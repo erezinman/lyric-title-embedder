@@ -287,12 +287,14 @@ describe("AT-11 drag-back nets baseline (no clamp)", () => {
     await waitFor(() => expect(document.querySelector(".astrip[data-aid='g_fade'] .h-r")).toBeTruthy());
     clearDispatches();
     const rh = () => document.querySelector(".astrip[data-aid='g_fade'] .h-r") as HTMLElement;
+    // Alt-held so this asserts the raw px→ms contract (a nearby snap candidate
+    // would otherwise pull the edge); strip snapping is covered separately.
     fireEvent.pointerDown(rh(), { clientX: 90 });
-    fireEvent.pointerMove(window, { clientX: 120 });
-    fireEvent.pointerUp(window, { clientX: 120 }); // +30px
+    fireEvent.pointerMove(window, { clientX: 120, altKey: true });
+    fireEvent.pointerUp(window, { clientX: 120, altKey: true }); // +30px
     fireEvent.pointerDown(rh(), { clientX: 120 });
-    fireEvent.pointerMove(window, { clientX: 90 });
-    fireEvent.pointerUp(window, { clientX: 90 }); // -30px
+    fireEvent.pointerMove(window, { clientX: 90, altKey: true });
+    fireEvent.pointerUp(window, { clientX: 90, altKey: true }); // -30px
     const calls = dispatchesOf("set_animation_props");
     expect(calls.length).toBe(2);
     expect((calls[0].args.partial as any).t1.offset).toBe(pxToMs(30));

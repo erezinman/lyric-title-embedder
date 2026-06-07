@@ -317,6 +317,9 @@ svg.lucide { display: block; }
 .astrip:hover { box-shadow: 0 0 0 1px #fff6; }
 .astrip.foc { box-shadow: 0 0 0 2px #fff, 0 0 12px #fff8; z-index: 7; }
 .astrip.warn { box-shadow: 0 0 0 1px var(--amber, #FFC24B); }
+/* §11 source-linking — every visible strip sharing a group/global source id */
+.astrip.linked { outline: 1.5px dashed rgba(255,255,255,.82); outline-offset: 1px; z-index: 6; }
+.astrip.glyph.linked { outline: 1.5px dashed rgba(255,255,255,.82); }
 .astrip .arrow { position: absolute; right: 3px; top: 50%; transform: translateY(-50%); color: #0a0710; font-size: 11px; font-weight: 700; }
 .astrip.glyph { display: grid; place-items: center; background: var(--surface-4); border: 1px solid var(--border-strong); min-width: 18px; width: 18px; }
 .astrip.glyph .g-ic { font-size: 10px; color: var(--text-1); line-height: 1; }
