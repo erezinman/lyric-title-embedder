@@ -195,12 +195,15 @@ def t_tag_override_and_clear():
 
 def t_layout_linger_extends_window():
     e0 = app._groups[0]["end"]
-    app.set_layout_props(0, None, None, 2.0, "words"); pump(2)
+    app.set_layout_props(0, None, None, 2.0); pump(2)
     e1 = app._groups[0]["end"]
     return (abs(e1 - (e0 + 2.0)) < 1e-6), f"end {e0:.2f}->{e1:.2f}"
 
 def t_accumulate_off_starts_at_window():
-    app.set_layout_props(0, None, None, None, "off"); pump(2)
+    # REWRITE (animations migration): accumulate is no longer settable via the
+    # tool; it survives only as a legacy stored field that migration converts.
+    # Set it on the project dict directly and assert the render still honors it.
+    app._project["layout"][0]["accumulate"] = "off"; app._rebuild_render(); pump(2)
     g = app._groups[0]
     starts = {round(w["start_s"], 3) for ln in g["lines"] for w in ln["words"]}
     return (len(starts) == 1 and abs(min(starts) - g["start"]) < 1e-6), f"distinct starts={len(starts)}"
@@ -236,7 +239,7 @@ def t_tags_have_no_color_distinct_ids():
 
 def t_serialize_roundtrip():
     app.make_tag("fout_tags", {0, 1, 2}); pump(2)
-    app.set_layout_props(0, None, None, 1.0, "lines"); pump(2)
+    app._project["layout"][0]["accumulate"] = "lines"; app.set_layout_props(0, None, None, 1.0); pump(2)
     ser = v2.serialize_cues_v2(app._project)
     cfg = app.cfg()
     p2 = v2.make_project_v2(cfg); ok = v2.apply_cues_v2(p2, ser)

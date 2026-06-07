@@ -221,8 +221,10 @@ class AppV2(base.App):
     def clear_tag(self, lane, ids):                self._session.do("clear_tag", lane, set(ids))
     def set_tag_props(self, lane, ti, trigger): self._session.do("set_tag_props", lane, ti, trigger)
     def set_global(self, key, val):                self._session.do("set_global", key, val)
-    def set_layout_props(self, gi, win_start, win_end, linger, accumulate):
-        self._session.do("set_layout_props", gi, win_start, win_end, linger, accumulate)
+    def set_layout_props(self, gi, win_start, win_end, linger):
+        # accumulate was removed from the model (animations: it is now the
+        # appearance animation's timing mode; the Tk app has no animation UI)
+        self._session.do("set_layout_props", gi, win_start, win_end, linger)
     def set_group_style(self, gi, partial):        self._session.do("set_group_style", gi, partial)
     def set_group_fade(self, gi, partial):         self._session.do("set_group_fade", gi, partial)
     def set_cue_style(self, ids, partial):         self._session.do("set_cue_style", set(ids), partial)
@@ -741,11 +743,7 @@ class CueDock(ctk.CTkFrame):
             self._pe("win start (s)", g.get("win_start"), 1, "auto")
             self._pe("win end (s)", g.get("win_end"), 2, "auto")
             self._pe("linger (s)", g.get("linger"), 3, f"{self.G()['linger']:.2f} (global)")
-            ctk.CTkLabel(self.pf, text="accumulate").grid(row=4, column=0, sticky="e", padx=4)
-            self.acc_v = tk.StringVar(value=g.get("accumulate", "words"))
-            ctk.CTkOptionMenu(self.pf, variable=self.acc_v, width=90,
-                              values=["words", "lines", "off"]).grid(row=4, column=1, sticky="w")
-            ctk.CTkButton(self.pf, text="Apply", width=70, command=self._apply_layout).grid(row=5, column=1, sticky="w", pady=3)
+            ctk.CTkButton(self.pf, text="Apply", width=70, command=self._apply_layout).grid(row=4, column=1, sticky="w", pady=3)
             self._ws = self.pf.grid_slaves(row=1, column=1)[0]
             self._we = self.pf.grid_slaves(row=2, column=1)[0]
             self._wl = self.pf.grid_slaves(row=3, column=1)[0]
@@ -810,7 +808,7 @@ class CueDock(ctk.CTkFrame):
     def _apply_layout(self):
         try:
             self.app.set_layout_props(self.sel_group, self._f(self._ws), self._f(self._we),
-                                      self._f(self._wl), self.acc_v.get())
+                                      self._f(self._wl))
         except ValueError:
             self.app.log("Layout props must be numbers or blank.")
 
