@@ -4,6 +4,8 @@ body{
   background:radial-gradient(120% 90% at 12% -8%,#181226 0%,transparent 55%),radial-gradient(120% 90% at 92% 0%,#1a1130 0%,transparent 50%),var(--bg);
   color:var(--text-1);font-family:var(--font-ui);-webkit-font-smoothing:antialiased;padding:36px 30px 80px;
 }
+.board,.ruler,.track,.cue,.astrip,.cue-t{user-select:none;-webkit-user-select:none}
+body.tl-drag,body.tl-drag *{user-select:none !important;-webkit-user-select:none !important}
 .wrap{max-width:1320px;margin:0 auto;display:grid;grid-template-columns:1fr 300px;grid-template-areas:"head head" "board focus";gap:22px}
 .page-h{grid-area:head}
 .page-h .eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-soft)}
@@ -17,6 +19,10 @@ body{
 .t-ctl{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2)}
 .t-ctl input[type=range]{accent-color:var(--accent)}
 .t-read{margin-left:auto;font-family:var(--font-mono);font-size:12px;color:var(--cyan)}
+.t-btn.mag{display:inline-flex;align-items:center;gap:6px}
+.t-btn.mag.on{color:var(--cyan);background:color-mix(in srgb,var(--cyan) 11%,var(--surface-3));border-color:color-mix(in srgb,var(--cyan) 40%,transparent)}
+.t-btn.mag.on:hover{border-color:var(--cyan)}
+.t-btn.mag.alt{color:var(--warn);background:color-mix(in srgb,var(--warn) 13%,var(--surface-3));border-color:color-mix(in srgb,var(--warn) 48%,transparent)}
 
 .legend{grid-area:auto;grid-column:1/-1;display:flex;flex-wrap:wrap;gap:16px;margin-top:2px}
 .lg{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--text-2)}
@@ -33,7 +39,14 @@ body{
 .board{grid-area:board;border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--surface-1);box-shadow:var(--shadow-3);padding:0;overflow-x:auto;overflow-y:hidden;position:relative}
 .ruler{position:relative;height:26px;border-bottom:1px solid var(--border);background:var(--surface-2);min-width:100%}
 .tick{position:absolute;top:0;font-family:var(--font-mono);font-size:9.5px;color:var(--text-3);padding:7px 0 0 4px;border-left:1px solid var(--border)}
-.ruler .playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--cyan);box-shadow:0 0 8px var(--cyan);z-index:6}
+.ruler .playhead,.track .playhead.track-ph{position:absolute;top:0;bottom:0;width:2px;background:color-mix(in srgb,var(--cyan) 50%,transparent);box-shadow:0 0 6px color-mix(in srgb,var(--cyan) 35%,transparent);z-index:6;pointer-events:none}
+.playhead .ph-hit{position:absolute;top:0;bottom:0;left:-6px;width:14px;cursor:ew-resize;pointer-events:auto}
+.ruler .playhead .ph-head{position:absolute;top:0;left:50%;transform:translateX(-50%);width:13px;height:15px;background:var(--cyan);border-radius:0 0 4px 4px;box-shadow:0 0 8px var(--cyan);cursor:ew-resize;pointer-events:auto;z-index:7}
+/* snap guide — cyan magnetic line shown while a strip edge locks on */
+.snap-guide{position:absolute;top:0;bottom:0;width:0;z-index:7;pointer-events:none;border-left:1.5px dashed var(--cyan);filter:drop-shadow(0 0 6px color-mix(in srgb,var(--cyan) 70%,transparent))}
+.snap-guide.k-playhead{border-left-style:solid}
+.snap-guide.near{border-left:1px dotted color-mix(in srgb,var(--cyan) 65%,transparent);filter:none}
+.snap-guide .sg-tag{position:absolute;top:2px;left:5px;font-family:var(--font-mono);font-size:9px;color:var(--cyan);background:rgba(12,10,20,.8);border:1px solid color-mix(in srgb,var(--cyan) 40%,transparent);border-radius:4px;padding:1px 5px;white-space:nowrap}
 .track{position:relative;min-width:100%;height:340px;padding:0;background:
   repeating-linear-gradient(90deg,transparent 0 calc(var(--track-w,1px)/0),transparent 0)}
 .cue{position:absolute;height:54px;border-radius:8px;background:color-mix(in srgb,var(--c) 22%,var(--surface-3));
@@ -52,6 +65,10 @@ body{
 .astrip{position:absolute;border:0;padding:0;border-radius:3px;cursor:pointer;overflow:visible;transition:opacity .14s,box-shadow .12s}
 .astrip:hover{box-shadow:0 0 0 1px #fff6}
 .astrip.foc{box-shadow:0 0 0 2px #fff,0 0 12px #fff8;z-index:7}
+.astrip.linked{outline:1.5px dashed rgba(255,255,255,.82);outline-offset:1px;z-index:6}
+.astrip.glyph.linked,.astrip.overflow.linked{outline:1.5px dashed rgba(255,255,255,.82)}
+.f-row b.src-group{color:var(--violet-soft);text-transform:capitalize}
+.f-row b.src-global{color:var(--cyan);text-transform:capitalize}
 .astrip .arrow{position:absolute;right:3px;top:50%;transform:translateY(-50%);color:#0a0710;font-size:11px;font-weight:700}
 .astrip.glyph{display:grid;place-items:center;background:var(--surface-4);border:1px solid var(--border-strong);min-width:18px;width:18px}
 .astrip.glyph .g-ic{font-size:10px;color:var(--text-1);line-height:1}

@@ -2,6 +2,7 @@
 // two fade lanes), OpsToolbar (contextual layout/fade ops). Real-model aware.
 
 // ---- per-prop control metadata for the style waterfall ----
+const FONTS = ["Space Grotesk", "Inter", "Helvetica Neue", "Arial", "Georgia", "Montserrat", "Oswald", "Bebas Neue", "Courier New", "Impact"];
 const STYLE_META = {
   font:        { label: "Font",        kind: "combo",  fmt: v => v },
   fontsize:    { label: "Size",        kind: "step",   fmt: v => v + " px", step: 2, min: 8 },
@@ -28,10 +29,10 @@ function ControlsRail({ placement, onPlacement, meta }) {
 
       <div className="sec-t spacer"><Icon name="align" size={13} />Placement (global)</div>
       <div className="ctl"><label>Canvas</label><div className="text-inp mono" style={{ maxWidth: 120, justifyContent: "center" }}>{pl.play_w || 1920}×{pl.play_h || 1080}</div></div>
-      <div className="ctl"><label>Alignment</label>
+      <div className={"ctl" + (pl.use_pos ? " dim" : "")}><label>Alignment</label>
         <div className="ag-wrap">
-          <button className="kit-sel" onClick={() => setAgOpen(o => !o)}>{ALIGN[cur]} ({cur})<Icon name="chevDown" size={14} /></button>
-          {agOpen && (
+          <button className="kit-sel" disabled={!!pl.use_pos} title={pl.use_pos ? "Disabled — free placement (\\pos) overrides alignment" : ""} onClick={() => !pl.use_pos && setAgOpen(o => !o)}>{ALIGN[cur]} ({cur})<Icon name="chevDown" size={14} /></button>
+          {agOpen && !pl.use_pos && (
             <>
               <div className="ag-back" onClick={() => setAgOpen(false)} />
               <div className="ag-grid">
@@ -45,14 +46,6 @@ function ControlsRail({ placement, onPlacement, meta }) {
       </div>
       <div className="ctl"><label>Free placement (\pos)</label><span onClick={() => onPlacement({ use_pos: !pl.use_pos })}><Toggle on={!!pl.use_pos} /></span></div>
       <p className="rail-note"><Icon name="align" size={11} />{pl.use_pos ? "Pin coordinate comes from dragging the preview box." : "Margins come from dragging the preview box edges."}</p>
-
-      <div className="sec-t spacer disabled-sec"><Icon name="sparkles" size={13} />Animation preset<span className="soon">Coming soon</span></div>
-      <div className="chips disabled">
-        {["Karaoke Bounce", "Pop", "Glow", "Typewriter"].map(p => <span key={p} className="chip" aria-disabled="true">{p}</span>)}
-      </div>
-      <p className="wf-note" style={{ textAlign: "left", marginTop: 10, lineHeight: 1.5 }}>
-        Per-word entrance animations aren’t in the render engine yet — disabled until then.
-      </p>
     </div>
   );
 }
@@ -82,6 +75,15 @@ function PropRow({ pkey, isGlobal, inheritFrom, overridden, onSet, onClear }) {
       <span className="seg2">
         <button className={val === 1 ? "on" : ""} onClick={() => onSet(pkey, 1)}>Outline</button>
         <button className={val === 3 ? "on" : ""} onClick={() => onSet(pkey, 3)}>Box</button>
+      </span>);
+    if (meta.kind === "combo") return (
+      <span className="pv-ctl">
+        <span className="pv-select-wrap">
+          <select className="pv-select" value={val} style={{ fontFamily: val }} onChange={(e) => onSet(pkey, e.target.value)}>
+            {FONTS.map(f => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
+          </select>
+          <Icon name="chevDown" size={13} />
+        </span>
       </span>);
     return (
       <span className="pv-step">
@@ -188,7 +190,7 @@ function FadeCell({ sched, kind, color, palette }) {
   );
 }
 
-function CueLanes({ project, sel, selectedWords, collapsed, aiHotKey, onSelectWord, onShiftWord, onSelectEvent, onToggleCollapse }) {
+function CueLanes({ project, sel, selectedWords, collapsed, aiHotKey, onSelectWord, onRangeWord, onToggleWord, onSelectEvent, onToggleCollapse }) {
   return (
     <div className="lanes">
       <div className="lane-head">
@@ -222,7 +224,7 @@ function CueLanes({ project, sel, selectedWords, collapsed, aiHotKey, onSelectWo
                   const merged = tok.ids.length > 1;
                   return (
                     <div key={ti} className={"lane-row" + (isSel ? " sel" : "") + (multi ? " multi" : "") + (tok.del ? " del" : "") + (aiHotKey === "w" + wid ? " aihot" : "")}
-                      onClick={(ev) => ev.shiftKey ? onShiftWord(wid) : onSelectWord(gi, li, ti, wid)}>
+                      onClick={(ev) => ev.shiftKey ? onRangeWord(wid) : (ev.ctrlKey || ev.metaKey) ? onToggleWord(wid) : onSelectWord(gi, li, ti, wid)}>
                       <span className="lc word">{merged && <Icon name="layers" size={11} />}{tokText(project, tok)}{merged && <span className="mtag">merged</span>}</span>
                       <FadeCell sched={sched} kind="in" color={(project.fin_tags.find(t => t.ids.includes(wid)) || {}).color} palette={project.palette} />
                       <FadeCell sched={sched} kind="out" color={(project.fout_tags.find(t => t.ids.includes(wid)) || {}).color} palette={project.palette} />
@@ -239,7 +241,7 @@ function CueLanes({ project, sel, selectedWords, collapsed, aiHotKey, onSelectWo
 }
 
 // ── contextual ops toolbar ──
-function OpsToolbar({ selCount, canGroupFade, fadeMembership, canMergeWords, canMergeEvents, canSplitEvent, canBreakLine, hasEvent, wordDeleted, onGroupFade, onClearFade, onMergeWords, onMergeEvents, onSplitEvent, onBreakLine, onUngroupEvent, onDelete, onUndo, onRedo, canUndo, canRedo }) {
+function OpsToolbar({ selCount, canGroupFade, fadeMembership, canMergeWords, canUnmerge, canMergeEvents, canSplitEvent, canToggleLine, lineBroken, hasEvent, wordDeleted, onGroupFade, onClearFade, onMergeWords, onUnmerge, onMergeEvents, onSplitEvent, onToggleLine, onUngroupEvent, onDelete, onUndo, onRedo, canUndo, canRedo }) {
   return (
     <div className="cue-tools-wrap">
       <div className="cue-tools">
@@ -248,15 +250,13 @@ function OpsToolbar({ selCount, canGroupFade, fadeMembership, canMergeWords, can
         {fadeMembership && <button className="minibtn" onClick={() => onClearFade(fadeMembership)}><Icon name="close" size={13} />Clear {fadeMembership}</button>}
         <span className="sep" />
         <button className="minibtn" onClick={onMergeWords} disabled={!canMergeWords}><Icon name="layers" size={13} />Merge words</button>
-        <button className="minibtn" onClick={onBreakLine} disabled={!canBreakLine}><Icon name="scissors" size={13} />Break line</button>
+        <button className="minibtn" onClick={onUnmerge} disabled={!canUnmerge}><Icon name="scissors" size={13} />Unmerge</button>
+        <button className={"minibtn" + (lineBroken ? " on" : "")} onClick={onToggleLine} disabled={!canToggleLine} title="Toggle a line break (\N) after this cue"><Icon name="scissors" size={13} />{lineBroken ? "Join line" : "Break line"}</button>
         <button className="minibtn" onClick={onMergeEvents} disabled={!canMergeEvents}><Icon name="layers" size={13} />Merge events</button>
         <button className="minibtn" onClick={onSplitEvent} disabled={!canSplitEvent}><Icon name="scissors" size={13} />Split event</button>
         <button className="minibtn" onClick={onUngroupEvent} disabled={!hasEvent}><Icon name="scissors" size={13} />Ungroup event</button>
         <button className="minibtn" onClick={onDelete} disabled={!selCount}><Icon name={wordDeleted ? "undo" : "close"} size={13} />{wordDeleted ? "Restore" : "Delete"}</button>
-        <span className="sep" />
-        <button className="minibtn" onClick={onUndo} disabled={!canUndo}><Icon name="undo" size={13} />Undo</button>
-        <button className="minibtn" onClick={onRedo} disabled={!canRedo}><Icon name="redo" size={13} />Redo</button>
-        <span className="sel-count">{selCount ? selCount + " selected" : "shift-click words to multi-select"}</span>
+        <span className="sel-count">{selCount ? selCount + " selected" : "⇧ shift = range · ⌘/ctrl = pick"}</span>
       </div>
     </div>
   );

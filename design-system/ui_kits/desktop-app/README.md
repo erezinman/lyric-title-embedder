@@ -59,3 +59,17 @@ components there (as `panels.jsx`'s `CueEditor` does).
 - Animation presets show the *spirit* of each entrance, not the exact ASS transform.
 - Designed for a desktop viewport (~1360×860+). In a very short pane the caption may wrap to two
   lines (realistic) — that's expected.
+
+## Model fidelity vs the real engine (important)
+This kit's `groups → words` shape is a **presentational simplification**. The shipped Python engine's
+model is richer and is the source of truth — see `../../HANDOFF_v3.md` §6b. The kit deliberately drops:
+- **Immutable word atoms** + stable indices (kit mutates word objects directly).
+- **Multi-line layout events** (`lines:[{toks:[{ids,sep,del}]}]`) and **token merge/break** (`sep`).
+- **Accumulate modes** (words | lines | off) and per-event **win_start / win_end / linger**.
+- **Fade-in grouping** (`fin_tags`) — the kit only illustrates a fade-out group. The real lanes are a
+  tag-grouping editor (drag-select → Group, drill-down), not the read-only display shown here.
+- **Per-scope STYLE overrides** — the Inspector's GROUP "Font / Size" are *static placeholders*, not
+  backed by a model field. Adding a `style_override` dict (resolved word→group→global) is the real
+  feature; §6b of the handoff specs it, including why **box-vs-outline border mode** must be a
+  group-scope `[V4+ Styles]` choice rather than an inline per-word tag.
+- Built-in defaults are **fade-in 250 ms · fade-out 1000 ms** (reconciled).
