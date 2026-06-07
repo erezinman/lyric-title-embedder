@@ -20,7 +20,8 @@ class _Auth(BaseHTTPMiddleware):
 
 def build_app(ctx, hub, token=None, projects_dir="projects"):
     (call, state, render, ass, ws_endpoint, frame, font, burn, burn_status,
-     projects_list, projects_new, projects_open, projects_save, env, projects_create) = make_routes(ctx, hub)
+     projects_list, projects_new, projects_open, projects_save, env, projects_create,
+     connect, fonts) = make_routes(ctx, hub)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -45,6 +46,8 @@ def build_app(ctx, hub, token=None, projects_dir="projects"):
         Route("/api/projects/open", projects_open, methods=["POST"]),
         Route("/api/projects/save", projects_save, methods=["POST"]),
         Route("/api/env", env, methods=["GET"]),
+        Route("/api/connect", connect, methods=["GET"]),
+        Route("/api/fonts", fonts, methods=["GET"]),
     ]
     middleware = [Middleware(CORSMiddleware, allow_origins=["http://127.0.0.1:5173",
                   "http://localhost:5173"], allow_methods=["*"], allow_headers=["*"])]

@@ -1,4 +1,5 @@
 # daemon/api.py — Starlette handlers over a DaemonContext + Hub. Imports starlette only.
+import os
 from starlette.responses import JSONResponse, Response
 from mcp_server import tools
 
@@ -154,5 +155,40 @@ def make_routes(ctx, hub):
         same = bool(client and client.host in ("127.0.0.1", "::1"))
         return JSONResponse({"same_host": same})
 
+    async def connect(request):
+        # MCP-connect popover params. Host/port are derived from the request so a
+        # client behind a proxy or on a non-default port still copies a working URL.
+        # token_required reflects whether the daemon was launched with KSS_MCP_TOKEN;
+        # the token VALUE is never returned.
+        url = request.url
+        host = url.hostname or "127.0.0.1"
+        port = url.port or (443 if url.scheme == "https" else 80)
+        base = f"{url.scheme}://{url.netloc}"
+        ws_scheme = "wss" if url.scheme == "https" else "ws"
+        return JSONResponse({
+            "host": host,
+            "port": port,
+            "api_url": f"{base}/api/call",
+            "ws_url": f"{ws_scheme}://{url.netloc}/ws",
+            "mcp_url": f"{base}/mcp",
+            "token_required": bool(os.environ.get("KSS_MCP_TOKEN")),
+        })
+
+    async def fonts(request):
+        # Installed font families via fc-list. Returns a sorted, de-duplicated list
+        # of family names; if fc-list is unavailable, returns [].
+        import core, subprocess
+        if not core.FC_LIST:
+            return JSONResponse({"fonts": []})
+        try:
+            out = subprocess.run([core.FC_LIST, ":", "family"],
+                                 capture_output=True, text=True, timeout=8).stdout
+        except Exception:
+            return JSONResponse({"fonts": []})
+        fams = sorted({line.split(",")[0].strip() for line in out.splitlines()
+                       if line.strip()})
+        return JSONResponse({"fonts": fams})
+
     return call, state, render, ass, ws_endpoint, frame, font, burn, burn_status, \
-           projects_list, projects_new, projects_open, projects_save, env, projects_create
+           projects_list, projects_new, projects_open, projects_save, env, projects_create, \
+           connect, fonts

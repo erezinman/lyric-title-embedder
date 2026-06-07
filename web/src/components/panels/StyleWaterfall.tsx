@@ -6,6 +6,27 @@ import { Icon } from "../icons/Icon";
 import { AlignGrid } from "../atoms/AlignGrid";
 import { STYLE_KEYS, CUE_STYLE_KEYS } from "../../types";
 import type { Project, Token } from "../../types";
+import { getFonts } from "../../api/client";
+
+// Installed font families — fetched once, then cached at module level so every
+// font row across the inspector shares one network round-trip.
+let _fontsCache: string[] | null = null;
+let _fontsPromise: Promise<string[]> | null = null;
+function useFonts(): string[] {
+  const [fonts, setFonts] = React.useState<string[]>(_fontsCache ?? []);
+  React.useEffect(() => {
+    if (_fontsCache) return;
+    if (!_fontsPromise) {
+      _fontsPromise = getFonts()
+        .then((f) => { _fontsCache = Array.isArray(f) ? f : []; return _fontsCache; })
+        .catch(() => { _fontsCache = []; return _fontsCache; });
+    }
+    let live = true;
+    _fontsPromise.then((f) => { if (live) setFonts(Array.isArray(f) ? f : []); }).catch(() => { /* keep empty */ });
+    return () => { live = false; };
+  }, []);
+  return fonts;
+}
 
 // ---- per-prop control metadata ----
 const STYLE_META: Record<string, { label: string; kind: string; fmt: (v: unknown) => string; step?: number; min?: number; max?: number; hex?: boolean }> = {
@@ -78,6 +99,7 @@ interface PropRowProps {
 
 function PropRow({ pkey, isGlobal, inheritFrom, overridden, onSet, onClear }: PropRowProps) {
   const meta = STYLE_META[pkey];
+  const fonts = useFonts();
   const solid = isGlobal || overridden != null;
   const val = solid
     ? (isGlobal ? (overridden?.value ?? inheritFrom.value) : overridden!.value)
@@ -127,7 +149,30 @@ function PropRow({ pkey, isGlobal, inheritFrom, overridden, onSet, onClear }: Pr
       // same 3x3 numpad selector as the Project tab
       return <AlignGrid value={Number(val) || 2} onPick={(n) => onSet(pkey, n)} />;
     }
-    // step / combo — render as stepper
+    if (meta.kind === "combo") {
+      // Font picker (§6): dropdown of installed families. The current value is
+      // always selectable even if it isn't in the fetched list (e.g. inherited).
+      const cur = String(val ?? "");
+      const opts = fonts.includes(cur) || cur === "" ? fonts : [cur, ...fonts];
+      return (
+        <span className="pv-ctl">
+          <span className="pv-select-wrap">
+            <select
+              className="pv-select"
+              value={cur}
+              style={{ fontFamily: cur }}
+              onChange={(e) => onSet(pkey, e.target.value)}
+            >
+              {opts.map((f) => (
+                <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
+              ))}
+            </select>
+            <Icon name="chevDown" size={13} />
+          </span>
+        </span>
+      );
+    }
+    // step — render as stepper
     return (
       <span className="pv-step">
         <span className="pm" onClick={() => onSet(pkey, clampStep(pkey, val, -1))}>−</span>
