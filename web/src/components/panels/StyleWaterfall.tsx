@@ -6,27 +6,18 @@ import { Icon } from "../icons/Icon";
 import { AlignGrid } from "../atoms/AlignGrid";
 import { STYLE_KEYS, CUE_STYLE_KEYS } from "../../types";
 import type { Project, Token } from "../../types";
-import { getFonts } from "../../api/client";
+import { ColorPicker } from "../pickers/ColorPicker";
+import { FontPicker } from "../pickers/FontPicker";
 
-// Installed font families — fetched once, then cached at module level so every
-// font row across the inspector shares one network round-trip.
-let _fontsCache: string[] | null = null;
-let _fontsPromise: Promise<string[]> | null = null;
-function useFonts(): string[] {
-  const [fonts, setFonts] = React.useState<string[]>(_fontsCache ?? []);
-  React.useEffect(() => {
-    if (_fontsCache) return;
-    if (!_fontsPromise) {
-      _fontsPromise = getFonts()
-        .then((f) => { _fontsCache = Array.isArray(f) ? f : []; return _fontsCache; })
-        .catch(() => { _fontsCache = []; return _fontsCache; });
-    }
-    let live = true;
-    _fontsPromise.then((f) => { if (live) setFonts(Array.isArray(f) ? f : []); }).catch(() => { /* keep empty */ });
-    return () => { live = false; };
-  }, []);
-  return fonts;
-}
+// Typography (bold/italic/underline) is driven by the FontPicker's B/I/U
+// toggles, not by standalone rows — filtered out of every tier's row list and
+// set/cleared through the picker's onTypo at the same tier.
+const TYPO_KEYS = ["bold", "italic", "underline"] as const;
+
+// Resolved per-tier context fed to the pickers so previews are truthful (the
+// real fill behind an outline/box stroke, the real weight/slant in the font
+// preview). ctxFor layers global → group → cue exactly like resolveStyle.
+interface TierCtx { text: string; font: string; fill: string; bold: boolean; italic: boolean; underline: boolean; }
 
 // ---- per-prop control metadata ----
 const STYLE_META: Record<string, { label: string; kind: string; fmt: (v: unknown) => string; step?: number; min?: number; max?: number; hex?: boolean }> = {
@@ -49,8 +40,6 @@ const ALIGN_SHORT: Record<number, string> = {
   4: "Mid-Left", 5: "Center", 6: "Mid-Right",
   7: "Top-Left", 8: "Top-Center", 9: "Top-Right",
 };
-
-const COLOR_OPTS = ["#FFFFFF", "#FF3DA6", "#8A5BFF", "#3DE0FF", "#000000", "#4DE0C2", "#FFC24D"];
 
 function clampStep(pkey: string, v: unknown, dir: number): number | string {
   const m = STYLE_META[pkey];
@@ -95,11 +84,15 @@ interface PropRowProps {
   overridden: { value: unknown } | null;
   onSet: (pkey: string, v: unknown) => void;
   onClear: (pkey: string) => void;
+  /** Resolved tier context for truthful picker previews. */
+  ctx: TierCtx;
+  /** Typography (bold/italic/underline) state + set/clear, driven by the FontPicker. */
+  typo: { bold: boolean; italic: boolean; underline: boolean };
+  onTypo: (key: "bold" | "italic" | "underline", value: boolean) => void;
 }
 
-function PropRow({ pkey, isGlobal, inheritFrom, overridden, onSet, onClear }: PropRowProps) {
+function PropRow({ pkey, isGlobal, inheritFrom, overridden, onSet, onClear, ctx, typo, onTypo }: PropRowProps) {
   const meta = STYLE_META[pkey];
-  const fonts = useFonts();
   // Typography keys (bold/italic/underline) are driven by the FontPicker, not by
   // a standalone row — they have no STYLE_META entry and must not render here.
   if (!meta) return null;
@@ -127,16 +120,21 @@ function PropRow({ pkey, isGlobal, inheritFrom, overridden, onSet, onClear }: Pr
       );
     }
     if (meta.kind === "color") {
+      // §3.1: ColorPicker field mode; role from the key, previewFill = the
+      // tier's resolved fill so outline/box previews show a real caption.
+      const role = pkey === "outline" ? "outline" : pkey === "back" ? "box" : "fill";
       return (
-        <span className="pv-ctl swrow2">
-          {COLOR_OPTS.map(c => (
-            <i
-              key={c}
-              className={"sw-dot" + (c.toUpperCase() === String(val).toUpperCase() ? " on" : "")}
-              style={{ background: c }}
-              onClick={() => onSet(pkey, c)}
-            />
-          ))}
+        <span className="pv-ctl">
+          <ColorPicker
+            mode="field"
+            value={String(val ?? "#FFFFFF").toUpperCase()}
+            label={meta.label}
+            previewText={ctx.text}
+            previewFont={ctx.font}
+            previewRole={role}
+            previewFill={ctx.fill}
+            onChange={(c) => onSet(pkey, c.toUpperCase())}
+          />
         </span>
       );
     }
@@ -153,25 +151,24 @@ function PropRow({ pkey, isGlobal, inheritFrom, overridden, onSet, onClear }: Pr
       return <AlignGrid value={Number(val) || 2} onPick={(n) => onSet(pkey, n)} />;
     }
     if (meta.kind === "combo") {
-      // Font picker (§6): dropdown of installed families. The current value is
-      // always selectable even if it isn't in the fetched list (e.g. inherited).
+      // §3.2: FontPicker field mode. Also drives bold/italic/underline at this
+      // tier via onTypo (those keys are filtered out of the row list); the
+      // FontPicker's B replaces the old standalone bold toggle.
       const cur = String(val ?? "");
-      const opts = fonts.includes(cur) || cur === "" ? fonts : [cur, ...fonts];
       return (
         <span className="pv-ctl">
-          <span className="pv-select-wrap">
-            <select
-              className="pv-select"
-              value={cur}
-              style={{ fontFamily: cur }}
-              onChange={(e) => onSet(pkey, e.target.value)}
-            >
-              {opts.map((f) => (
-                <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
-              ))}
-            </select>
-            <Icon name="chevDown" size={13} />
-          </span>
+          <FontPicker
+            mode="field"
+            value={cur}
+            label={meta.label}
+            previewText={ctx.text}
+            color={ctx.fill}
+            bold={typo.bold}
+            italic={typo.italic}
+            underline={typo.underline}
+            onTypo={(k, v) => onTypo(k, v)}
+            onChange={(f) => onSet(pkey, f)}
+          />
         </span>
       );
     }
@@ -218,9 +215,32 @@ interface TierProps {
   onSet: (tier: TierScope, pk: string, v: unknown) => void;
   onClear: (tier: TierScope, pk: string) => void;
   aiHot?: boolean;
+  /** Caption text used in the pickers' live previews. */
+  previewText?: string;
 }
 
-function Tier({ tierClass, scope, title, badge, keys, styleDict, isGlobal, inherit, selected, onSelect, onSet, onClear, aiHot }: TierProps) {
+function Tier({ tierClass, scope, title, badge, keys, styleDict, isGlobal, inherit, selected, onSelect, onSet, onClear, aiHot, previewText }: TierProps) {
+  // Resolved value for a key at this tier: explicit override wins, else inherited.
+  const resolved = (k: string): unknown =>
+    (styleDict && styleDict[k] != null) ? styleDict[k] : inherit[k]?.value;
+
+  const ctx: TierCtx = {
+    text: previewText || "Karaoke",
+    font: String(resolved("font") ?? "Space Grotesk"),
+    fill: String(resolved("primary") ?? "#FFFFFF"),
+    bold: !!resolved("bold"),
+    italic: !!resolved("italic"),
+    underline: !!resolved("underline"),
+  };
+  const typo = { bold: ctx.bold, italic: ctx.italic, underline: ctx.underline };
+  // ADJ-12 parity: toggling a typo flag to the inherited value clears the
+  // override (round-trips to inherited) rather than writing an explicit set;
+  // the global tier has no inherited source so it always writes.
+  const onTypo = (key: "bold" | "italic" | "underline", value: boolean) => {
+    if (!isGlobal && value === inherit[key]?.value) onClear(scope, key);
+    else onSet(scope, key, value);
+  };
+
   return (
     <div
       className={"tier3 " + tierClass + (selected ? " sel" : "") + (aiHot ? " aihot" : "")}
@@ -231,10 +251,13 @@ function Tier({ tierClass, scope, title, badge, keys, styleDict, isGlobal, inher
         {badge}
       </div>
       <div className="t3-body">
-        {keys.map(k => (
+        {keys.filter((k) => !TYPO_KEYS.includes(k as typeof TYPO_KEYS[number])).map(k => (
           <PropRow
             key={k}
             pkey={k}
+            ctx={ctx}
+            typo={typo}
+            onTypo={onTypo}
             isGlobal={isGlobal}
             inheritFrom={inherit[k] ?? { value: undefined, src: "global" }}
             overridden={isGlobal
@@ -276,6 +299,7 @@ export function StyleWaterfall({ project, sel, aiTier, onSelectTier, onSetStyle,
           tierClass="word"
           scope="cue"
           title="CUE"
+          previewText={project.words[tok.ids[0]]?.text || "Karaoke"}
           badge={<span className="t3-meta">"{project.words[tok.ids[0]]?.text ?? ""}"</span>}
           keys={CUE_STYLE_KEYS}
           styleDict={tok.style as Record<string, unknown>}
@@ -293,6 +317,7 @@ export function StyleWaterfall({ project, sel, aiTier, onSelectTier, onSetStyle,
           tierClass="group"
           scope="group"
           title="GROUP"
+          previewText={g.label || "Karaoke"}
           badge={<span className="t3-meta">{g.label}</span>}
           keys={STYLE_KEYS}
           styleDict={g.style as Record<string, unknown>}

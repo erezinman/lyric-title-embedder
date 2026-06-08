@@ -1,20 +1,22 @@
 /**
- * StyleWaterfall.font.test.tsx — §6 font picker. The font row is a real dropdown
- * of families fetched from /api/fonts (module-cached), dispatching the standard
- * style partial {font} at the active tier. Clear-override still works.
+ * StyleWaterfall.font.test.tsx — §3.2 font row. The Font row now renders a
+ * FontPicker (field mode) that drives the `font` key AND bold/italic/underline
+ * via onTypo at the active tier. Picking a face dispatches the {font} partial;
+ * the curated KSP_FONTS list backs the picker (no /api/fonts fetch for the list).
+ * Clear-override still works.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { Project } from "../../types";
+import { stubLocalStorage } from "../../test-util/storage";
 
-// Mock the fonts endpoint at the client boundary so we control the option list
-// without touching the module-level cache directly.
-const FONTS = ["Arial", "DejaVu Sans", "Inter", "Space Grotesk"];
+// FontPicker imports `fonts` from the client for uploads; mock it so the row
+// never hits the network. The face list comes from the curated KSP_FONTS set.
 vi.mock("../../api/client", () => ({
-  getFonts: vi.fn(() => Promise.resolve(FONTS)),
+  fonts: { list: vi.fn(), upload: vi.fn(() => Promise.resolve({ family: "x", url: "" })), remove: vi.fn(() => Promise.resolve({ deleted: true })) },
 }));
 
-// Import AFTER the mock so StyleWaterfall picks up the mocked getFonts.
 import { StyleWaterfall } from "./StyleWaterfall";
 
 function proj(): Project {
@@ -23,7 +25,7 @@ function proj(): Project {
     layout: [{
       label: "V1", win_start: null, win_end: null, linger: null, del: false,
       style: { fontsize: 72 }, animations: [], suppress: [],
-      lines: [{ toks: [{ ids: [0], sep: "", del: false, style: { font: "Inter" } }] }],
+      lines: [{ toks: [{ ids: [0], sep: "", del: false, style: { font: "Oswald" } }] }],
     }],
     anim_tags: [],
     globals: { linger: 0.0, animations: [] },
@@ -53,77 +55,66 @@ function renderWith(scope: "global" | "group" | "cue", onSetStyle = vi.fn(), onC
   return { onSetStyle, onClearStyle };
 }
 
-beforeEach(() => { vi.clearAllMocks(); });
+/** Open the FontPicker popover in the given tier. */
+async function openFontPopover(tierTitle: string): Promise<HTMLElement> {
+  const tier = screen.getByText(tierTitle).closest(".tier3") as HTMLElement;
+  const row = within(tier).getByText(/^Font$/).closest(".prow") as HTMLElement;
+  await userEvent.click(row.querySelector(".ksp-field") as Element);
+  return document.querySelector(".ksp-pop") as HTMLElement;
+}
 
-describe("StyleWaterfall — font picker (§6)", () => {
-  function globalFontSelect(): HTMLSelectElement {
-    const globalTier = screen.getByText("GLOBAL").closest(".tier3") as HTMLElement;
-    const row = within(globalTier).getByText("Font").closest(".prow") as HTMLElement;
-    return within(row).getByRole("combobox") as HTMLSelectElement;
-  }
+beforeEach(() => { vi.clearAllMocks(); stubLocalStorage(); });
 
-  it("FW-01 — font row renders a <select> of the fetched families", async () => {
+describe("StyleWaterfall — font row (FontPicker, §3.2)", () => {
+  it("FW-01 — the Font row renders a FontPicker field (no <select>)", () => {
     renderWith("global");
-    await waitFor(() => expect(within(globalFontSelect()).getAllByRole("option").length).toBeGreaterThan(1));
-    const sel = globalFontSelect();
-    expect(sel.tagName).toBe("SELECT");
-    const opts = within(sel).getAllByRole("option").map((o) => o.textContent);
-    for (const f of FONTS) expect(opts).toContain(f);
+    const globalTier = screen.getByText("GLOBAL").closest(".tier3") as HTMLElement;
+    const row = within(globalTier).getByText(/^Font$/).closest(".prow") as HTMLElement;
+    expect(row.querySelector(".ksp-field")).toBeTruthy();
+    expect(row.querySelector("select")).toBeNull();
   });
 
-  it("FW-02 — choosing a font dispatches onSetStyle('global', 'font', value)", async () => {
+  it("FW-02 — picking a face dispatches onSetStyle('global','font', value)", async () => {
     const { onSetStyle } = renderWith("global");
-    await waitFor(() => expect(within(globalFontSelect()).getAllByRole("option").length).toBeGreaterThan(1));
-    fireEvent.change(globalFontSelect(), { target: { value: "Arial" } });
-    expect(onSetStyle).toHaveBeenCalledWith("global", "font", "Arial");
+    const pop = await openFontPopover("GLOBAL");
+    await userEvent.click(within(pop).getByText("Montserrat"));
+    expect(onSetStyle).toHaveBeenCalledWith("global", "font", "Montserrat");
   });
 
   it("FW-03 — at the group tier it dispatches onSetStyle('group', ...)", async () => {
-    // group's font is inherited from global ("Space Grotesk") since group.style has no font
     const { onSetStyle } = renderWith("group");
-    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-    const sel = within(groupTier).getByRole("combobox");
-    await waitFor(() => expect(within(sel as HTMLElement).getAllByRole("option").length).toBeGreaterThan(1));
-    fireEvent.change(sel, { target: { value: "Inter" } });
-    expect(onSetStyle).toHaveBeenCalledWith("group", "font", "Inter");
+    const pop = await openFontPopover("GROUP");
+    await userEvent.click(within(pop).getByText("Anton"));
+    expect(onSetStyle).toHaveBeenCalledWith("group", "font", "Anton");
   });
 
   it("FW-04 — at the cue tier it dispatches onSetStyle('cue', ...)", async () => {
     const { onSetStyle } = renderWith("cue");
-    const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
-    const sel = within(cueTier).getByRole("combobox");
-    await waitFor(() => expect(within(sel as HTMLElement).getAllByRole("option").length).toBeGreaterThan(1));
-    fireEvent.change(sel, { target: { value: "Arial" } });
-    expect(onSetStyle).toHaveBeenCalledWith("cue", "font", "Arial");
+    const pop = await openFontPopover("CUE");
+    await userEvent.click(within(pop).getByText("Bebas Neue"));
+    expect(onSetStyle).toHaveBeenCalledWith("cue", "font", "Bebas Neue");
   });
 
   it("FW-05 — a cue font override exposes a clear (X) that calls onClearStyle('cue','font')", async () => {
     const { onClearStyle } = renderWith("cue");
     const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
-    // the Font row is overridden (font: "Inter") → has a clear button
-    const fontRow = within(cueTier).getByText("Font").closest(".prow") as HTMLElement;
-    const clearBtn = within(fontRow).getByTitle(/clear/i);
-    fireEvent.click(clearBtn);
+    const fontRow = within(cueTier).getByText(/^Font$/).closest(".prow") as HTMLElement;
+    await userEvent.click(within(fontRow).getByTitle(/clear/i));
     expect(onClearStyle).toHaveBeenCalledWith("cue", "font");
   });
 
-  it("FW-06 — the current font value is always selectable even if not in the fetched list", async () => {
-    // global font "Space Grotesk" is in FONTS; switch to a value NOT in the list to verify it stays shown.
-    const p = proj();
-    p.global_style.font = "Comic Sans MS"; // not in FONTS
-    render(
-      <StyleWaterfall
-        project={p}
-        sel={{ scope: "global", gi: 0, tok: null }}
-        aiTier={null}
-        onSelectTier={() => {}}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-      />,
-    );
-    const globalTier = screen.getByText("GLOBAL").closest(".tier3") as HTMLElement;
-    const row = within(globalTier).getByText("Font").closest(".prow") as HTMLElement;
-    const sel = within(row).getByRole("combobox") as HTMLSelectElement;
-    expect(sel.value).toBe("Comic Sans MS");
+  it("FW-06 — the field trigger shows the current font value", () => {
+    renderWith("cue");
+    const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
+    const fontRow = within(cueTier).getByText(/^Font$/).closest(".prow") as HTMLElement;
+    // cue overrides font to "Oswald"
+    expect((fontRow.querySelector(".ksp-field-val") as HTMLElement).textContent).toBe("Oswald");
+  });
+
+  it("FW-07 — the FontPicker B/I/U drive bold/italic/underline at the tier", async () => {
+    const { onSetStyle } = renderWith("group");
+    const pop = await openFontPopover("GROUP");
+    await userEvent.click(within(pop).getByTitle("Italic"));
+    expect(onSetStyle).toHaveBeenCalledWith("group", "italic", true);
   });
 });

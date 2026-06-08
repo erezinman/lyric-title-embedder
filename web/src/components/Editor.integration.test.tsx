@@ -43,9 +43,12 @@ describe("Editor integration", () => {
     const groupTier = screen.getAllByText("GROUP")
       .map((el) => el.closest(".tier3"))
       .find((el): el is HTMLElement => el != null) as HTMLElement;
-    // find the Bold row's toggle within the GROUP tier and click it
-    const boldRow = within(groupTier).getByText(/Bold/i).closest(".prow") as HTMLElement;
-    await userEvent.click(boldRow.querySelector(".toggle, .pv-ctl, [class*='toggle']") as Element);
+    // Bold is now the FontPicker's B toggle (inside the Font row popover), not a
+    // standalone row. Open the Font field, then click B.
+    const fontRow = within(groupTier).getByText(/^Font$/).closest(".prow") as HTMLElement;
+    await userEvent.click(fontRow.querySelector(".ksp-field") as Element);
+    const pop = document.querySelector(".ksp-pop") as HTMLElement;
+    await userEvent.click(within(pop).getByTitle("Bold"));
     const calls = (f.mock.calls as any[]).map(c => { try { return JSON.parse((c[1] as RequestInit).body as string); } catch { return null; } }).filter(Boolean);
     expect(calls.some((c: any) => c.tool === "set_group_style" && c.args && c.args.partial && "bold" in c.args.partial)).toBe(true);
   });

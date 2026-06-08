@@ -388,164 +388,166 @@ describe("C-05 — back_alpha stepper (hex)", () => {
   });
 });
 
-// ---------- C-06 — Bold toggle at group tier ----------
+// ---------- C-06 — Bold (B) driven by the FontPicker at group tier ----------
+// Log: the standalone Bold toggle ROW is gone — bold/italic/underline are TYPO_KEYS
+// driven by the FontPicker's B/I/U toggles inside the Font row's popover.
 
-describe("C-06 — bold toggle at group tier", () => {
-  it("C-06a — clicking bold toggle calls onSetStyle('group','bold', !currentVal)", async () => {
+/** Open the Font row's FontPicker popover within the given tier and return it. */
+async function openFontPopover(tier: HTMLElement) {
+  const fontRow = within(tier).getByText(/^Font$/).closest(".prow") as HTMLElement;
+  await userEvent.click(fontRow.querySelector(".ksp-field") as Element);
+  return document.querySelector(".ksp-pop") as HTMLElement;
+}
+
+describe("C-06 — bold (FontPicker B) at group tier", () => {
+  it("C-06a — clicking the FontPicker B calls onSetStyle('group','bold', !currentVal)", async () => {
     const onSetStyle = vi.fn();
     const p = withGroupStyle(baseProject(), 0, { bold: true });
     render(
-      <StyleWaterfall
-        project={p}
-        sel={selGroup()}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={onSetStyle}
-        onClearStyle={vi.fn()}
-      />
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
+        onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-    const boldRow = within(groupTier).getByText(/^Bold$/).closest(".prow") as HTMLElement;
-    await userEvent.click(boldRow.querySelector(".toggle, .pv-ctl") as Element);
+    const pop = await openFontPopover(groupTier);
+    await userEvent.click(within(pop).getByTitle("Bold"));
     expect(onSetStyle).toHaveBeenCalledWith("group", "bold", false);
   });
 
-  it("C-06b — ADJ-12: toggling an explicit override to the inherited value CLEARS it (not an explicit set)", async () => {
-    // ADJ-12: global bold is `true`. The group explicitly overrides it to `false`.
-    // Toggling flips to `true`, which equals the inherited (global) value — so the
-    // toggle clears the override (round-trips to inherited) instead of writing an
-    // explicit `bold: true`. Equality-clears applies only to the toggle kind.
+  it("C-06b — ADJ-12: toggling an explicit override to the inherited value CLEARS it", async () => {
+    // global bold is `true`; the group overrides it to `false`. Toggling B flips to
+    // `true` == inherited, so it clears the override (not an explicit set).
     const onSetStyle = vi.fn();
     const onClearStyle = vi.fn();
     const p = withGroupStyle(baseProject(), 0, { bold: false });
     render(
-      <StyleWaterfall
-        project={p}
-        sel={selGroup()}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={onSetStyle}
-        onClearStyle={onClearStyle}
-      />
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
+        onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={onClearStyle} />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-    const boldRow = within(groupTier).getByText(/^Bold$/).closest(".prow") as HTMLElement;
-    await userEvent.click(boldRow.querySelector(".toggle, .pv-ctl") as Element);
+    const pop = await openFontPopover(groupTier);
+    await userEvent.click(within(pop).getByTitle("Bold"));
     expect(onClearStyle).toHaveBeenCalledWith("group", "bold");
     expect(onSetStyle).not.toHaveBeenCalled();
   });
-});
 
-// ---------- C-07 — Color swatches (primary) at group tier ----------
+  it("C-06c — italic/underline B/I/U toggles dispatch at the group tier", async () => {
+    const onSetStyle = vi.fn();
+    const p = baseProject(); // global italic/underline are false
+    render(
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
+        onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
+    );
+    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
+    const pop = await openFontPopover(groupTier);
+    await userEvent.click(within(pop).getByTitle("Italic"));
+    expect(onSetStyle).toHaveBeenCalledWith("group", "italic", true);
+    await userEvent.click(within(pop).getByTitle("Underline"));
+    expect(onSetStyle).toHaveBeenCalledWith("group", "underline", true);
+  });
 
-describe("C-07 — color swatches (primary) at group tier", () => {
-  const COLOR_OPTS = ["#FFFFFF", "#FF3DA6", "#8A5BFF", "#3DE0FF", "#000000", "#4DE0C2", "#FFC24D"];
-
-  it("C-07a — 7 swatches rendered in Fill row at group tier", () => {
+  it("C-06d — typography keys are NOT rendered as standalone rows", () => {
     const p = baseProject();
     render(
-      <StyleWaterfall
-        project={p}
-        sel={selGroup()}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-      />
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
+        onSelectTier={vi.fn()} onSetStyle={vi.fn()} onClearStyle={vi.fn()} />
+    );
+    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
+    expect(within(groupTier).queryByText(/^Bold$/)).toBeNull();
+    expect(within(groupTier).queryByText(/^Italic$/)).toBeNull();
+    expect(within(groupTier).queryByText(/^Underline$/)).toBeNull();
+  });
+});
+
+// ---------- C-07 — Color rows are ColorPicker fields (primary) ----------
+// Log: the inline 7-swatch row (.sw-dot) is gone — each color key renders a
+// ColorPicker in field mode; picking a palette swatch fires onChange → onSetStyle.
+
+/** Open the ColorPicker popover in the named color row of a tier. */
+async function openColorPopover(tier: HTMLElement, label: RegExp) {
+  const row = within(tier).getByText(label).closest(".prow") as HTMLElement;
+  await userEvent.click(row.querySelector(".ksp-field") as Element);
+  return document.querySelector(".ksp-pop") as HTMLElement;
+}
+/** Click the palette swatch (.ksp-dot) for a given hex inside a popover. */
+async function pickPaletteSwatch(pop: HTMLElement, hex: string) {
+  const dot = [...pop.querySelectorAll(".ksp-swatches .ksp-dot")]
+    .find((d) => (d as HTMLElement).title.toUpperCase() === hex.toUpperCase()) as HTMLElement;
+  await userEvent.click(dot);
+}
+
+describe("C-07 — color rows are ColorPicker fields (primary) at group tier", () => {
+  it("C-07a — the Fill row renders a ColorPicker field trigger (no inline .sw-dot row)", () => {
+    const p = baseProject();
+    render(
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
+        onSelectTier={vi.fn()} onSetStyle={vi.fn()} onClearStyle={vi.fn()} />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
     const fillRow = within(groupTier).getByText(/^Fill$/).closest(".prow") as HTMLElement;
-    const swatches = fillRow.querySelectorAll(".sw-dot");
-    expect(swatches.length).toBe(7);
+    expect(fillRow.querySelector(".ksp-field")).toBeTruthy();
+    expect(fillRow.querySelector(".sw-dot")).toBeNull();
   });
 
-  it.each(COLOR_OPTS.map((c, i) => [i, c] as [number, string]))(
-    "C-07b — clicking swatch %i (%s) fires onSetStyle('group','primary','%s')",
-    async (idx, color) => {
+  it.each([["#FF3DA6"], ["#8A5BFF"], ["#3DE0FF"], ["#000000"]] as [string][])(
+    "C-07b — picking palette swatch %s fires onSetStyle('group','primary', uppercased)",
+    async (color) => {
       const onSetStyle = vi.fn();
       const p = withGroupStyle(baseProject(), 0, { primary: "#FFFFFF" });
       render(
-        <StyleWaterfall
-          project={p}
-          sel={selGroup()}
-          aiTier={null}
-          onSelectTier={vi.fn()}
-          onSetStyle={onSetStyle}
-          onClearStyle={vi.fn()}
-        />
+        <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
+          onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
       );
       const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-      const fillRow = within(groupTier).getByText(/^Fill$/).closest(".prow") as HTMLElement;
-      const swatches = fillRow.querySelectorAll(".sw-dot");
-      await userEvent.click(swatches[idx] as Element);
+      const pop = await openColorPopover(groupTier, /^Fill$/);
+      await pickPaletteSwatch(pop, color);
       expect(onSetStyle).toHaveBeenCalledWith("group", "primary", color);
     }
   );
 
-  it("C-07c — active swatch has 'on' class", () => {
+  it("C-07c — the field trigger shows the current value", () => {
     const p = withGroupStyle(baseProject(), 0, { primary: "#FF3DA6" });
     render(
-      <StyleWaterfall
-        project={p}
-        sel={selGroup()}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-      />
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
+        onSelectTier={vi.fn()} onSetStyle={vi.fn()} onClearStyle={vi.fn()} />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
     const fillRow = within(groupTier).getByText(/^Fill$/).closest(".prow") as HTMLElement;
-    const onSwatch = fillRow.querySelector(".sw-dot.on") as HTMLElement;
-    expect(onSwatch).toBeTruthy();
-    expect(onSwatch.style.background).toContain(""); // just check it exists
+    expect((fillRow.querySelector(".ksp-field-val") as HTMLElement).textContent).toBe("#FF3DA6");
   });
 });
 
-// ---------- C-08 — Color swatches: outline and back ----------
+// ---------- C-08 — Color fields: outline (role=outline) and back (role=box) ----------
 
-describe("C-08 — color swatches for outline and back at group tier", () => {
-  it("C-08a — clicking outline swatch calls onSetStyle('group','outline', color)", async () => {
+describe("C-08 — color fields for outline and back at group tier", () => {
+  it("C-08a — picking an outline swatch calls onSetStyle('group','outline', color); role=outline", async () => {
     const onSetStyle = vi.fn();
     const p = baseProject();
     render(
-      <StyleWaterfall
-        project={p}
-        sel={selGroup()}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={onSetStyle}
-        onClearStyle={vi.fn()}
-      />
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
+        onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-    // "Outline" is both a label (.pl) and a button text; query by label class to find the row
-    const outlineLabel = within(groupTier)
-      .getAllByText(/^Outline$/)
-      .find((el) => el.className === "pl") as HTMLElement;
+    const outlineLabel = within(groupTier).getAllByText(/^Outline$/).find((el) => el.className === "pl") as HTMLElement;
     const outlineRow = outlineLabel.closest(".prow") as HTMLElement;
-    const swatches = outlineRow.querySelectorAll(".sw-dot");
-    await userEvent.click(swatches[1] as Element); // #FF3DA6
+    await userEvent.click(outlineRow.querySelector(".ksp-field") as Element);
+    const pop = document.querySelector(".ksp-pop") as HTMLElement;
+    // outline role: the preview strokes the text (text-stroke set), not a flat fill
+    expect((pop.querySelector(".ksp-preview .ksp-cap") as HTMLElement).style.getPropertyValue("-webkit-text-stroke-color")).not.toBe("");
+    await pickPaletteSwatch(pop, "#FF3DA6");
     expect(onSetStyle).toHaveBeenCalledWith("group", "outline", "#FF3DA6");
   });
 
-  it("C-08b — clicking back color swatch calls onSetStyle('group','back', color)", async () => {
+  it("C-08b — picking a Box color swatch calls onSetStyle('group','back', color); role=box", async () => {
     const onSetStyle = vi.fn();
     const p = baseProject();
     render(
-      <StyleWaterfall
-        project={p}
-        sel={selGroup()}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={onSetStyle}
-        onClearStyle={vi.fn()}
-      />
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
+        onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-    const backRow = within(groupTier).getByText(/^Box color$/).closest(".prow") as HTMLElement;
-    const swatches = backRow.querySelectorAll(".sw-dot");
-    await userEvent.click(swatches[2] as Element); // #8A5BFF
+    const pop = await openColorPopover(groupTier, /^Box color$/);
+    expect((pop.querySelector(".ksp-preview .ksp-cap") as HTMLElement).style.background).not.toBe("");
+    await pickPaletteSwatch(pop, "#8A5BFF");
     expect(onSetStyle).toHaveBeenCalledWith("group", "back", "#8A5BFF");
   });
 });
@@ -806,42 +808,29 @@ describe("C-12 — cue tier style controls", () => {
     expect(onSetStyle).toHaveBeenCalledWith("cue", "fontsize", 66);
   });
 
-  it("C-12b — cue tier primary swatch fires onSetStyle('cue','primary', color)", async () => {
+  it("C-12b — cue tier ColorPicker palette swatch fires onSetStyle('cue','primary', color)", async () => {
     const onSetStyle = vi.fn();
     const p = withCueStyle(baseProject(), 0, 0, 0, { primary: "#FFFFFF" });
     render(
-      <StyleWaterfall
-        project={p}
-        sel={selCue(p)}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={onSetStyle}
-        onClearStyle={vi.fn()}
-      />
+      <StyleWaterfall project={p} sel={selCue(p)} aiTier={null}
+        onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
     );
     const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
-    const fillRow = within(cueTier).getByText(/^Fill$/).closest(".prow") as HTMLElement;
-    const swatches = fillRow.querySelectorAll(".sw-dot");
-    await userEvent.click(swatches[1] as Element); // #FF3DA6
+    const pop = await openColorPopover(cueTier, /^Fill$/);
+    await pickPaletteSwatch(pop, "#FF3DA6");
     expect(onSetStyle).toHaveBeenCalledWith("cue", "primary", "#FF3DA6");
   });
 
-  it("C-12c — cue tier bold toggle fires onSetStyle('cue','bold', !val)", async () => {
+  it("C-12c — cue tier FontPicker B fires onSetStyle('cue','bold', !val)", async () => {
     const onSetStyle = vi.fn();
     const p = withCueStyle(baseProject(), 0, 0, 0, { bold: true });
     render(
-      <StyleWaterfall
-        project={p}
-        sel={selCue(p)}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={onSetStyle}
-        onClearStyle={vi.fn()}
-      />
+      <StyleWaterfall project={p} sel={selCue(p)} aiTier={null}
+        onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
     );
     const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
-    const boldRow = within(cueTier).getByText(/^Bold$/).closest(".prow") as HTMLElement;
-    await userEvent.click(boldRow.querySelector(".toggle, .pv-ctl") as Element);
+    const pop = await openFontPopover(cueTier);
+    await userEvent.click(within(pop).getByTitle("Bold"));
     expect(onSetStyle).toHaveBeenCalledWith("cue", "bold", false);
   });
 });

@@ -158,24 +158,27 @@ describe("set_globals", () => {
     await waitFor(() => expect(within(globalTier()).getByText(/64 px/)).toBeTruthy());
   });
 
-  it("F-06 — global primary color push marks that swatch .on in the GLOBAL tier", async () => {
+  it("F-06 — global primary color push updates the Fill ColorPicker field value", async () => {
+    // Log: color rows are now ColorPicker fields (the inline .sw-dot row is gone).
+    // The pushed primary surfaces as the field's hex value in the GLOBAL tier.
     const user = userEvent.setup();
     const { container } = await boot();
     await openInspector(user); // VIS-CLICK
 
     const globalTier = () => container.querySelector(".tier3.global") as HTMLElement;
-    const onSwatch = () =>
-      (globalTier().querySelector(".pv .swrow2 .sw-dot.on") as HTMLElement | null)?.style.background;
+    const fillFieldVal = () => {
+      const fillRow = [...globalTier().querySelectorAll(".prow")]
+        .find((r) => r.querySelector(".pl")?.textContent === "Fill") as HTMLElement;
+      return (fillRow.querySelector(".ksp-field-val") as HTMLElement).textContent;
+    };
     // global primary starts white
-    expect(onSwatch()).toBeTruthy();
+    expect(fillFieldVal()).toBe("#FFFFFF");
 
     emitState(mutate(baseProject(), (d) => { d.global_style.primary = "#FF3DA6"; }));
-    await waitFor(() => {
-      const dots = [...globalTier().querySelectorAll(".swrow2 .sw-dot.on")] as HTMLElement[];
-      expect(dots.some((d) => d.style.background.includes("255") || d.style.background.toLowerCase().includes("ff3da6") || d.style.background === "rgb(255, 61, 166)")).toBe(true);
-    });
+    await waitFor(() => expect(fillFieldVal()).toBe("#FF3DA6"));
 
     emitState(baseProject());
+    await waitFor(() => expect(fillFieldVal()).toBe("#FFFFFF"));
   });
 });
 
