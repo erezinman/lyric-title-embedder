@@ -14,24 +14,35 @@ def check(name, fn):
     except Exception as e:
         import traceback; results.append((False, name, f"EXC {type(e).__name__}: {e}\n{traceback.format_exc()}"))
 
-def _client(addr=None):
+def _client(file_access="native"):
     d = tempfile.mkdtemp(prefix="kss_dproj_")
-    app = build_app(DaemonContext(Hub()), Hub(), token=None, projects_dir=d)
-    kw = {"client": addr} if addr else {}
-    return TestClient(app, **kw), d
+    app = build_app(DaemonContext(Hub()), Hub(), token=None, projects_dir=d, file_access=file_access)
+    return TestClient(app), d
 
-def t_env_same_host_loopback():
-    c, d = _client(addr=("127.0.0.1", 50000))
+def t_env_native_caps():
+    c, d = _client(file_access="native")
     try:
-        r = c.get("/api/env")
-        return (r.status_code == 200 and r.json().get("same_host") is True), r.text
+        r = c.get("/api/env"); j = r.json()
+        return (r.status_code == 200 and j["file_access"] == "native"
+                and j["can_use_server_paths"] and j["can_burn_video"]
+                and "same_host" not in j), r.text
     finally: shutil.rmtree(d, ignore_errors=True)
 
-def t_env_remote_not_same_host():
-    c, d = _client(addr=("10.0.0.5", 50000))
+def t_env_transfer_caps():
+    c, d = _client(file_access="transfer")
     try:
-        r = c.get("/api/env")
-        return (r.status_code == 200 and r.json().get("same_host") is False), r.text
+        r = c.get("/api/env"); j = r.json()
+        return (r.status_code == 200 and j["file_access"] == "transfer"
+                and not j["can_use_server_paths"] and not j["can_burn_video"]), r.text
+    finally: shutil.rmtree(d, ignore_errors=True)
+
+def t_create_transfer_rejects_server_path():
+    c, d = _client(file_access="transfer")
+    try:
+        r = c.post("/api/projects/create",
+                   data={"name": "p2", "source": "suno_json",
+                         "lyrics_path": os.path.abspath("aligned_lyrics.json")})
+        return (r.status_code == 403 and "error" in r.json()), r.text
     finally: shutil.rmtree(d, ignore_errors=True)
 
 SRT = ("1\n00:00:01,000 --> 00:00:03,000\nHello world\n\n"

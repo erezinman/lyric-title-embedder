@@ -6,6 +6,12 @@ from mcp_server import tools
 def _err(msg, code=400):
     return JSONResponse({"error": msg}, status_code=code)
 
+def _native(request):
+    # File-access mode is set at daemon launch (--file-access), not inferred from the
+    # client IP. "native" = client and daemon share a filesystem (local dev / desktop
+    # shell, loopback-bound); "transfer" = hosted/remote (upload+download only).
+    return getattr(request.app.state, "file_access", "native") == "native"
+
 def make_routes(ctx, hub):
     async def call(request):
         body = await request.json()
@@ -85,6 +91,9 @@ def make_routes(ctx, hub):
                         headers={"Cache-Control": "no-cache"})
 
     async def burn(request):
+        # out / video_in are server-side paths → native-only. transfer = subtitle export only.
+        if not _native(request):
+            return _err("video burn is disabled on this server — export subtitles (.ass/.srt/.vtt) instead", 403)
         body = await request.json()
         job = tools.burn(ctx, body["out"], body.get("video_in"))
         return JSONResponse(job)
@@ -103,6 +112,8 @@ def make_routes(ctx, hub):
         return JSONResponse(library.list_projects(request.app.state.projects_dir))
     async def projects_new(request):
         b = await request.json()
+        if b.get("lyrics_path") and not _native(request):
+            return _err("server-side paths are disabled; upload the file instead", 403)
         try:
             opened = library.create_project(ctx, request.app.state.projects_dir, b["name"],
                                              source="suno_json", lyrics_path=b["lyrics_path"])
@@ -119,6 +130,8 @@ def make_routes(ctx, hub):
         def g(k, default=None):
             v = form.get(k)
             return v if (v is not None and v != "") else default
+        if (g("lyrics_path") or g("video_path")) and not _native(request):
+            return _err("server-side paths are disabled; upload the file instead", 403)
         try:
             kwargs = dict(
                 source=g("source", "suno_json"),
@@ -188,10 +201,8 @@ def make_routes(ctx, hub):
             body = await request.json()
             path = body.get("path")
             if path:
-                client = request.client
-                same = bool(client and client.host in ("127.0.0.1", "::1"))
-                if not same:
-                    return _err("server-side video paths are only allowed from localhost", 403)
+                if not _native(request):
+                    return _err("server-side paths are disabled on this server (upload instead)", 403)
                 kwargs["video_path"] = path
             # else: no bytes, no path → clear (detach) via empty kwargs
         try:
@@ -214,11 +225,15 @@ def make_routes(ctx, hub):
         return JSONResponse({"video": None})
 
     async def env(request):
-        # same_host gates the server-path inputs in the web UI: only a client
-        # connecting from loopback can name files on the daemon's filesystem.
-        client = request.client
-        same = bool(client and client.host in ("127.0.0.1", "::1"))
-        return JSONResponse({"same_host": same})
+        # Capabilities the web UI reads. Driven by the explicit launch-time file-access
+        # mode (app.state.file_access), NOT by client IP. native → server-path inputs and
+        # video burn available; transfer → upload + subtitle-download only.
+        native = _native(request)
+        return JSONResponse({
+            "file_access": getattr(request.app.state, "file_access", "native"),
+            "can_use_server_paths": native,
+            "can_burn_video": native,
+        })
 
     async def connect(request):
         # MCP-connect popover params. Host/port are derived from the request so a

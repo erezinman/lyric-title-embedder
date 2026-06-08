@@ -210,6 +210,40 @@ def t_api_state_carries_undo_flags():
     return ("can_undo" in b0 and "can_redo" in b0 and b0["can_undo"] is False
             and b1["can_undo"] is True), f"b0={b0.get('can_undo')} b1={b1.get('can_undo')}"
 
+def _client_mode(mode):
+    hub = Hub(); ctx = DaemonContext(hub); ctx.load_lyrics("aligned_lyrics.json")
+    app = build_app(ctx, hub, token=None, projects_dir="/tmp/_kss_projects", file_access=mode)
+    return TestClient(app)
+
+def t_env_reports_capabilities():
+    n = _client_mode("native").get("/api/env").json()
+    t = _client_mode("transfer").get("/api/env").json()
+    return (n["file_access"] == "native" and n["can_use_server_paths"] and n["can_burn_video"]
+            and t["file_access"] == "transfer" and not t["can_use_server_paths"]
+            and not t["can_burn_video"] and "same_host" not in n), f"{n} / {t}"
+
+def t_transfer_rejects_server_paths():
+    import shutil, os
+    pdir = "/tmp/_kss_projects"; shutil.rmtree(pdir, ignore_errors=True); os.makedirs(pdir)
+    _client_mode("native").post("/api/projects/new", json={"name": "p", "lyrics_path": "aligned_lyrics.json"})
+    c = _client_mode("transfer")
+    c.post("/api/projects/open", json={"name": "p"})         # project open → past the 409 guard
+    rv = c.post("/api/video", json={"path": "/x.mp4"})        # server-path video → 403 (transfer)
+    rc = c.post("/api/projects/create", data={"name": "p2", "lyrics_path": "aligned_lyrics.json"})
+    return (rv.status_code == 403 and rc.status_code == 403), f"video={rv.status_code} create={rc.status_code}"
+
+def t_transfer_disables_burn():
+    c = _client_mode("transfer")
+    r = c.post("/api/burn", json={"out": "x.mp4"})
+    return (r.status_code == 403), f"burn={r.status_code}"
+
+def t_native_does_not_gate_server_paths():
+    # In native mode the gate must NOT reject; these fail later (missing file) but never 403.
+    c = _client_mode("native")
+    rv = c.post("/api/video", json={"path": "/nope.mp4"})
+    rb = c.post("/api/burn", json={"out": "/tmp/_kss_x.mp4", "video_in": "/nope.mp4"})
+    return (rv.status_code != 403 and rb.status_code != 403), f"video={rv.status_code} burn={rb.status_code}"
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)

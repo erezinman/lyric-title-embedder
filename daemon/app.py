@@ -18,7 +18,7 @@ class _Auth(BaseHTTPMiddleware):
             return PlainTextResponse("unauthorized", status_code=401)
         return await call_next(request)
 
-def build_app(ctx, hub, token=None, projects_dir="projects"):
+def build_app(ctx, hub, token=None, projects_dir="projects", file_access="native"):
     (call, state, render, ass, srt, vtt, ws_endpoint, frame, font, burn, burn_status,
      projects_list, projects_new, projects_open, projects_save, env, projects_create,
      connect, fonts, video, video_clear, fonts_upload, fonts_file, fonts_delete) = make_routes(ctx, hub)
@@ -63,4 +63,5 @@ def build_app(ctx, hub, token=None, projects_dir="projects"):
     app = Starlette(routes=routes, middleware=middleware, lifespan=lifespan)
     app.state.ctx = ctx; app.state.hub = hub
     app.state.token = token; app.state.projects_dir = projects_dir
+    app.state.file_access = file_access
     return app
