@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getAss, getSrt, getVtt, getEnv, lint, type LintIssue, type LintSeverity } from "../api/client";
+import { isDesktop, pickOpen, pickSave } from "../model/desktop";
 import { Icon } from "./icons/Icon";
 
 const SEV_META: Record<LintSeverity, { cls: string; icon: string }> = {
@@ -108,6 +109,15 @@ export function ExportMenu({
   // additive; advisory-only reads "Burn anyway"; blocking disables.
   const burnLabel = advisoryOnly ? "Burn anyway" : "Burn video";
 
+  const browseOut = async () => {
+    const p = await pickSave({ defaultPath: out, filters: [{ name: "Video", extensions: ["mp4", "mkv", "mov"] }] });
+    if (p) setOut(p);
+  };
+  const browseVideoIn = async () => {
+    const p = await pickOpen({ filters: [{ name: "Video", extensions: ["mp4", "mov", "mkv", "webm"] }] });
+    if (p) setVideoIn(p);
+  };
+
   const handleBurn = () => {
     if (burning || hasBlocking) return;
     setBurning(true);
@@ -200,11 +210,19 @@ export function ExportMenu({
             <label className="exp-l" htmlFor="exp-out">Output filename</label>
             <input id="exp-out" className="exp-inp mono" aria-label="Output file"
                    value={out} onChange={(e) => setOut(e.target.value)} />
+            {isDesktop && (
+              <button type="button" className="btn ghost browse-btn" aria-label="Browse output"
+                      onClick={() => void browseOut()}>Browse…</button>
+            )}
             {canServerPaths && (
               <>
                 <label className="exp-l" htmlFor="exp-vid">Input video <span className="exp-opt">optional · server path · defaults to project video</span></label>
                 <input id="exp-vid" className="exp-inp mono" aria-label="Input video" placeholder="project video"
                        value={videoIn} onChange={(e) => setVideoIn(e.target.value)} />
+                {isDesktop && (
+                  <button type="button" className="btn ghost browse-btn" aria-label="Browse input video"
+                          onClick={() => void browseVideoIn()}>Browse…</button>
+                )}
               </>
             )}
             <button className={"btn exp-burn " + (advisoryOnly ? "go" : "primary")}
