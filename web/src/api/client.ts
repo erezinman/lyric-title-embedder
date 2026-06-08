@@ -48,6 +48,28 @@ export async function getFonts(): Promise<string[]> {
   return Array.isArray(data?.fonts) ? data.fonts : [];
 }
 
+export type LintSeverity = "blocking" | "advisory" | "info";
+
+export interface LintIssue {
+  level: "warn" | "error";
+  severity: LintSeverity;
+  code: string;
+  msg: string;
+  where: {
+    word_id?: number;
+    time?: number;
+    placement?: boolean;
+    pos?: [number, number];
+    scope?: string;
+    channel?: string;
+    [k: string]: unknown;
+  };
+}
+
+export async function lint(): Promise<LintIssue[]> {
+  return call<LintIssue[]>("lint", {});
+}
+
 export async function getAss(): Promise<string> {
   const res = await fetch("/api/ass");
   if (!res.ok) throw new Error(`HTTP ${res.status}`);

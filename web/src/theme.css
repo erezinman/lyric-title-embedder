@@ -665,6 +665,59 @@ select.select { appearance: none; background: var(--surface-3); color: var(--tex
 .export-pop .exp-row-t b { font-size: 13px; font-weight: 600; }
 .export-pop .exp-row-s { font-size: 11px; color: var(--text-3); }
 
+/* ── export pre-flight lint panel (Feature B) ─────────────────────────── */
+.export-pop .lint-panel { display: flex; flex-direction: column; }
+.export-pop .lint-ph { display: flex; align-items: center; gap: 9px; padding: 11px 13px 10px;
+  border-bottom: 1px solid var(--border); }
+.export-pop .lint-shield { display: grid; place-items: center; color: var(--text-2); }
+.export-pop .lint-title { font-family: var(--font-display); font-weight: 600; font-size: 13px;
+  margin: 0; letter-spacing: -0.01em; white-space: nowrap; color: var(--text-1); }
+.export-pop .lint-count { font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+.export-pop .lint-count.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.export-pop .lint-count.ok { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
+.export-pop .lint-recheck { margin-left: auto; font-family: var(--font-ui); font-weight: 600;
+  font-size: 10.5px; color: var(--accent-soft); background: transparent; border: 0; cursor: pointer;
+  padding: 2px 4px; white-space: nowrap; }
+.export-pop .lint-recheck:disabled { opacity: .5; cursor: default; }
+
+.export-pop .lint-list { display: flex; flex-direction: column; max-height: 244px; overflow-y: auto; }
+.export-pop .lint-w { display: flex; gap: 10px; padding: 10px 13px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+.export-pop .lint-w:last-child { border-bottom: 0; }
+.export-pop .lint-sev { flex: none; width: 18px; height: 18px; border-radius: 5px;
+  display: grid; place-items: center; margin-top: 1px; }
+.export-pop .lint-sev.block { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+.export-pop .lint-sev.adv { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+.export-pop .lint-sev.info { background: color-mix(in srgb, var(--cyan) 14%, transparent); color: var(--cyan); }
+.export-pop .lint-wbody { flex: 1; min-width: 0; }
+.export-pop .lint-wt { font-size: 12.5px; color: var(--text-1); line-height: 1.35; }
+.export-pop .lint-wd { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3);
+  margin-top: 3px; line-height: 1.4; word-break: break-word; }
+.export-pop .lint-jump { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-ui);
+  font-weight: 600; font-size: 10.5px; color: var(--accent-soft); margin-top: 6px; cursor: pointer;
+  white-space: nowrap; background: transparent; border: 0; padding: 0; }
+.export-pop .lint-jump.lint-jump-static { cursor: default; color: var(--text-3); }
+.export-pop .lint-jump svg { display: block; }
+
+.export-pop .lint-clean { padding: 24px 16px 22px; display: flex; flex-direction: column;
+  align-items: center; gap: 9px; text-align: center; }
+.export-pop .lint-ring { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--success) 8%, transparent); }
+.export-pop .lint-ct { font-family: var(--font-display); font-weight: 600; font-size: 14px; color: var(--text-1); }
+.export-pop .lint-cs { font-size: 11.5px; color: var(--text-2); }
+
+.export-pop .lint-note { padding: 9px 13px; font-size: 10.5px; color: var(--text-3); line-height: 1.35;
+  border-top: 1px solid var(--border); background: var(--surface-3); }
+.export-pop .lint-note b { color: var(--warn); }
+.export-pop .lint-note b.blk { color: var(--danger); }
+
+/* advisory-only burn button: transparent w/ accent border (mockup .btn.go) */
+.export-pop .exp-burn.go { background: transparent;
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent-soft); }
+.export-pop .exp-burn.go:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
 /* ── pane splitters ───────────────────────────────────────────────── */
 .splitter { flex: 0 0 6px; position: relative; z-index: 5; user-select: none; }
 .splitter::after { content: ""; position: absolute; background: var(--border); transition: background .15s; }

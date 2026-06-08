@@ -394,6 +394,14 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     setSel((s) => ({ ...s, scope }));
   }, []);
 
+  // ---- jumpToWord: select a word by id and move the playhead to its time ----
+  // (used by the export pre-flight panel's "Jump to cue" affordance)
+  const jumpToWord = useCallback((wid: number, time: number) => {
+    const entry = cueList().find((c) => c.wid === wid);
+    if (entry) selectCue(entry.gi, entry.li, entry.ti, wid);
+    setTime(Math.max(0, time));
+  }, [cueList, selectCue]);
+
   const toggleCollapse = useCallback((gi: number) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -884,6 +892,9 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
           projectName={projectName}
           onClose={() => setExportOpen(false)}
           onBurn={(out, videoIn) => { burn(out, videoIn).catch((e) => setErrMsg(e instanceof Error ? e.message : String(e))); }}
+          onJump={(wid, t) => jumpToWord(wid, t)}
+          wordCount={P?.words?.length ?? 0}
+          eventCount={P?.layout?.length ?? 0}
         />
       )}
       <div className="body">
