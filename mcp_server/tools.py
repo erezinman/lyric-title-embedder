@@ -52,7 +52,8 @@ def get_state(ctx):
                        "animations": v["animations"], "suppress": v["suppress"],
                        "n_words": sum(len(ln["toks"]) for ln in g["lines"])})
         return {"n_events": len(p["layout"]), "n_words": len(p["words"]),
-                "globals": ctx.get_globals(), "events": ev}
+                "globals": ctx.get_globals(), "events": ev,
+                "can_undo": ctx.session.can_undo(), "can_redo": ctx.session.can_redo()}
     return ctx.run(f)
 
 
@@ -119,7 +120,8 @@ def get_project(ctx):
                 "globals": gl,
                 "global_style": {k: g[k] for k in STYLE_KEYS},
                 "placement": {k: g.get(k) for k in _PLACE_KEYS},
-                "video": ctx.video_path()}
+                "video": ctx.video_path(),
+                "can_undo": ctx.session.can_undo(), "can_redo": ctx.session.can_redo()}
     return ctx.run(f)
 
 

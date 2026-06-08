@@ -112,6 +112,40 @@ def t_global_style_undo():
     tools.undo(c)
     return (c.get_globals()["fontsize"] == fs0 and fs0 != 99), f"{fs0}"
 
+def t_can_undo_redo_fresh_false():
+    c = _ctx()
+    return (c.session.can_undo() is False and c.session.can_redo() is False), "fresh"
+
+def t_can_undo_true_after_edit():
+    c = _ctx(); tools.set_group_style(c, 0, {"fontsize": 80})
+    return (c.session.can_undo() is True and c.session.can_redo() is False), "after edit"
+
+def t_can_redo_true_after_undo():
+    c = _ctx(); tools.set_group_style(c, 0, {"fontsize": 80}); tools.undo(c)
+    return (c.session.can_redo() is True), "after undo"
+
+def t_redo_flips_back():
+    c = _ctx(); tools.set_group_style(c, 0, {"fontsize": 80})
+    tools.undo(c); tools.redo(c)
+    return (c.session.can_undo() is True and c.session.can_redo() is False), "after redo"
+
+def t_can_undo_reflects_remaining():
+    c = _ctx()
+    tools.set_group_style(c, 0, {"fontsize": 80})
+    tools.set_group_style(c, 0, {"fontsize": 90})
+    tools.undo(c)
+    return (c.session.can_undo() is True and c.session.can_redo() is True), "two edits, one undo"
+
+def t_get_project_state_carry_flags():
+    c = _ctx()
+    p0 = tools.get_project(c); s0 = tools.get_state(c)
+    tools.set_group_style(c, 0, {"fontsize": 80})
+    p1 = tools.get_project(c); s1 = tools.get_state(c)
+    return (p0["can_undo"] is False and p0["can_redo"] is False
+            and s0["can_undo"] is False
+            and p1["can_undo"] is True and s1["can_undo"] is True), \
+           f"p0={p0['can_undo']} p1={p1['can_undo']}"
+
 _active = {n: f for n, f in list(globals().items()) if n.startswith("t_") and callable(f)}
 for n, f in sorted(_active.items()): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)

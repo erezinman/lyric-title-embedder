@@ -29,6 +29,12 @@ class Session:
     def render(self):
         return project_to_render(self.project) if self.project else []
 
+    def can_undo(self):
+        return bool(self._undo)
+
+    def can_redo(self):
+        return bool(self._redo)
+
     def _fire(self):
         if self.on_change:
             self.on_change()

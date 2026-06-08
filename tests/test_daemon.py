@@ -168,6 +168,14 @@ def t_new_project_is_immediately_listable():
     lst = c.get("/api/projects").json()    # listable WITHOUT an explicit save
     return ("fresh" in lst, lst)
 
+def t_api_state_carries_undo_flags():
+    c, ctx = _client()
+    b0 = c.get("/api/state").json()
+    c.post("/api/call", json={"tool": "set_group_style", "args": {"gi": 0, "partial": {"fontsize": 88}}})
+    b1 = c.get("/api/state").json()
+    return ("can_undo" in b0 and "can_redo" in b0 and b0["can_undo"] is False
+            and b1["can_undo"] is True), f"b0={b0.get('can_undo')} b1={b1.get('can_undo')}"
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)
