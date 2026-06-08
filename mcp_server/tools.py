@@ -10,6 +10,7 @@ _PLACE_KEYS = ["align", "play_w", "play_h", "margin_l", "margin_r", "margin_v", 
 def _gctx_for_resolve(ctx):
     c = ctx.cfg()
     return {"font": c["font"], "fontsize": c["fontsize"], "bold": c["bold"],
+            "italic": c.get("italic", False), "underline": c.get("underline", False),
             "primary": c["primary_color"], "outline": c["outline_color"], "back": c["back_color"],
             "back_alpha": c["back_alpha"], "outline_w": c["outline_w"], "shadow": c["shadow"],
             "border_style": c["border_style"]}

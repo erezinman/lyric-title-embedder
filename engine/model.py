@@ -4,8 +4,12 @@ import core
 
 BUILTIN = {"fade_in_ms": 250, "fade_out_ms": 1000, "linger": 0.0}
 
-STYLE_KEYS = ["font", "fontsize", "bold", "primary", "outline", "back",
+STYLE_KEYS = ["font", "fontsize", "bold", "italic", "underline", "primary", "outline", "back",
               "back_alpha", "outline_w", "shadow", "border_style", "align"]
+# Typography keys default to false when absent anywhere in the tier chain, so
+# legacy serialized projects (which predate italic/underline) resolve cleanly
+# without a migration: a missing key at every tier reads as false.
+TYPO_DEFAULTS = {"italic": False, "underline": False}
 # Group-only keys (cue cannot override): border_style has no inline per-cue tag
 # within one Dialogue (C1); align (\an) applies to a whole event, so a per-cue
 # value is physically meaningless.
@@ -68,5 +72,5 @@ def resolve_style(token, group, gctx):
         elif gs.get(k) is not None:
             out[k] = gs[k]
         else:
-            out[k] = gctx.get(k)
+            out[k] = gctx.get(k, TYPO_DEFAULTS.get(k))
     return out

@@ -1,9 +1,10 @@
-export const STYLE_KEYS = ["font","fontsize","bold","primary","outline","back","back_alpha","outline_w","shadow","border_style","align"] as const;
+export const STYLE_KEYS = ["font","fontsize","bold","italic","underline","primary","outline","back","back_alpha","outline_w","shadow","border_style","align"] as const;
 export const CUE_STYLE_KEYS = STYLE_KEYS.filter((k) => k !== "border_style" && k !== "align");   // group-only keys
 
 export type StyleKey = (typeof STYLE_KEYS)[number];
 export interface GlobalStyle {
-  font: string; fontsize: number; bold: boolean; primary: string; outline: string;
+  font: string; fontsize: number; bold: boolean; italic: boolean; underline: boolean;
+  primary: string; outline: string;
   back: string; back_alpha: string; outline_w: number; shadow: number; border_style: number;
   align: number;
 }

@@ -21,8 +21,8 @@ CFG2 = dict(CFG, group_by="line", skip_dashes=False)
 
 # Canonical gctx used in resolve_style tests
 GCTX = {
-    "font": "Arial", "fontsize": 12, "bold": False, "primary": "#FF0000",
-    "outline": "#000000", "back": "#000000", "back_alpha": "80",
+    "font": "Arial", "fontsize": 12, "bold": False, "italic": False, "underline": False,
+    "primary": "#FF0000", "outline": "#000000", "back": "#000000", "back_alpha": "80",
     "outline_w": 2, "shadow": 0, "border_style": 1, "align": 2,
 }
 
@@ -45,16 +45,16 @@ def check(name, fn):
 # ===========================================================================
 
 def t_style_keys_exact_11():
-    """STYLE_KEYS has exactly 11 entries, all expected names present (align added: group-only)."""
-    expected = {"font", "fontsize", "bold", "primary", "outline", "back",
+    """STYLE_KEYS has exactly 13 entries (italic+underline added as full style keys)."""
+    expected = {"font", "fontsize", "bold", "italic", "underline", "primary", "outline", "back",
                 "back_alpha", "outline_w", "shadow", "border_style", "align"}
-    ok = set(engine.STYLE_KEYS) == expected and len(engine.STYLE_KEYS) == 11
+    ok = set(engine.STYLE_KEYS) == expected and len(engine.STYLE_KEYS) == 13
     return ok, f"got {engine.STYLE_KEYS}"
 
 
 def t_cue_style_keys_exact_9():
-    """CUE_STYLE_KEYS has exactly 9 entries; group-only keys (border_style, align) absent."""
-    ok = (len(engine.CUE_STYLE_KEYS) == 9
+    """CUE_STYLE_KEYS has exactly 11 entries; group-only keys (border_style, align) absent."""
+    ok = (len(engine.CUE_STYLE_KEYS) == 11
           and "border_style" not in engine.CUE_STYLE_KEYS
           and "align" not in engine.CUE_STYLE_KEYS
           and set(engine.CUE_STYLE_KEYS) == set(engine.STYLE_KEYS) - {"border_style", "align"})

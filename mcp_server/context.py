@@ -5,13 +5,14 @@ import engine
 import controller
 
 DEFAULT_GLOBALS = {
-    "font": "DejaVu Sans", "fontsize": 64, "bold": True, "align": 2,
+    "font": "DejaVu Sans", "fontsize": 64, "bold": True, "italic": False, "underline": False,
+    "align": 2,
     "primary_color": "#FFFFFF", "outline_color": "#000000", "back_color": "#000000",
     "back_alpha": "80", "border_style": 1, "outline_w": 3, "shadow": 0,
     "play_w": 1920, "play_h": 1080, "margin_l": 80, "margin_r": 80, "margin_v": 60,
     "use_pos": True,
 }
-GLOBAL_KEYS = ["font", "fontsize", "bold", "align", "primary", "outline", "back",
+GLOBAL_KEYS = ["font", "fontsize", "bold", "italic", "underline", "align", "primary", "outline", "back",
                "back_alpha", "border_style", "outline_w", "shadow", "play_w", "play_h",
                "margin_l", "margin_r", "margin_v", "use_pos", "pos"]
 
@@ -68,7 +69,9 @@ class HeadlessContext(EngineContext):
         return dict(self._video) if self._video else None
     def cfg(self):
         g = self._g
-        c = {"font": g["font"], "fontsize": g["fontsize"], "bold": g["bold"], "align": g["align"],
+        c = {"font": g["font"], "fontsize": g["fontsize"], "bold": g["bold"],
+             "italic": g.get("italic", False), "underline": g.get("underline", False),
+             "align": g["align"],
              "play_w": g["play_w"], "play_h": g["play_h"],
              "margin_l": g["margin_l"], "margin_r": g["margin_r"], "margin_v": g["margin_v"],
              "primary_color": g["primary"], "outline_color": g["outline"], "back_color": g["back"],

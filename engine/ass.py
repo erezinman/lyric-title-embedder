@@ -8,6 +8,7 @@ _STYLE_FOR_BORDER = {1: "Default", 3: "Box"}   # box-mode -> style name (C1)
 
 def _gctx(cfg):
     return {"font": cfg["font"], "fontsize": cfg["fontsize"], "bold": cfg["bold"],
+            "italic": cfg.get("italic", False), "underline": cfg.get("underline", False),
             "primary": cfg["primary_color"], "outline": cfg["outline_color"],
             "back": cfg["back_color"], "back_alpha": cfg["back_alpha"],
             "outline_w": cfg["outline_w"], "shadow": cfg["shadow"],
@@ -27,6 +28,8 @@ def _style_tags(prev, cur):
     if cur["font"] != prev["font"]:           t.append(f"\\fn{cur['font']}")
     if cur["fontsize"] != prev["fontsize"]:   t.append(f"\\fs{int(cur['fontsize'])}")
     if cur["bold"] != prev["bold"]:           t.append(f"\\b{1 if cur['bold'] else 0}")
+    if cur["italic"] != prev["italic"]:       t.append(f"\\i{1 if cur['italic'] else 0}")
+    if cur["underline"] != prev["underline"]: t.append(f"\\u{1 if cur['underline'] else 0}")
     if cur["primary"] != prev["primary"]:     t.append(f"\\1c{_inline_color(cur['primary'])}")
     if cur["outline"] != prev["outline"]:     t.append(f"\\3c{_inline_color(cur['outline'])}")
     if cur["back"] != prev["back"]:           t.append(f"\\4c{_inline_color(cur['back'])}")
@@ -67,12 +70,13 @@ def build_ass(cfg, groups):
     borders = sorted({_group_border(g.get("group_style"), gctx) for g in groups} | {gctx["border_style"]})
     primary = core.rgb_to_ass(cfg["primary_color"]); outline = core.rgb_to_ass(cfg["outline_color"])
     back = core.rgb_to_ass(cfg["back_color"], cfg["back_alpha"]); bold = -1 if cfg["bold"] else 0
+    italic = -1 if cfg.get("italic") else 0; underline = -1 if cfg.get("underline") else 0
     style_lines = []
     for bs in borders:
         name = _STYLE_FOR_BORDER.get(bs, f"B{bs}")
         style_lines.append(
             f"Style: {name},{cfg['font']},{cfg['fontsize']},{primary},&H000000FF,{outline},{back},"
-            f"{bold},0,0,0,100,100,0,0,{bs},{cfg['outline_w']},{cfg['shadow']},"
+            f"{bold},{italic},{underline},0,100,100,0,0,{bs},{cfg['outline_w']},{cfg['shadow']},"
             f"{cfg['align']},{cfg['margin_l']},{cfg['margin_r']},{cfg['margin_v']},1")
     header = (
         "[Script Info]\n; Karaoke Subtitle Studio\nScriptType: v4.00+\n"
