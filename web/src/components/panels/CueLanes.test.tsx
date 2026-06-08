@@ -1,8 +1,11 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { CueLanes } from "./CueLanes";
 import type { Project } from "../../types";
 import { fadeInAnim, fadeOutAnim } from "../../model/animPresets";
+import { stubLocalStorage } from "../../test-util/storage";
+
+beforeEach(() => { stubLocalStorage(); });
 
 function proj(): Project {
   return {
@@ -97,5 +100,26 @@ describe("CueLanes (redesigned)", () => {
     expect(spillEnd?.querySelector(".caret")?.textContent).toBe("›");
     // a cue with no anims_resolved has no spill marker
     expect(container.querySelectorAll(".lc.t-cell.t-start.spill").length).toBe(0);
+  });
+
+  it("column grip drag updates --lane-cols and persists to kss.laneCols", () => {
+    const { container } = renderLanes(proj());
+    const lanes = container.querySelector(".lanes.anim-dock") as HTMLElement;
+    const before = lanes.style.getPropertyValue("--lane-cols");
+    const grip = container.querySelector(".col-grip") as HTMLElement;
+    expect(grip).toBeTruthy();
+    fireEvent.pointerDown(grip, { clientX: 200 });
+    fireEvent.pointerMove(window, { clientX: 260 });
+    fireEvent.pointerUp(window);
+    expect(lanes.style.getPropertyValue("--lane-cols")).not.toBe(before);   // text col widened
+    expect(localStorage.getItem("kss.laneCols")).toBeTruthy();
+  });
+
+  it("double-clicking a grip resets that column to its default and persists", () => {
+    localStorage.setItem("kss.laneCols", JSON.stringify([300, 96, 96]));
+    const { container } = renderLanes(proj());
+    const grip = container.querySelector(".col-grip") as HTMLElement;
+    grip.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(JSON.parse(localStorage.getItem("kss.laneCols")!)[0]).toBe(160);   // text default
   });
 });
