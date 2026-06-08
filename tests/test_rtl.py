@@ -48,8 +48,9 @@ def t_get_project_exposes():
     ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
     ctx.set_globals({"text_direction": "rtl"})
     p = tools.get_project(ctx)
-    pl = p["placement"]
-    return (pl.get("text_direction") == "rtl" and "bidi_marks" in pl), f"{pl.get('text_direction')}"
+    # canonical home is the globals payload block (not duplicated into placement)
+    gl = p["globals"]
+    return (gl.get("text_direction") == "rtl" and "bidi_marks" in gl), f"{gl.get('text_direction')}"
 
 def t_invalid_direction_rejected():
     ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")

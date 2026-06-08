@@ -4,8 +4,9 @@ import engine
 import core
 from engine.model import resolve_style, STYLE_KEYS
 
-_PLACE_KEYS = ["align", "play_w", "play_h", "margin_l", "margin_r", "margin_v", "use_pos", "pos",
-               "text_direction", "bidi_marks"]
+# text_direction / bidi_marks are project-level RTL settings; they live in the
+# globals payload (canonical home), not duplicated into placement.
+_PLACE_KEYS = ["align", "play_w", "play_h", "margin_l", "margin_r", "margin_v", "use_pos", "pos"]
 
 
 def _gctx_for_resolve(ctx):
@@ -127,6 +128,11 @@ def get_project(ctx):
         # Animations replace the legacy fade model: never surface the legacy globals
         # fade keys in the project payload (post-migration shape — AD-OLD-06).
         gl = {k: v for k, v in p["globals"].items() if k not in ("fade_in_ms", "fade_out_ms")}
+        # RTL project settings live in the cfg/_g aux (alongside align/play_w); surface
+        # them in the globals payload block, which is where the web reads them.
+        for k in ("text_direction", "bidi_marks"):
+            if k in g:
+                gl[k] = g[k]
         return {"words": [dict(w) for w in p["words"]], "layout": layout,
                 "anim_tags": copy.deepcopy(p.get("anim_tags", [])),
                 "globals": gl,

@@ -66,10 +66,6 @@ export interface Placement {
   align: number; play_w: number; play_h: number;
   margin_l: number; margin_r: number; margin_v: number; pos: [number, number] | null;
   use_pos?: boolean;
-  /** RTL support (per-project). text_direction: "auto" detects base direction from
-   *  content; "ltr"/"rtl" force it. bidi_marks wraps embedded numbers/Latin in LRM. */
-  text_direction?: "auto" | "ltr" | "rtl";
-  bidi_marks?: boolean;
 }
 export type TextDirection = "auto" | "ltr" | "rtl";
 export interface Globals {
