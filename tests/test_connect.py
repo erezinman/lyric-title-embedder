@@ -80,7 +80,9 @@ def t_fonts_empty_when_no_fc_list():
         b = c.get("/api/fonts").json()
     finally:
         core.FC_LIST = saved
-    return (b == {"fonts": []}, b)
+    # /api/fonts now returns {system, custom, fonts}; fc-list off -> system/fonts empty,
+    # and no project is open in this harness so custom is empty too.
+    return (b.get("system") == [] and b.get("fonts") == [] and b.get("custom") == [], b)
 
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)

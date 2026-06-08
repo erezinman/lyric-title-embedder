@@ -7,9 +7,18 @@ from core import FFMPEG, FFPROBE
 def _escape_ass(path):
     return path.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
 
-def burn_cmd(video_in, ass_path, out_path):
+def _ass_filter(ass_path, fonts_dir=None):
+    """Build the libass video filter. When fonts_dir is given, append
+    :fontsdir=<dir> so libass resolves project-uploaded families at render time
+    (escaped the same way as the .ass path)."""
+    f = f"ass='{_escape_ass(ass_path)}'"
+    if fonts_dir:
+        f += f":fontsdir='{_escape_ass(fonts_dir)}'"
+    return f
+
+def burn_cmd(video_in, ass_path, out_path, fonts_dir=None):
     return [FFMPEG, "-y", "-hide_banner", "-i", video_in,
-            "-vf", f"ass='{_escape_ass(ass_path)}'", "-c:a", "copy",
+            "-vf", _ass_filter(ass_path, fonts_dir), "-c:a", "copy",
             "-progress", "pipe:1", "-nostats", out_path]
 
 def probe_duration(path):
@@ -45,17 +54,18 @@ def probe_video(path):
     except Exception:
         return None
 
-def frame_cmd(video_in, ass_path, time_s, w, h, out_png):
+def frame_cmd(video_in, ass_path, time_s, w, h, out_png, fonts_dir=None):
     """Render one exact libass frame at time_s to out_png. If video_in is None,
-    use a solid dark canvas of w x h (so a preview works without footage)."""
-    af = _escape_ass(ass_path)
+    use a solid dark canvas of w x h (so a preview works without footage).
+    fonts_dir, when given, is passed to libass via :fontsdir so uploaded families
+    resolve in the preview too."""
     if video_in:
         src = ["-ss", f"{time_s:.3f}", "-copyts", "-i", video_in]
     else:
         src = ["-ss", f"{time_s:.3f}", "-copyts", "-f", "lavfi",
                "-i", f"color=c=#202024:s={int(w)}x{int(h)}:d={max(time_s + 1, 1):.1f}"]
     return [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", *src,
-            "-vf", f"ass='{af}'", "-frames:v", "1", out_png]
+            "-vf", _ass_filter(ass_path, fonts_dir), "-frames:v", "1", out_png]
 
 def run(cmd, total, progress_cb):
     """Run an ffmpeg -progress command; call progress_cb(frac in 0..0.999) as it

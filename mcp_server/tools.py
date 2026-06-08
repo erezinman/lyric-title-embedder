@@ -16,6 +16,16 @@ def _gctx_for_resolve(ctx):
             "border_style": c["border_style"]}
 
 
+def _fonts_dir(ctx):
+    """The open project's fonts dir to hand libass via :fontsdir — but only when it
+    exists and holds at least one font, so projects with no uploaded fonts keep the
+    exact prior ffmpeg cmd (behavior unchanged)."""
+    fd = getattr(ctx, "fonts_dir", lambda: None)()
+    if fd and os.path.isdir(fd) and any(os.path.isfile(os.path.join(fd, n)) for n in os.listdir(fd)):
+        return fd
+    return None
+
+
 def _require_project(ctx):
     if ctx.session.project is None:
         raise ValueError("no project loaded — call load_lyrics or load_project first")
@@ -346,7 +356,8 @@ def render_frame(ctx, time_s):
         return cfg, ass
     cfg, ass = ctx.run(build)
     out = os.path.join(tempfile.gettempdir(), f"_mcp_frame_{uuid.uuid4().hex}.png")
-    cmd = engine.ffmpeg.frame_cmd(ctx.video_path(), ass, time_s, cfg["play_w"], cfg["play_h"], out)
+    cmd = engine.ffmpeg.frame_cmd(ctx.video_path(), ass, time_s, cfg["play_w"], cfg["play_h"], out,
+                                  fonts_dir=_fonts_dir(ctx))
     import subprocess
     p = subprocess.run(cmd, capture_output=True, text=True)
     if p.returncode != 0 or not os.path.isfile(out):
@@ -368,7 +379,7 @@ def burn(ctx, out_path, video_in=None):
     with _BURN_LOCK:
         _BURN_JOBS[jid] = {"frac": 0.0, "done": False, "ok": False, "err": None, "out": out_path}
     total = engine.ffmpeg.probe_duration(src) or 1.0
-    cmd = engine.ffmpeg.burn_cmd(src, ass, out_path)
+    cmd = engine.ffmpeg.burn_cmd(src, ass, out_path, fonts_dir=_fonts_dir(ctx))
     def worker():
         ok, err = engine.ffmpeg.run(cmd, total, lambda fr: _BURN_JOBS[jid].__setitem__("frac", fr))
         with _BURN_LOCK:

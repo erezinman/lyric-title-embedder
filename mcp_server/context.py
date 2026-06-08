@@ -25,6 +25,7 @@ class EngineContext:
     def video_path(self): return None
     def video_meta(self): return None
     def fonts(self): return core.list_font_families()
+    def fonts_dir(self): return None
 
 class HeadlessContext(EngineContext):
     def __init__(self):
@@ -36,6 +37,9 @@ class HeadlessContext(EngineContext):
         # Register _g as the session's auxiliary state so set_globals edits
         # (align/margins/pos/use_pos/style) join the shared undo timeline.
         self._video = None
+        # Open project's fonts dir (set by daemon.library on create/open). Burn/frame
+        # pass it to libass via :fontsdir so uploaded families resolve at render.
+        self._fonts_dir = None
         self.session = controller.Session(aux_get=self._aux_get, aux_set=self._aux_set)
     # Auxiliary undo state = global style/placement (_g) PLUS the input video path.
     # Bundling video into the snapshot makes set_video undoable and lets it ride the
@@ -61,6 +65,12 @@ class HeadlessContext(EngineContext):
             video = None
         def apply(): self._video = video
         self.session.record(apply)
+    def set_fonts_dir(self, path):
+        # Not undoable: a fonts dir is bound to the open project folder, not project
+        # content. The dir need not exist yet (lazily created on first upload).
+        self._fonts_dir = path
+    def fonts_dir(self):
+        return self._fonts_dir
     def video_path(self):
         return self._video["path"] if self._video else None
     def video_meta(self):

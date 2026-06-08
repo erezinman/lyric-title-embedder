@@ -239,21 +239,72 @@ def make_routes(ctx, hub):
             "token_required": bool(os.environ.get("KSS_MCP_TOKEN")),
         })
 
-    async def fonts(request):
-        # Installed font families via fc-list. Returns a sorted, de-duplicated list
-        # of family names; if fc-list is unavailable, returns [].
+    def _system_fonts():
         import core, subprocess
         if not core.FC_LIST:
-            return JSONResponse({"fonts": []})
+            return []
         try:
             out = subprocess.run([core.FC_LIST, ":", "family"],
                                  capture_output=True, text=True, timeout=8).stdout
         except Exception:
-            return JSONResponse({"fonts": []})
-        fams = sorted({line.split(",")[0].strip() for line in out.splitlines()
-                       if line.strip()})
-        return JSONResponse({"fonts": fams})
+            return []
+        return sorted({line.split(",")[0].strip() for line in out.splitlines() if line.strip()})
+
+    async def fonts(request):
+        # Installed system families (fc-list) PLUS the open project's uploaded
+        # custom families: {system:[name...], custom:[{family,url,ext}...]}.
+        # The legacy `fonts` key (== system) is kept for back-compat callers.
+        sysf = _system_fonts()
+        customs = []
+        folder = None if not autosaver.name else os.path.join(request.app.state.projects_dir, autosaver.name)
+        if folder:
+            customs = library.list_custom_fonts(folder)
+        return JSONResponse({"system": sysf, "custom": customs, "fonts": sysf})
+
+    async def fonts_upload(request):
+        # POST /api/fonts/upload (multipart `font_file`) -> save into the open
+        # project's fonts dir, returning {family, url}. An optional `family` form
+        # field overrides the filename-derived name.
+        if not autosaver.name:
+            return _err("no project open", 409)
+        folder = os.path.join(request.app.state.projects_dir, autosaver.name)
+        form = await request.form()
+        ff = form.get("font_file")
+        if ff is None or not hasattr(ff, "read"):
+            return _err("multipart upload requires a 'font_file' part")
+        data = await ff.read()
+        try:
+            family, url = library.save_font(folder, data, getattr(ff, "filename", ""),
+                                            family=(form.get("family") or None))
+        except ValueError as e:
+            return _err(str(e), 400)
+        return JSONResponse({"family": family, "url": url})
+
+    async def fonts_file(request):
+        # GET /api/fonts/file/{family} -> serve the stored font bytes so a web
+        # FontFace src can load it.
+        if not autosaver.name:
+            return _err("no project open", 409)
+        folder = os.path.join(request.app.state.projects_dir, autosaver.name)
+        path = library.font_file_path(folder, request.path_params["family"])
+        if not path:
+            return _err("font not found", 404)
+        with open(path, "rb") as fh:
+            data = fh.read()
+        mt = {".woff2": "font/woff2", ".woff": "font/woff",
+              ".otf": "font/otf", ".ttf": "font/ttf"}.get(os.path.splitext(path)[1].lower(), "font/ttf")
+        return Response(data, media_type=mt, headers={"Cache-Control": "no-cache"})
+
+    async def fonts_delete(request):
+        # DELETE /api/fonts/{family} -> remove the uploaded font from the project.
+        if not autosaver.name:
+            return _err("no project open", 409)
+        folder = os.path.join(request.app.state.projects_dir, autosaver.name)
+        removed = library.delete_font(folder, request.path_params["family"])
+        if not removed:
+            return _err("font not found", 404)
+        return JSONResponse({"deleted": request.path_params["family"]})
 
     return call, state, render, ass, srt, vtt, ws_endpoint, frame, font, burn, burn_status, \
            projects_list, projects_new, projects_open, projects_save, env, projects_create, \
-           connect, fonts, video, video_clear
+           connect, fonts, video, video_clear, fonts_upload, fonts_file, fonts_delete

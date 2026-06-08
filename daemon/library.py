@@ -1,6 +1,80 @@
 # daemon/library.py — self-contained project folders: <dir>/<name>/lyrics.json + project.json
 import json, os, shutil, tempfile
+from urllib.parse import quote
 import engine
+
+FONT_EXTS = (".ttf", ".otf", ".woff", ".woff2")
+
+
+def fonts_dir(folder):
+    """Per-project fonts directory (<project>/fonts). Not created here."""
+    return os.path.join(folder, "fonts")
+
+
+def _font_family_from_name(filename):
+    """Family name derived per HANDOFF: basename, extension stripped, _ -> space."""
+    base = os.path.splitext(os.path.basename(filename))[0]
+    return base.replace("_", " ").strip()
+
+
+def _font_url(family):
+    return "/api/fonts/file/" + quote(family)
+
+
+def save_font(folder, data, filename, family=None):
+    """Save an uploaded font into <project>/fonts/<family><ext>. Accepts
+    .ttf/.otf/.woff/.woff2 (case-insensitive). Family defaults to the filename
+    (ext stripped, _->space). Returns (family, url)."""
+    ext = os.path.splitext(filename or "")[1].lower()
+    if ext not in FONT_EXTS:
+        raise ValueError(f"unsupported font type {ext!r}; allowed: {', '.join(FONT_EXTS)}")
+    fam = (family or _font_family_from_name(filename)).strip()
+    if not fam or "/" in fam or "\\" in fam or fam in (".", ".."):
+        raise ValueError(f"invalid font family {fam!r}")
+    fdir = fonts_dir(folder)
+    os.makedirs(fdir, exist_ok=True)
+    # one file per family; a re-upload of the same family replaces it (drop stale exts)
+    for ex in FONT_EXTS:
+        old = os.path.join(fdir, fam + ex)
+        if os.path.isfile(old):
+            os.remove(old)
+    with open(os.path.join(fdir, fam + ext), "wb") as fh:
+        fh.write(data)
+    return fam, _font_url(fam)
+
+
+def list_custom_fonts(folder):
+    """List the project's uploaded fonts as [{family, url, ext}], sorted by family."""
+    fdir = fonts_dir(folder)
+    if not os.path.isdir(fdir):
+        return []
+    out = []
+    for n in os.listdir(fdir):
+        base, ext = os.path.splitext(n)
+        if ext.lower() in FONT_EXTS and os.path.isfile(os.path.join(fdir, n)):
+            out.append({"family": base, "url": _font_url(base), "ext": ext.lower()})
+    return sorted(out, key=lambda f: f["family"].lower())
+
+
+def font_file_path(folder, family):
+    """Absolute path of the stored file for `family`, or None if not present."""
+    if not family or "/" in family or "\\" in family or family in (".", ".."):
+        return None
+    fdir = fonts_dir(folder)
+    for ex in FONT_EXTS:
+        p = os.path.join(fdir, family + ex)
+        if os.path.isfile(p):
+            return p
+    return None
+
+
+def delete_font(folder, family):
+    """Remove the stored file for `family`. Returns True if something was removed."""
+    p = font_file_path(folder, family)
+    if p:
+        os.remove(p)
+        return True
+    return False
 
 def _safe(name):
     if not name or name != os.path.basename(name) or name in (".", "..") or "/" in name or "\\" in name:
@@ -88,6 +162,7 @@ def create_project(ctx, projects_dir, name, *, source,
                             group_by=group_by, skip_dashes=skip_dashes)
         if vpath:
             ctx.set_video(vpath)
+        _bind_fonts_dir(ctx, folder)
         save_project(ctx, projects_dir, name)
         return name
     except Exception:
@@ -129,9 +204,17 @@ def list_projects(projects_dir):
     return sorted(n for n in os.listdir(projects_dir)
                   if os.path.isfile(os.path.join(projects_dir, n, "project.json")))
 
+def _bind_fonts_dir(ctx, folder):
+    """Point the context at this project's fonts dir (for burn/frame :fontsdir).
+    No-op on contexts without the hook (e.g. the Tk UIContext)."""
+    if hasattr(ctx, "set_fonts_dir"):
+        ctx.set_fonts_dir(fonts_dir(folder))
+
+
 def open_project(ctx, projects_dir, name):
     name = _safe(name)
     folder = os.path.join(projects_dir, name)
+    _bind_fonts_dir(ctx, folder)
     ctx.load_lyrics(os.path.join(folder, "lyrics.json"))
     pj = os.path.join(folder, "project.json")
     if os.path.isfile(pj):
