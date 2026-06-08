@@ -37,7 +37,7 @@ describe("cueExtent", () => {
     expect(r.spillAfter).toBe(true);
   });
   it("multi-word cue uses min start / max end of atoms", () => {
-    const r = cueExtent([{ text: "a", start: 1, end: 1.5 }, { text: "b", start: 1.5, end: 3 }], []);
+    const r = cueExtent([{ start: 1, end: 1.5 }, { start: 1.5, end: 3 }], []);
     expect([r.s, r.e]).toEqual([1, 3]);
   });
 });

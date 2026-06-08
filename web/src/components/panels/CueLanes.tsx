@@ -1,8 +1,9 @@
 import React from "react";
 import type { Project, Token } from "../../types";
-import { eventWindow, wordSchedule, type WordSched } from "../../model/resolve";
+import { eventWindow } from "../../model/resolve";
 import { colorForIndex } from "../../model/palette";
-import { animColMarker } from "../../model/animStrips";
+import { cueExtent } from "../../model/spill";
+import { cueRows } from "../../model/animRows";
 import { Icon } from "../icons/Icon";
 
 export interface CueLanesProps {
@@ -14,76 +15,127 @@ export interface CueLanesProps {
   onSelectWord: (gi: number, li: number, ti: number, wid: number, mods: { ctrl?: boolean; shift?: boolean }) => void;
   onSelectEvent: (gi: number) => void;
   onToggleCollapse: (gi: number) => void;
+  /** Double-click a cue row → flip to the Timeline tab on that cue (optional). */
+  onCueOpen?: (gi: number, li: number, ti: number, wid: number) => void;
+  /** Click empty lanes area → clear selection (optional). */
+  onClearSel?: () => void;
 }
 
 function tokText(project: Project, tok: Token): string {
   return tok.ids.map((id) => project.words[id].text).join(tok.sep || " ");
 }
 
-interface FadeCellProps {
-  sched: WordSched;
-  kind: "in" | "out";
-  project: Project;
-  gi: number;
-  wid: number;
-}
+// Channel → accent color (mirrors the kit CH_COLOR; drives the chip dot via --ch).
+const CH_COLOR: Record<string, string> = {
+  alpha: "#3DE0FF", karaoke_fill: "#FFC24D", primary: "#FF3DA6", outline: "#9AA3B2",
+  back: "#8B8BFF", fill_alpha: "#3DE0FF", outline_alpha: "#9AA3B2", shadow_alpha: "#8B8BFF",
+  scale_x: "#8A5BFF", scale_y: "#8A5BFF", fontsize: "#8A5BFF",
+  rot_x: "#9BE59B", rot_y: "#9BE59B", rot_z: "#9BE59B", shear_x: "#9BE59B", shear_y: "#9BE59B",
+  spacing: "#C0C0C0", border_w: "#C0C0C0", shadow_depth: "#C0C0C0",
+  clip_rect: "#4DE0C2", blur: "#5AA0FF", move: "#FF8A3D",
+};
+const chColor = (ch: string): string => CH_COLOR[ch] ?? "#3DE0FF";
+const ORDER: Record<string, number> = { own: 0, inherited: 1, tombstone: 2 };
 
-// The fade columns now derive from anim_tags (the animations model): a cue is in a
-// fade group when an anim_tag covering it carries a fade_in/fade_out-named alpha anim.
-function FadeCell({ sched, kind, project, wid }: FadeCellProps) {
-  const inGroup = kind === "in" ? sched.inFin : sched.inFout;
-  if (kind === "out" && !sched.inFout) return <span className="lc fade none">· none</span>;
-  if (kind === "in" && !sched.inFin) return <span className="lc fade none">· none</span>;
-
-  const trigger = kind === "in" ? sched.start_s : sched.fout_at;
-
-  // Color band: colorForIndex(anim_tag index) for the tag this cue belongs to.
-  const name = kind === "in" ? "fade_in" : "fade_out";
-  const tags = project.anim_tags ?? [];
-  const tagIndex = tags.findIndex((t) => t.ids.includes(wid) && t.anims.some((a) => a.name === name));
-  const band = tagIndex >= 0 ? colorForIndex(tagIndex) : "transparent";
-
+// ANIMATION lane: channel-colored chips for every animation on the cue, carrying
+// waterfall state (own = solid · inherited = grey + grp/glob src · tombstone = struck).
+// Driven from cueRows (the carrier-derived inheritance state — mirrors the inspector).
+function AnimChips({ project, gi, wid }: { project: Project; gi: number; wid: number }) {
+  const rows = cueRows(project, gi, wid);
+  if (!rows.length) return <span className="lc anim none">· none</span>;
+  const sorted = rows.slice().sort((a, b) => (ORDER[a.kind] ?? 1) - (ORDER[b.kind] ?? 1));
   return (
-    <span
-      className={"lc fade" + (inGroup ? " grouped" : "") + " ovr"}
-      style={{ "--band": band } as React.CSSProperties}
-    >
-      <span>@{(trigger ?? 0).toFixed(2)}</span>
+    <span className="lc anim">
+      <span className="achips">
+        {sorted.map((r, i) => {
+          const cls = "achip " + (r.kind === "own" ? "own" : r.kind === "tombstone" ? "tomb" : "inh");
+          const srcTag = r.kind === "own" ? null : (r.src === "group" ? "grp" : "glob");
+          const label = r.name.replace(/_/g, " ");
+          return (
+            <span key={r.id + "-" + i} className={cls} style={{ "--ch": chColor(r.channel) } as React.CSSProperties}
+                  title={label + " · " + r.channel + (srcTag ? " · inherited from " + r.src : " · this cue")}>
+              <i className="ch-dot" />{label}{srcTag && <em className="src">{srcTag}</em>}
+            </span>
+          );
+        })}
+      </span>
     </span>
   );
 }
 
-// The 4th ANIMATION column mirrors the FADE columns: override-solid (.ovr) when a
-// tag-sourced anim resolves on the cue, inherited-grey (.inh) for global/group, the
-// suppressed treatment (.supp) when an inherited anim is tombstoned for this cue,
-// else empty (.none). Reads the daemon-resolved per-cue list + suppress carriers.
-function AnimCell({ project, gi, tok }: { project: Project; gi: number; tok: Token }) {
-  const wid = tok.ids[0];
-  const resolved = tok.anims_resolved ?? [];
-  const groupSuppress = project.layout[gi]?.suppress ?? [];
-  const tagSuppress = project.anim_tags
-    .filter((t) => t.ids.includes(wid))
-    .flatMap((t) => t.suppress);
-  const suppressed = groupSuppress.length > 0 || tagSuppress.length > 0;
-  const marker = animColMarker(resolved, suppressed);
-  if (marker === "none") return <span className="lc anim none">· none</span>;
-  if (marker === "supp") return <span className="lc anim supp">⊘ removed</span>;
-  const cls = "lc anim " + (marker === "ovr" ? "ovr" : "inh");
-  const label = resolved.map((a) => a.name).join(", ");
-  return <span className={cls} title={label}><span>{resolved.length > 1 ? `${resolved.length}×` : "●"}</span></span>;
+// One start/end sub-lane cell: structural time (neutral) + cyan outward caret + delta
+// + edge bleed-tick when an animation spills past this boundary. Only OUTWARD spill.
+function StartEnd({ ext, side }: { ext: ReturnType<typeof cueExtent>; side: "start" | "end" }) {
+  const v = side === "start" ? ext.s : ext.e;
+  const spill = side === "start" ? ext.spillBefore : ext.spillAfter;
+  const delta = side === "start" ? ext.beforeDelta : ext.afterDelta;
+  return (
+    <span className={"lc t-cell t-" + side + (spill ? " spill" : "")}
+          title={spill ? `Animation ${side === "start" ? "begins " + delta.toFixed(2) + "s before" : "ends " + delta.toFixed(2) + "s after"} the cue's layout ${side}` : undefined}>
+      {side === "start" && spill && <span className="caret">‹</span>}
+      <span className="t-val">{v.toFixed(2)}</span>
+      {spill && <em className="t-spill">{side === "start" ? "−" : "+"}{delta.toFixed(2)}</em>}
+      {side === "end" && spill && <span className="caret">›</span>}
+    </span>
+  );
+}
+
+const LANE_COLS_DEFAULT: [number, number, number] = [160, 96, 96];   // text · start · end (px); ANIMATION flexes
+function loadLaneCols(): [number, number, number] {
+  try {
+    const s = JSON.parse(localStorage.getItem("kss.laneCols") || "");
+    if (Array.isArray(s) && s.length === 3 && s.every((n) => Number.isFinite(n))) return s as [number, number, number];
+  } catch { /* ignore */ }
+  return [...LANE_COLS_DEFAULT];
 }
 
 export function CueLanes({
   project, sel, selectedWords, collapsed, aiHotKey,
-  onSelectWord, onSelectEvent, onToggleCollapse,
+  onSelectWord, onSelectEvent, onToggleCollapse, onCueOpen, onClearSel,
 }: CueLanesProps) {
+  const [cols, setCols] = React.useState<[number, number, number]>(loadLaneCols);
+  const tpl = `${cols[0]}px ${cols[1]}px ${cols[2]}px minmax(150px, 1.4fr)`;
+
+  // Drag a header divider → resize the column to its left (min 64px); persist on release.
+  const startColDrag = (i: number) => (ev: React.PointerEvent) => {
+    ev.preventDefault(); ev.stopPropagation();
+    const x0 = ev.clientX, base = cols[i];
+    const move = (e: PointerEvent) => {
+      const w = Math.max(64, Math.round(base + (e.clientX - x0)));
+      setCols((c) => { const n = [...c] as [number, number, number]; n[i] = w; return n; });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
+      document.body.classList.remove("col-resizing");
+      setCols((c) => { try { localStorage.setItem("kss.laneCols", JSON.stringify(c)); } catch { /* ignore */ } return c; });
+    };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+    document.body.classList.add("col-resizing");
+  };
+  const resetCol = (i: number) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCols((c) => {
+      const n = [...c] as [number, number, number]; n[i] = LANE_COLS_DEFAULT[i];
+      try { localStorage.setItem("kss.laneCols", JSON.stringify(n)); } catch { /* ignore */ }
+      return n;
+    });
+  };
+  const grip = (i: number) => (
+    <span className="col-grip" title="Drag to resize · double-click to reset"
+          onPointerDown={startColDrag(i)} onDoubleClick={resetCol(i)} />
+  );
+
+  const onLanesClick = (e: React.MouseEvent) => {
+    if (onClearSel && !(e.target as HTMLElement).closest(".lane-row, .lane-evt, .col-grip")) onClearSel();
+  };
+
   return (
-    <div className="lanes">
+    <div className="lanes anim-dock" style={{ "--lane-cols": tpl } as React.CSSProperties} onClick={onLanesClick}>
       <div className="lane-head">
-        <span className="lh layout"><Icon name="layers" size={13} />LAYOUT · cues</span>
-        <span className="lh"><Icon name="sparkles" size={13} />FADE-IN</span>
-        <span className="lh"><Icon name="sparkles" size={13} />FADE-OUT</span>
-        <span className="lh"><Icon name="sparkles" size={13} />ANIMATION</span>
+        <span className="lh layout"><Icon name="layers" size={13} />LAYOUT · text{grip(0)}</span>
+        <span className="lh layout sub">start{grip(1)}</span>
+        <span className="lh layout sub">end{grip(2)}</span>
+        <span className="lh anim"><Icon name="sparkles" size={13} />ANIMATION</span>
       </div>
       {project.layout.map((g, gi) => {
         const [s, e] = eventWindow(project, gi);
@@ -97,10 +149,7 @@ export function CueLanes({
               style={{ "--g-color": gc } as React.CSSProperties}
               onClick={() => onSelectEvent(gi)}
             >
-              <span
-                className="chev"
-                onClick={(ev) => { ev.stopPropagation(); onToggleCollapse(gi); }}
-              >
+              <span className="chev" onClick={(ev) => { ev.stopPropagation(); onToggleCollapse(gi); }}>
                 <Icon name="chevDown" size={13} stroke={2} />
               </span>
               {g.label}
@@ -114,7 +163,8 @@ export function CueLanes({
                 {li > 0 && <div className="line-div"><span>line break · \N</span></div>}
                 {ln.toks.map((tok, ti) => {
                   const wid = tok.ids[0];
-                  const sched = wordSchedule(project, gi, wid);
+                  const ws = tok.ids.map((id) => project.words[id]).filter(Boolean);
+                  const ext = cueExtent(ws, tok.anims_resolved ?? []);
                   const isSel = sel.tok && sel.gi === gi && sel.tok.li === li && sel.tok.ti === ti;
                   const multi = tok.ids.some((id) => selectedWords.has(id));
                   const merged = tok.ids.length > 1;
@@ -131,18 +181,17 @@ export function CueLanes({
                       onClick={(ev) =>
                         onSelectWord(gi, li, ti, wid, { ctrl: ev.ctrlKey || ev.metaKey, shift: ev.shiftKey })
                       }
+                      onDoubleClick={() => onCueOpen?.(gi, li, ti, wid)}
+                      title="Double-click → open this cue in the Timeline"
                     >
                       <span className="lc word">
                         {merged && <Icon name="layers" size={11} />}
-                        {tok.del
-                          ? <s>{tokText(project, tok)}</s>
-                          : tokText(project, tok)
-                        }
+                        {tok.del ? <s>{tokText(project, tok)}</s> : tokText(project, tok)}
                         {merged && <span className="mtag">merged</span>}
                       </span>
-                      <FadeCell sched={sched} kind="in" project={project} gi={gi} wid={wid} />
-                      <FadeCell sched={sched} kind="out" project={project} gi={gi} wid={wid} />
-                      <AnimCell project={project} gi={gi} tok={tok} />
+                      <StartEnd ext={ext} side="start" />
+                      <StartEnd ext={ext} side="end" />
+                      <AnimChips project={project} gi={gi} wid={wid} />
                     </div>
                   );
                 })}

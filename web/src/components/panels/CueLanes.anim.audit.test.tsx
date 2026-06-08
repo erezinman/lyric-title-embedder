@@ -1,15 +1,15 @@
 /**
- * CueLanes.anim.audit.test.tsx — Cluster AT §5C (lanes ANIMATION column).
+ * CueLanes.anim.audit.test.tsx — ANIMATION lane chips (zip 11 redesign).
  * Test IDs: AT-14..AT-16.
  *
- * The 4th ANIMATION column mirrors the FADE columns: inherited-grey vs
- * override-solid, suppressed treatment for tombstones, empty when none.
- * Driven through the CueLanes component directly with withResolved fixtures.
+ * The single ANIMATION lane renders channel-colored chips from cueRows (the
+ * carrier-derived waterfall state): own = .achip.own, inherited = .achip.inh
+ * (+ grp/glob src), tombstone = .achip.tomb, empty = .lc.anim.none.
  */
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
 import { CueLanes } from "./CueLanes";
-import { baseProject, withResolved, withAnimations, resolved, anim, seg, time } from "../../test-util/fixtures";
+import { baseProject, withAnimations, anim, seg, time } from "../../test-util/fixtures";
 
 const noop = () => {};
 const baseSel = { scope: "group" as const, gi: 0, tok: null };
@@ -29,66 +29,58 @@ function renderLanes(project: ReturnType<typeof baseProject>) {
   );
 }
 
-describe("AT-14 ANIMATION column: inherited-grey vs override-solid", () => {
-  it("renders an ANIMATION header and override-solid marker for a tag (own) anim", () => {
-    // cue 0 carries a tag-sourced (override) resolved anim.
-    const p = withResolved(baseProject(), {
-      0: [resolved({ id: "x", channel: "alpha", src: "tag" }, 0.5, 0.9)],
+/** The ANIMATION cell of the row whose text contains `word` (a baseProject word). */
+function animCell(container: HTMLElement, word: string): HTMLElement {
+  const row = [...container.querySelectorAll(".lane-row")].find((r) => r.textContent?.includes(word))!;
+  return row.querySelector(".lc.anim") as HTMLElement;
+}
+
+describe("AT-14 ANIMATION chips: own vs inherited", () => {
+  it("a tag-sourced (own) anim renders a solid .achip.own chip", () => {
+    // cue 0 (alpha) carries a tag-sourced sweep anim
+    const p = withAnimations(baseProject(), {
+      tags: [{ ids: [0], anims: [anim({ id: "x", name: "sweep", channel: "clip_rect",
+        segments: [seg(time("cue_start"), time("cue_end"), [0, 0, 0, 0], [1920, 0, 0, 0])] })], suppress: [] }],
     });
     const { container } = renderLanes(p);
-    // header
     expect(container.textContent).toContain("ANIMATION");
-    // the cell for cue 0
-    const row = [...container.querySelectorAll(".lane-row")].find((r) =>
-      r.textContent?.includes("alpha"),
-    )!;
-    const cell = row.querySelector(".lc.anim") as HTMLElement;
-    expect(cell).toBeTruthy();
-    expect(cell.classList.contains("ovr")).toBe(true);
+    const chip = animCell(container, "alpha").querySelector(".achip") as HTMLElement;
+    expect(chip).toBeTruthy();
+    expect(chip.classList.contains("own")).toBe(true);
+    expect(chip.textContent).toContain("sweep");
   });
 
-  it("renders inherited-grey marker for a global-sourced (inherited) anim", () => {
-    const p = withResolved(baseProject(), {
-      0: [resolved({ id: "g", channel: "alpha", src: "global" }, 0.5, 0.9)],
+  it("a global-sourced (inherited) anim renders a grey .achip.inh chip with a glob src tag", () => {
+    const p = withAnimations(baseProject(), {
+      global: [anim({ id: "g", name: "glow", channel: "alpha",
+        segments: [seg(time("cue_start"), time("cue_start", 250), "00", "FF")] })],
     });
     const { container } = renderLanes(p);
-    const row = [...container.querySelectorAll(".lane-row")].find((r) =>
-      r.textContent?.includes("alpha"),
-    )!;
-    const cell = row.querySelector(".lc.anim") as HTMLElement;
-    expect(cell.classList.contains("inh")).toBe(true);
-    expect(cell.classList.contains("ovr")).toBe(false);
+    const chip = animCell(container, "alpha").querySelector(".achip") as HTMLElement;
+    expect(chip.classList.contains("inh")).toBe(true);
+    expect(chip.classList.contains("own")).toBe(false);
+    expect(chip.querySelector(".src")?.textContent).toBe("glob");
   });
 });
 
-describe("AT-15 tombstoned inherited anim → suppressed treatment", () => {
-  it("a cue that suppresses an inherited anim shows the .supp marker", () => {
-    // global fade-in + group-0 suppress → cue 0 resolves empty, but the suppress
-    // carrier marks the column as suppressed.
+describe("AT-15 tombstoned inherited anim → .achip.tomb", () => {
+  it("a global anim suppressed at the cue's group renders a struck .achip.tomb chip", () => {
     const p = withAnimations(baseProject(), {
       global: [anim({ id: "g_fade", name: "fade_in", channel: "alpha",
         segments: [seg(time("cue_start"), time("cue_start", 250), "FF", "00")] })],
-      suppress: { 0: ["g_fade"] },
+      suppress: { 0: ["g_fade"] },   // suppressed at group 0 (contains alpha)
     });
-    const withRes = withResolved(p, { 0: [] }); // resolves to nothing for the group's cues
-    const { container } = renderLanes(withRes);
-    const row = [...container.querySelectorAll(".lane-row")].find((r) =>
-      r.textContent?.includes("alpha"),
-    )!;
-    const cell = row.querySelector(".lc.anim") as HTMLElement;
-    expect(cell.classList.contains("supp")).toBe(true);
+    const { container } = renderLanes(p);
+    const chip = animCell(container, "alpha").querySelector(".achip") as HTMLElement;
+    expect(chip.classList.contains("tomb")).toBe(true);
   });
 });
 
-describe("AT-16 column reflects resolved presence; empty when none", () => {
-  it("a cue with no resolved anims and no suppress shows the empty marker", () => {
+describe("AT-16 empty ANIMATION lane when no anims", () => {
+  it("a cue with no own/inherited anims shows the empty marker", () => {
     const { container } = renderLanes(baseProject());
-    const row = [...container.querySelectorAll(".lane-row")].find((r) =>
-      r.textContent?.includes("alpha"),
-    )!;
-    const cell = row.querySelector(".lc.anim") as HTMLElement;
+    const cell = animCell(container, "alpha");
     expect(cell.classList.contains("none")).toBe(true);
-    expect(cell.classList.contains("ovr")).toBe(false);
-    expect(cell.classList.contains("inh")).toBe(false);
+    expect(cell.querySelector(".achip")).toBeNull();
   });
 });

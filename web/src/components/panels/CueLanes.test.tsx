@@ -46,24 +46,56 @@ function proj(): Project {
   };
 }
 
-describe("CueLanes", () => {
-  it("renders event label, merged-token joined text, and a fade-out cell anchored to cue_end", () => {
-    const p = proj();
-    render(
-      <CueLanes
-        project={p}
-        sel={{ scope: "group", gi: 0, tok: null }}
-        selectedWords={new Set<number>()}
-        collapsed={new Set<number>()}
-        aiHotKey={null}
-        onSelectWord={() => {}}
-        onSelectEvent={() => {}}
-        onToggleCollapse={() => {}}
-      />,
-    );
+function renderLanes(p: Project) {
+  return render(
+    <CueLanes
+      project={p}
+      sel={{ scope: "group", gi: 0, tok: null }}
+      selectedWords={new Set<number>()}
+      collapsed={new Set<number>()}
+      aiHotKey={null}
+      onSelectWord={() => {}}
+      onSelectEvent={() => {}}
+      onToggleCollapse={() => {}}
+    />,
+  );
+}
+
+describe("CueLanes (redesigned)", () => {
+  it("renders event label, merged-token joined text, and the new LAYOUT/ANIMATION headers (no FADE columns)", () => {
+    renderLanes(proj());
     expect(screen.getByText("V1")).toBeTruthy();
     expect(screen.getByText(/up in/)).toBeTruthy();
-    // fade-out cell anchors to cue_end (word 3 end = 2.0) → "@2.00"
-    expect(screen.getByText(/@2\.00/)).toBeTruthy();
+    expect(screen.getByText(/ANIMATION/)).toBeTruthy();
+    expect(screen.queryByText(/FADE-IN/i)).toBeNull();
+    expect(screen.queryByText(/FADE-OUT/i)).toBeNull();
+  });
+
+  it("shows the cue's structural end time in the end sub-lane (word 3 end = 2.00)", () => {
+    const { container } = renderLanes(proj());
+    const endCells = [...container.querySelectorAll(".lc.t-cell.t-end")].map((c) => c.textContent);
+    expect(endCells.some((t) => t?.includes("2.00"))).toBe(true);
+  });
+
+  it("renders own animation chips from the cue's tags (fade in on cue 0, fade out on cue 3)", () => {
+    renderLanes(proj());
+    // fadeInAnim → name 'fade_in' → chip label 'fade in'; fadeOutAnim → 'fade out'
+    expect(screen.getByText(/fade in/i)).toBeTruthy();
+    expect(screen.getByText(/fade out/i)).toBeTruthy();
+    expect(document.querySelectorAll(".achip.own").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("flags OUTWARD spill on the end sub-lane (caret + delta), none in-window", () => {
+    const p = proj();
+    // merged token "up in" spans 3.7–4.45; an anim resolving to 4.80 spills +0.35 past the end.
+    p.layout[0].lines[0].toks[4].anims_resolved = [
+      { id: "s", name: "fade out", channel: "alpha", segments: [{ start_s: 4.3, end_s: 4.8, from: 1, to: 0, accel: 1 }] },
+    ];
+    const { container } = renderLanes(p);
+    const spillEnd = [...container.querySelectorAll(".lc.t-cell.t-end.spill")].find((c) => c.textContent?.includes("+0.35"));
+    expect(spillEnd).toBeTruthy();
+    expect(spillEnd?.querySelector(".caret")?.textContent).toBe("›");
+    // a cue with no anims_resolved has no spill marker
+    expect(container.querySelectorAll(".lc.t-cell.t-start.spill").length).toBe(0);
   });
 });
