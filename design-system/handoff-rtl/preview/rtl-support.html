@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Components" name="RTL support — direction & preview" subtitle="Text-direction setting + Hebrew stage with per-word fade" viewport="900x620" -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../colors_and_type.css" />
+<link rel="stylesheet" href="card.css" />
+<style>
+  body{padding:20px 22px;}
+  .he{font-family:"Arial Hebrew","Noto Sans Hebrew","Heebo",system-ui,sans-serif;}
+  .wrap{display:grid;grid-template-columns:268px 1fr;gap:18px;max-width:840px;align-items:start;}
+
+  .panel{background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:15px 16px;}
+  .panel h3{font-family:var(--font-display);font-weight:600;font-size:13px;margin:0 0 13px;letter-spacing:-0.01em;}
+  .field{margin-bottom:14px;}
+  .field:last-child{margin-bottom:0;}
+  .lbl{font-family:var(--font-ui);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--text-3);margin-bottom:7px;display:block;}
+
+  /* segmented control */
+  .seg{display:flex;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;gap:3px;}
+  .opt{flex:1;height:26px;display:grid;place-items:center;border-radius:5px;font-family:var(--font-ui);font-size:11.5px;font-weight:600;color:var(--text-2);cursor:pointer;}
+  .opt.on{background:var(--grad-brand);color:var(--text-on-accent);box-shadow:var(--shadow-glow-accent);}
+  .opt .sub{font-size:8.5px;font-weight:500;opacity:.8;}
+
+  .select{height:30px;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-1);font-size:12px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;}
+  .select .chev{color:var(--text-3);}
+  .select .auto{font-family:var(--font-mono);font-size:9.5px;color:var(--cyan);}
+
+  .togrow{display:flex;align-items:center;gap:10px;}
+  .toggle{width:36px;height:21px;border-radius:999px;position:relative;background:var(--accent);flex:none;}
+  .toggle .k{position:absolute;top:3px;right:3px;width:15px;height:15px;border-radius:50%;background:var(--text-on-accent);}
+  .togrow .tx{font-size:11.5px;color:var(--text-2);line-height:1.3;}
+  .togrow .tx b{color:var(--text-1);font-weight:600;}
+
+  .cover{display:flex;align-items:center;gap:8px;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 9px;}
+  .cover .nm{font-family:var(--font-mono);font-size:11px;color:var(--text-1);}
+  .cover .ok{margin-left:auto;font-family:var(--font-mono);font-size:9.5px;color:var(--success);display:flex;align-items:center;gap:4px;}
+  .cover .gl{font-size:13px;}
+
+  .note{font-family:var(--font-mono);font-size:9.5px;color:var(--text-3);line-height:1.5;margin-top:7px;}
+  .note b{color:var(--violet-soft);}
+
+  /* ---- preview side ---- */
+  .pv{display:flex;flex-direction:column;gap:13px;}
+  .stage{position:relative;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--grad-stage);
+    aspect-ratio:16/7;display:flex;align-items:flex-end;justify-content:flex-start;padding:20px 26px 26px;overflow:hidden;}
+  .stage .badge{position:absolute;top:10px;left:12px;font-family:var(--font-mono);font-size:9.5px;color:var(--text-3);
+    background:color-mix(in srgb,var(--bg) 50%,transparent);padding:3px 7px;border-radius:5px;border:1px solid var(--border);white-space:nowrap;}
+  .stage .ph{position:absolute;top:10px;right:12px;font-family:var(--font-mono);font-size:10px;color:var(--cyan);}
+
+  /* caption — RTL flow, right aligned */
+  .cap{display:flex;direction:rtl;gap:14px;align-items:baseline;font-size:30px;font-weight:600;line-height:1;
+    text-shadow:0 2px 14px rgba(0,0,0,.6);}
+  .cap .w{color:#fff;position:relative;white-space:nowrap;}
+  .cap .w.dim{color:rgba(255,255,255,.28);}              /* not yet faded in */
+  .cap .w.sel{color:#fff;}
+  .cap .w.sel::after{content:"";position:absolute;left:-5px;right:-5px;bottom:-7px;height:2.5px;border-radius:2px;background:var(--accent);box-shadow:0 0 10px var(--glow-accent);}
+  .cap .w.sel::before{content:"";position:absolute;left:-7px;right:-7px;top:-6px;bottom:-9px;border:1px solid color-mix(in srgb,var(--accent) 55%,transparent);border-radius:6px;}
+  .cap .w .fbar{position:absolute;left:0;bottom:-7px;height:2.5px;border-radius:2px;background:var(--cyan);box-shadow:0 0 8px var(--cyan);}
+
+  .callout{position:absolute;font-family:var(--font-ui);font-size:10px;font-weight:600;color:var(--accent-soft);
+    background:color-mix(in srgb,var(--bg) 72%,transparent);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
+    border-radius:6px;padding:4px 8px;}
+
+  /* logical vs visual mapping */
+  .map{background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:13px 15px;}
+  .map .h{display:flex;align-items:baseline;gap:9px;margin-bottom:11px;}
+  .map .h .t{font-family:var(--font-display);font-weight:600;font-size:12.5px;}
+  .map .h .d{font-size:10.5px;color:var(--text-3);}
+  .arrow{display:flex;align-items:center;gap:7px;direction:rtl;margin-bottom:9px;}
+  .arrow .dir{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);}
+  .tiles{display:flex;direction:rtl;gap:8px;}
+  .tile{flex:none;min-width:54px;padding:8px 10px;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-sm);
+    display:flex;flex-direction:column;align-items:center;gap:5px;}
+  .tile.sel{border-color:color-mix(in srgb,var(--accent) 55%,transparent);background:color-mix(in srgb,var(--accent) 10%,var(--surface-3));box-shadow:var(--ring-accent);}
+  .tile .wd{font-size:17px;color:var(--text-1);font-weight:600;}
+  .tile .ix{font-family:var(--font-mono);font-size:9px;color:var(--text-3);}
+  .tile.sel .ix{color:var(--accent-soft);}
+  .mapnote{font-size:11px;color:var(--text-2);margin-top:11px;line-height:1.4;}
+  .mapnote b{color:var(--accent-soft);font-weight:600;}
+
+  /* mixed bidi line */
+  .mixed{display:flex;align-items:center;gap:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 13px;}
+  .mixed .mc{direction:rtl;font-size:19px;font-weight:600;color:#fff;flex:none;}
+  .mixed .mc .num{color:var(--cyan);}
+  .mixed .mx{font-family:var(--font-mono);font-size:10px;color:var(--text-3);line-height:1.45;}
+  .mixed .mx b{color:var(--violet-soft);}
+</style>
+</head>
+<body>
+  <div class="eyebrow">RTL support · text direction + Hebrew preview</div>
+  <div class="wrap">
+
+    <!-- ===== SETTINGS ===== -->
+    <div class="panel">
+      <h3>Text direction</h3>
+
+      <div class="field">
+        <span class="lbl">Direction (per project)</span>
+        <div class="seg">
+          <span class="opt">Auto<span class="sub">detect</span></span>
+          <span class="opt">LTR</span>
+          <span class="opt on">RTL</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="lbl">Default alignment</span>
+        <div class="select">Right <span class="auto">set by RTL</span><span class="chev">⌄</span></div>
+      </div>
+
+      <div class="field">
+        <span class="lbl">Mixed-direction lines</span>
+        <div class="togrow">
+          <div class="toggle"><div class="k"></div></div>
+          <span class="tx"><b>Insert bidi marks</b><br />RLM / LRM around numbers &amp; Latin</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="lbl">Font coverage</span>
+        <div class="cover">
+          <span class="gl he">א</span><span class="nm">Heebo</span>
+          <span class="ok">covers עברית <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+        </div>
+        <div class="note">base dir → <b>\an6</b> · libass reorders via FriBidi; trigger order stays <b>logical</b>.</div>
+      </div>
+    </div>
+
+    <!-- ===== PREVIEW ===== -->
+    <div class="pv">
+      <div class="stage">
+        <span class="badge">RTL · \an6 · right-aligned</span>
+        <span class="ph">0:18.6</span>
+        <div class="cap he">
+          <!-- DOM order = logical (reading) order 1..5; direction:rtl paints #1 on the right -->
+          <span class="w">הלילה</span>
+          <span class="w sel">שלנו</span>
+          <span class="w">עוד</span>
+          <span class="w dim">לא<span class="fbar" style="width:55%"></span></span>
+          <span class="w dim">נגמר</span>
+        </div>
+        <span class="callout" style="bottom:62px;right:96px;">selected = word #2</span>
+      </div>
+
+      <div class="map">
+        <div class="h"><span class="t">Logical order ≠ visual order</span><span class="d">the hit-testing trap</span></div>
+        <div class="arrow"><span class="dir">reads right → left →</span></div>
+        <div class="tiles he">
+          <span class="tile"><span class="wd">הלילה</span><span class="ix">#1</span></span>
+          <span class="tile sel"><span class="wd">שלנו</span><span class="ix">#2</span></span>
+          <span class="tile"><span class="wd">עוד</span><span class="ix">#3</span></span>
+          <span class="tile"><span class="wd">לא</span><span class="ix">#4</span></span>
+          <span class="tile"><span class="wd">נגמר</span><span class="ix">#5</span></span>
+        </div>
+        <div class="mapnote">Words stay stored in reading order (#1…#5); <b>direction:rtl flips only the visuals.</b> A click on the visually-<b>rightmost</b> tile must select logical word <b>#1</b> — hit-testing has to map visual→logical, or selection lands on the wrong word.</div>
+      </div>
+
+      <div class="mixed">
+        <span class="mc he">הגרסה <span class="num">2024</span> שלנו</span>
+        <span class="mx">the nasty case — <b>numbers stay LTR</b> inside an RTL run.<br />needs <b>LRM</b> marks so "2024" doesn't reorder.</span>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

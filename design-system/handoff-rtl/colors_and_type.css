@@ -1,0 +1,130 @@
+/* ============================================================================
+   Karaoke Subtitle Studio — Design System
+   colors_and_type.css · single source of truth for color + type tokens
+   Brand direction: "Synthwave" — hot magenta + violet on violet-black.
+   Reimagined modern pro-tool (the real product is a Python/CustomTkinter app;
+   see README.md). Load this file, then use the CSS variables + helper classes.
+   ============================================================================ */
+
+/* Fonts are self-hosted (vendored variable .ttf, no network). The @font-face
+   blocks + raw --family-* registry live in fonts.css; the semantic ROLE tokens
+   below map each role onto a registered family. See fonts.css to add/swap a face. */
+@import url('fonts.css');
+
+:root {
+  /* ---- Surfaces (violet-black, darkest → lightest) ---- */
+  --bg:          #0C0A14;  /* app background / canvas */
+  --surface-1:   #15111F;  /* panels, toolbars, rails */
+  --surface-2:   #1A1528;  /* cards */
+  --surface-3:   #221B33;  /* inputs, wells, chips */
+  --surface-4:   #241C36;  /* elevated / hover surface */
+
+  /* ---- Borders / hairlines ---- */
+  --border:        #2C2440;
+  --border-strong: #3A3052;
+
+  /* ---- Text ---- */
+  --text-1: #ECE7F4;  /* primary */
+  --text-2: #A599BC;  /* secondary / labels */
+  --text-3: #6E6385;  /* muted / hints / inherited values */
+  --text-on-accent: #22041A;  /* text/icons on a magenta fill */
+
+  /* ---- Brand accents ---- */
+  --accent:        #FF3DA6;  /* magenta — primary CTA, active, selection */
+  --accent-press:  #E22E92;  /* pressed/active magenta */
+  --accent-soft:   #FF6FC0;  /* lighter magenta for text on dark */
+  --violet:        #8A5BFF;  /* secondary accent — group tier, burn action */
+  --violet-soft:   #A88BFF;
+  --cyan:          #3DE0FF;  /* tertiary — playhead, live/now, waveform crest */
+  --accent-ink:    #22041A;  /* alias of text-on-accent */
+
+  /* ---- Semantic ---- */
+  --success: #4DE0C2;  /* logs, completed, "ok" */
+  --warn:    #FFC24D;  /* warnings */
+  --danger:  #FF6B6B;  /* destructive / errors / Quit */
+
+  /* ---- Glows (use sparingly — neon is a seasoning) ---- */
+  --glow-accent: rgba(255, 61, 166, 0.32);
+  --glow-violet: rgba(138, 91, 255, 0.30);
+  --glow-cyan:   rgba(61, 224, 255, 0.30);
+
+  /* ---- Gradients (first-class color tokens — reference, don't re-inline) ----
+     Built from the accent tokens so re-skinning the palette re-skins gradients.
+     --grad-brand is THE brand gradient: primary CTAs, logo, gradient text. ---- */
+  --grad-brand:      linear-gradient(120deg, var(--accent), var(--violet)) /* @kind color */;
+  --grad-brand-vert: linear-gradient(180deg, var(--accent), var(--violet)) /* @kind color */;
+  --grad-live:       linear-gradient(120deg, var(--cyan), var(--violet))   /* @kind color */;
+  --grad-canvas:     radial-gradient(120% 80% at 50% 0%, #150F24 0%, var(--bg) 62%) /* @kind color */;
+  --grad-stage:      radial-gradient(125% 120% at 70% 6%, #241A36 0%, #0F0A18 48%, #060410 100%) /* @kind color */;
+
+  /* ---- Cue-group palette (10) — muted bands behind grouped words/events.
+         Tuned from the real app's group palette toward the synthwave hues. ---- */
+  --cue-1:  #7A3A5A;  --cue-2:  #5A4A7A;  --cue-3:  #3A5A7A;  --cue-4:  #5A7A3A;
+  --cue-5:  #7A6A3A;  --cue-6:  #3A7A7A;  --cue-7:  #7A4A4A;  --cue-8:  #6A3A7A;
+  --cue-9:  #3A6A7A;  --cue-10: #7A5A3A;
+
+  /* ---- Typography ROLES (point at the --family-* registry in fonts.css) ----
+     Remap any role to a different registered family to re-skin the system. ---- */
+  --font-display: var(--family-space-grotesk);   /* brand, headings, captions */
+  --font-ui:      var(--family-hanken-grotesk);  /* UI + body */
+  --font-mono:    var(--family-jetbrains-mono);  /* timecodes, values, code, ASS tags */
+
+  /* ---- Type scale (display uses Space Grotesk; body uses Hanken) ---- */
+  --fs-display: 44px;  --lh-display: 1.05 /* @kind font */;  --ls-display: -0.02em;
+  --fs-h1: 30px;  --lh-h1: 1.12 /* @kind font */;  --ls-h1: -0.015em;
+  --fs-h2: 22px;  --lh-h2: 1.18 /* @kind font */;  --ls-h2: -0.01em;
+  --fs-h3: 16px;  --lh-h3: 1.25 /* @kind font */;  --ls-h3: -0.005em;
+  --fs-body: 14px;  --lh-body: 1.55 /* @kind font */;
+  --fs-ui: 13px;  --lh-ui: 1.4 /* @kind font */;
+  --fs-small: 12px; --lh-small: 1.45 /* @kind font */;
+  --fs-label: 11px; --lh-label: 1.3 /* @kind font */;  --ls-label: 0.10em; /* uppercase eyebrow */
+  --fs-mono: 12px;  --lh-mono: 1.5 /* @kind font */;
+
+  /* ---- Spacing scale (4px base) ---- */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+
+  /* ---- Radii ---- */
+  --radius-xs: 5px; --radius-sm: 7px; --radius-md: 9px; --radius-lg: 12px;
+  --radius-xl: 16px; --radius-pill: 999px;
+
+  /* ---- Elevation (shadows on near-black need depth + a faint top light) ---- */
+  --shadow-1: 0 1px 2px rgba(0,0,0,.40);
+  --shadow-2: 0 6px 18px rgba(0,0,0,.45);
+  --shadow-3: 0 18px 50px rgba(0,0,0,.50);
+  --shadow-pop: 0 24px 60px rgba(0,0,0,.55);
+  --ring-accent: 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent);
+  --shadow-glow-accent: 0 3px 16px var(--glow-accent);
+
+  /* ---- Motion ---- */
+  --ease-out: cubic-bezier(.2,.7,.3,1) /* @kind other */;
+  --ease-in-out: cubic-bezier(.5,0,.2,1) /* @kind other */;
+  --dur-fast: 120ms /* @kind other */; --dur: 180ms /* @kind other */; --dur-slow: 280ms /* @kind other */;
+}
+
+/* ============================================================================
+   Semantic type helpers — apply these classes for consistent text.
+   ============================================================================ */
+.ks-display { font-family: var(--font-display); font-weight: 700; font-size: var(--fs-display);
+  line-height: var(--lh-display); letter-spacing: var(--ls-display); color: var(--text-1); }
+.ks-h1 { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-h1);
+  line-height: var(--lh-h1); letter-spacing: var(--ls-h1); color: var(--text-1); }
+.ks-h2 { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-h2);
+  line-height: var(--lh-h2); letter-spacing: var(--ls-h2); color: var(--text-1); }
+.ks-h3 { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-h3);
+  line-height: var(--lh-h3); letter-spacing: var(--ls-h3); color: var(--text-1); }
+.ks-body { font-family: var(--font-ui); font-weight: 400; font-size: var(--fs-body);
+  line-height: var(--lh-body); color: var(--text-1); }
+.ks-ui { font-family: var(--font-ui); font-weight: 500; font-size: var(--fs-ui);
+  line-height: var(--lh-ui); color: var(--text-1); }
+.ks-small { font-family: var(--font-ui); font-weight: 400; font-size: var(--fs-small);
+  line-height: var(--lh-small); color: var(--text-2); }
+.ks-label { font-family: var(--font-ui); font-weight: 600; font-size: var(--fs-label);
+  line-height: var(--lh-label); letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--text-3); }
+.ks-mono { font-family: var(--font-mono); font-weight: 500; font-size: var(--fs-mono);
+  line-height: var(--lh-mono); color: var(--text-1); }
+.ks-caption { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em; color: #fff; }
+
+/* Gradient text — paint any text with the brand gradient (override --grad-* to vary). */
+.ks-gradient-text { background: var(--grad-brand); -webkit-background-clip: text; background-clip: text;
+  color: transparent; }
