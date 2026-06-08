@@ -340,6 +340,15 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     anchorRef.current = null;
   }, []);
 
+  // Click empty dock space → clear selection. Bubbles from the timeline track bg and
+  // the lanes bg too; excludes cue elements, column grips, and scrub/controls so
+  // selecting a cue or scrubbing the ruler keeps the selection (zip 11 §5).
+  const bgClear = useCallback((e: React.MouseEvent) => {
+    const t = e.target as HTMLElement;
+    if (t.closest(".block, .lane-row, .lane-evt, .col-grip, .ruler-row, .ruler-track, .tl-toolrow, .playhead, button, input, a")) return;
+    clearSelection();
+  }, [clearSelection]);
+
   // ---- Esc key clears selection ----
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -1050,7 +1059,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
           onUngroupEvent={ungroupEvent}
           onDelete={deleteSel}
         />
-        <div className="dock-body">
+        <div className="dock-body" onClick={bgClear}>
           {dockTab === "timeline" && (
             <div className="timeline-col">
               <div className="tl-toolrow">

@@ -296,3 +296,31 @@ describe("WordTrack locked ↔ CueLanes sync", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// 8. Empty-space click clears selection (zip 11 §5)
+// ---------------------------------------------------------------------------
+describe("CueLanes empty-space deselect", () => {
+  it("D-14 — clicking the empty dock-body background clears the selection", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Editor projectName="test" onHome={() => {}} />);
+    await waitFor(() => expect(FakeWS.last).toBeTruthy());
+    emitState(baseProject());
+
+    await clickLaneWord(user, "alpha");
+    expect(screen.getByText(/1 selected/i)).toBeTruthy();
+
+    await user.click(container.querySelector(".dock-body") as HTMLElement);
+    expect(screen.queryByText(/\d+ selected/i)).toBeNull();
+  });
+
+  it("D-15 — clicking a cue row selects it (does NOT clear via the bg handler)", async () => {
+    const user = userEvent.setup();
+    render(<Editor projectName="test" onHome={() => {}} />);
+    await waitFor(() => expect(FakeWS.last).toBeTruthy());
+    emitState(baseProject());
+
+    await clickLaneWord(user, "alpha");
+    expect(screen.getByText(/1 selected/i)).toBeTruthy();   // row click survived bubbling to bgClear
+  });
+});
