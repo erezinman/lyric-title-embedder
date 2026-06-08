@@ -127,6 +127,14 @@ def get_ass(ctx):
     return ctx.run(lambda: (_require_project(ctx), engine.build_ass(ctx.cfg(), engine.project_to_render(ctx.session.project))[0])[1])
 
 
+def get_srt(ctx):
+    return ctx.run(lambda: (_require_project(ctx), engine.srt.to_srt(ctx.session.project))[1])
+
+
+def get_vtt(ctx):
+    return ctx.run(lambda: (_require_project(ctx), engine.srt.to_vtt(ctx.session.project))[1])
+
+
 def _do(ctx, fn_name, *args):
     return ctx.run(lambda: ctx.session.do(fn_name, *args))
 

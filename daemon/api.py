@@ -23,6 +23,8 @@ def make_routes(ctx, hub):
     async def state(request):  return JSONResponse(tools.get_project(ctx))
     async def render(request): return JSONResponse(tools.get_render(ctx))
     async def ass(request):    return Response(tools.get_ass(ctx), media_type="text/plain")
+    async def srt(request):    return Response(tools.get_srt(ctx), media_type="text/plain")
+    async def vtt(request):    return Response(tools.get_vtt(ctx), media_type="text/plain")
 
     async def ws_endpoint(websocket):
         import asyncio as _asyncio
@@ -189,6 +191,6 @@ def make_routes(ctx, hub):
                        if line.strip()})
         return JSONResponse({"fonts": fams})
 
-    return call, state, render, ass, ws_endpoint, frame, font, burn, burn_status, \
+    return call, state, render, ass, srt, vtt, ws_endpoint, frame, font, burn, burn_status, \
            projects_list, projects_new, projects_open, projects_save, env, projects_create, \
            connect, fonts

@@ -92,3 +92,70 @@ def build_srt_layout(words, line_break="none", n_words=5, cue_word_counts=None):
     return [{"label": "Subtitles", "lines": lines, "accumulate": "words",
              "win_start": None, "win_end": None, "linger": None,
              "del": False, "style": {}, "fade": {}}]
+
+
+# ── export (.srt / .vtt) ──────────────────────────────────────────────────────
+# Serialize a project to plain caption text. One cue per rendered token: the
+# token's merged text (core.token_text) over its own [start,end] span (min..max
+# over the token's word ids). Deleted groups, deleted tokens, and empty tokens
+# are omitted. Cues are emitted in time order (stable by start, then by layout
+# reading order). SRT uses comma-millisecond timestamps + 1-based numbering;
+# WebVTT uses dot-millisecond timestamps under a "WEBVTT" header, no numbering.
+
+def _export_cues(project):
+    """[(start_s, end_s, text), ...] for every rendered token, in time order."""
+    import core
+    words = project["words"]
+    out = []
+    for g in project["layout"]:
+        if g.get("del"):
+            continue
+        for line in g["lines"]:
+            for tok in line["toks"]:
+                if tok.get("del") or not tok["ids"]:
+                    continue
+                ids = [i for i in tok["ids"] if i < len(words)]
+                if not ids:
+                    continue
+                start = min(words[i]["start"] for i in ids)
+                end = max(words[i]["end"] for i in ids)
+                text = core.token_text(words, tok).strip()
+                if not text:
+                    continue
+                out.append((start, end, text))
+    out.sort(key=lambda c: c[0])
+    return out
+
+
+def _ts(t, sep):
+    """HH:MM:SS<sep>mmm timestamp (sep is ',' for SRT, '.' for VTT)."""
+    t = max(0.0, t)
+    h = int(t // 3600)
+    m = int((t % 3600) // 60)
+    s = int(t % 60)
+    ms = int(round((t - int(t)) * 1000))
+    if ms == 1000:
+        s += 1; ms = 0
+        if s == 60:
+            s = 0; m += 1
+            if m == 60:
+                m = 0; h += 1
+    return f"{h:02d}:{m:02d}:{s:02d}{sep}{ms:03d}"
+
+
+def to_srt(project):
+    """SubRip (.srt) text for a project (trailing newline; numbered cues)."""
+    cues = _export_cues(project)
+    blocks = []
+    for i, (start, end, text) in enumerate(cues, 1):
+        blocks.append(f"{i}\n{_ts(start, ',')} --> {_ts(end, ',')}\n{text}\n")
+    return "\n".join(blocks) + ("\n" if blocks else "")
+
+
+def to_vtt(project):
+    """WebVTT (.vtt) text for a project (WEBVTT header; dot-millisecond stamps)."""
+    cues = _export_cues(project)
+    blocks = ["WEBVTT\n"]
+    for (start, end, text) in cues:
+        blocks.append(f"{_ts(start, '.')} --> {_ts(end, '.')}\n{text}\n")
+    return "\n".join(blocks) + ("\n" if len(blocks) > 1 else "")
