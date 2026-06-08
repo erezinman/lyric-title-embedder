@@ -43,10 +43,37 @@ export async function getConnect(): Promise<ConnectInfo> {
   return jsonOrThrow<ConnectInfo>(await fetch("/api/connect"));
 }
 
+export interface CustomFont { family: string; url: string; ext: string; }
+export interface FontsResponse { system: string[]; custom: CustomFont[]; fonts: string[]; }
+
 export async function getFonts(): Promise<string[]> {
   const data = await jsonOrThrow<{ fonts?: string[] }>(await fetch("/api/fonts"));
   return Array.isArray(data?.fonts) ? data.fonts : [];
 }
+
+// Full font catalog (system + custom) and per-project custom-font lifecycle. The
+// daemon persists uploaded faces (fontsdir wired) so an uploaded family burns.
+export const fonts = {
+  list: async (): Promise<FontsResponse> => {
+    const data = await jsonOrThrow<Partial<FontsResponse>>(await fetch("/api/fonts"));
+    return {
+      system: Array.isArray(data.system) ? data.system : (Array.isArray(data.fonts) ? data.fonts : []),
+      custom: Array.isArray(data.custom) ? data.custom : [],
+      fonts: Array.isArray(data.fonts) ? data.fonts : (Array.isArray(data.system) ? data.system : []),
+    };
+  },
+  upload: async (file: File, family?: string): Promise<{ family: string; url: string }> => {
+    const form = new FormData();
+    form.append("font_file", file, file.name);
+    if (family) form.append("family", family);
+    const res = await fetch("/api/fonts/upload", { method: "POST", body: form });
+    return jsonOrThrow<{ family: string; url: string }>(res);
+  },
+  remove: async (family: string): Promise<{ deleted: boolean }> => {
+    const res = await fetch(`/api/fonts/${encodeURIComponent(family)}`, { method: "DELETE" });
+    return jsonOrThrow<{ deleted: boolean }>(res);
+  },
+};
 
 export type LintSeverity = "blocking" | "advisory" | "info";
 
