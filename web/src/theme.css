@@ -329,7 +329,11 @@ svg.lucide { display: block; }
   text-shadow: 0 1px 2px rgba(0,0,0,.55); pointer-events: none; }
 .wt-area .block:hover { filter: brightness(1.15); }
 .wt-area .block.live { outline: 1.5px solid var(--accent); box-shadow: 0 0 12px var(--glow-accent); z-index: 2; }
-.wt-area .block.sel { outline: 1.5px solid #fff; z-index: 2; }
+/* zip 11: distinct selection — white inner ring → accent outer ring → glow, lifted */
+.wt-area .block.sel { outline: none; box-shadow: 0 0 0 1.5px #fff, 0 0 0 3px var(--accent), 0 0 12px var(--accent);
+  transform: translateY(-2px) scale(1.015); z-index: 5; font-weight: 600; }
+/* recede the non-selected blocks while a selection exists; the live block stays lit */
+.wt.has-sel .wt-area .block:not(.sel):not(.live) { opacity: .4; filter: saturate(.7); }
 .wt-area .block.del { opacity: .4; } .wt-area .block.del .bt { text-decoration: line-through; }
 .wt-area .block.exp { overflow: visible; z-index: 3; }
 

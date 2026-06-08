@@ -558,8 +558,10 @@ export function WordTrack({
   const stripSid = (aid: string, src: StripLayout["src"]): string =>
     src === "group" || src === "global" ? aid : "";
 
+  const hasSel = selId != null || (selectedWords?.size ?? 0) > 0;
+
   return (
-    <div className={"wt" + (unlocked ? " unlocked" : "")}>
+    <div className={"wt" + (unlocked ? " unlocked" : "") + (hasSel ? " has-sel" : "")}>
       {lanes.map((ev) => (
         <div className="wt-lane" key={ev.gi}>
           <div className="wt-label" title={ev.label}>
