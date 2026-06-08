@@ -11,10 +11,14 @@ DEFAULT_GLOBALS = {
     "back_alpha": "80", "border_style": 1, "outline_w": 3, "shadow": 0,
     "play_w": 1920, "play_h": 1080, "margin_l": 80, "margin_r": 80, "margin_v": 60,
     "use_pos": True,
+    "text_direction": "auto", "bidi_marks": True,
 }
 GLOBAL_KEYS = ["font", "fontsize", "bold", "italic", "underline", "align", "primary", "outline", "back",
                "back_alpha", "border_style", "outline_w", "shadow", "play_w", "play_h",
-               "margin_l", "margin_r", "margin_v", "use_pos", "pos"]
+               "margin_l", "margin_r", "margin_v", "use_pos", "pos",
+               "text_direction", "bidi_marks"]
+
+TEXT_DIRECTIONS = ("auto", "ltr", "rtl")
 
 class EngineContext:
     session = None
@@ -49,6 +53,9 @@ class HeadlessContext(EngineContext):
     def run(self, fn): return fn()
     def get_globals(self): return dict(self._g)
     def set_globals(self, partial):
+        if "text_direction" in partial and partial["text_direction"] not in TEXT_DIRECTIONS:
+            raise ValueError(f"invalid text_direction {partial['text_direction']!r}; "
+                             f"expected one of {TEXT_DIRECTIONS}")
         def apply():
             for k, v in partial.items():
                 if k in GLOBAL_KEYS: self._g[k] = v
@@ -86,7 +93,9 @@ class HeadlessContext(EngineContext):
              "margin_l": g["margin_l"], "margin_r": g["margin_r"], "margin_v": g["margin_v"],
              "primary_color": g["primary"], "outline_color": g["outline"], "back_color": g["back"],
              "back_alpha": g["back_alpha"], "border_style": g["border_style"],
-             "outline_w": g["outline_w"], "shadow": g["shadow"]}
+             "outline_w": g["outline_w"], "shadow": g["shadow"],
+             "text_direction": g.get("text_direction", "auto"),
+             "bidi_marks": g.get("bidi_marks", True)}
         if g.get("use_pos") and g.get("pos"): c["pos"] = g["pos"]
         return c
     def load_lyrics(self, json_path, group_by="section", skip_dashes=True):

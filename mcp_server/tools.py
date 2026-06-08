@@ -4,7 +4,8 @@ import engine
 import core
 from engine.model import resolve_style, STYLE_KEYS
 
-_PLACE_KEYS = ["align", "play_w", "play_h", "margin_l", "margin_r", "margin_v", "use_pos", "pos"]
+_PLACE_KEYS = ["align", "play_w", "play_h", "margin_l", "margin_r", "margin_v", "use_pos", "pos",
+               "text_direction", "bidi_marks"]
 
 
 def _gctx_for_resolve(ctx):
