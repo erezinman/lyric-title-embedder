@@ -349,6 +349,39 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     clearSelection();
   }, [clearSelection]);
 
+  // After a double-click view-flip, scroll the destination dock scroller so the
+  // selected cue is visible — scrollTop/scrollLeft only, NEVER scrollIntoView (which
+  // jumps the whole app). Retries until the flipped/expanded view has painted .sel.
+  const revealSelectedCue = useCallback(() => {
+    let tries = 0;
+    const run = () => {
+      const body = document.querySelector(".dock-body") as HTMLElement | null;
+      const el = body && (body.querySelector(".lane-row.sel") || body.querySelector(".block.sel"));
+      if (!body || !el) { if (tries++ < 10) setTimeout(run, 40); return; }
+      const er = el.getBoundingClientRect(), br = body.getBoundingClientRect(), pad = 14;
+      if (er.top < br.top + pad) body.scrollTop -= (br.top + pad - er.top);
+      else if (er.bottom > br.bottom - pad) body.scrollTop += (er.bottom - br.bottom + pad);
+      if (er.left < br.left + pad) body.scrollLeft -= (br.left + pad - er.left);
+      else if (er.right > br.right - pad) body.scrollLeft += (er.right - br.right + pad);
+    };
+    setTimeout(run, 50);
+  }, []);
+
+  // Double-click a lanes row → flip to Timeline on that cue (+ reveal).
+  const onCueOpen = useCallback((gi: number, li: number, ti: number, wid: number) => {
+    selectCue(gi, li, ti, wid, {});
+    setDockTab("timeline");
+    revealSelectedCue();
+  }, [selectCue, revealSelectedCue]);
+
+  // Double-click a timeline block → flip to Cue-lanes on that cue, group expanded (+ reveal).
+  const onBlockOpen = useCallback((gi: number, li: number, ti: number, wid: number) => {
+    selectCue(gi, li, ti, wid, {});
+    setCollapsed((prev) => { const n = new Set(prev); n.delete(gi); return n; });
+    setDockTab("lanes");
+    revealSelectedCue();
+  }, [selectCue, revealSelectedCue]);
+
   // ---- Esc key clears selection ----
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -1092,6 +1125,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                 selId={wid}
                 selectedWords={selectedWords}
                 onSelect={selectCue}
+                onOpen={onBlockOpen}
                 project={P}
                 unlocked={timingsUnlocked}
                 magnet={magnet}
@@ -1116,6 +1150,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
               onSelectWord={selectCue}
               onSelectEvent={selectEvent}
               onToggleCollapse={toggleCollapse}
+              onCueOpen={onCueOpen}
             />
           )}
         </div>

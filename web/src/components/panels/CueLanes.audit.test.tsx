@@ -324,3 +324,37 @@ describe("CueLanes empty-space deselect", () => {
     expect(screen.getByText(/1 selected/i)).toBeTruthy();   // row click survived bubbling to bgClear
   });
 });
+
+// ---------------------------------------------------------------------------
+// 9. Double-click cue → flip view + keep selection (zip 11 §6)
+// ---------------------------------------------------------------------------
+describe("CueLanes double-click view-flip", () => {
+  it("D-16 — double-click a lane row flips to Timeline, cue stays selected", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Editor projectName="test" onHome={() => {}} />);
+    await waitFor(() => expect(FakeWS.last).toBeTruthy());
+    emitState(baseProject());
+
+    const els = screen.getAllByText("alpha");
+    const row = els.find((el) => el.closest(".lane-row"))!.closest(".lane-row") as HTMLElement;
+    await user.dblClick(row);
+
+    expect(screen.getByText(/Magnet/i)).toBeTruthy();          // Timeline tab now active
+    expect(container.querySelectorAll(".lane-row").length).toBe(0);
+    expect(screen.getByText(/1 selected/i)).toBeTruthy();
+  });
+
+  it("D-17 — double-click a timeline block flips to Cue lanes, cue selected", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Editor projectName="test" onHome={() => {}} />);
+    await waitFor(() => expect(FakeWS.last).toBeTruthy());
+    emitState(baseProject());
+
+    await user.click(screen.getByText(/Timeline/i));
+    const block = container.querySelector(".block") as HTMLElement;
+    await user.dblClick(block);
+
+    await waitFor(() => expect(container.querySelectorAll(".lane-row").length).toBeGreaterThan(0));
+    expect(screen.getByText(/1 selected/i)).toBeTruthy();
+  });
+});

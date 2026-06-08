@@ -41,6 +41,8 @@ interface WordTrackProps {
   selId: number | null;
   selectedWords?: Set<number>;
   onSelect: (gi: number, li: number, ti: number, wid: number, mods: { ctrl?: boolean; shift?: boolean }) => void;
+  /** double-click a block → flip to the Cue-lanes tab on that cue (zip 11 §6). */
+  onOpen?: (gi: number, li: number, ti: number, wid: number) => void;
   // drag/retime props
   project?: Project;
   unlocked?: boolean;
@@ -102,6 +104,7 @@ export function WordTrack({
   selId,
   selectedWords,
   onSelect,
+  onOpen,
   project,
   unlocked = false,
   onRetime,
@@ -605,6 +608,7 @@ export function WordTrack({
                         ? undefined
                         : (ev) => onSelect(w.gi, w.li, w.ti, w.wid, { ctrl: ev.ctrlKey || ev.metaKey, shift: ev.shiftKey })
                     }
+                    onDoubleClick={() => onOpen?.(w.gi, w.li, w.ti, w.wid)}
                     title={`${w.text} · ${s.toFixed(2)}–${e.toFixed(2)}s`}
                   >
                     {unlocked && (
