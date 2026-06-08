@@ -1,4 +1,6 @@
 # engine/ffmpeg.py — ffmpeg command construction + headless progress runner. UI-free.
+import os
+import json
 import subprocess
 from core import FFMPEG, FFPROBE
 
@@ -11,7 +13,6 @@ def burn_cmd(video_in, ass_path, out_path):
             "-progress", "pipe:1", "-nostats", out_path]
 
 def probe_duration(path):
-    import os
     if not os.path.isfile(FFPROBE):
         return None
     try:
@@ -19,6 +20,28 @@ def probe_duration(path):
                               "-of", "default=nokey=1:noprint_wrappers=1", path],
                              capture_output=True, text=True, timeout=10).stdout.strip()
         return float(out)
+    except Exception:
+        return None
+
+def probe_video(path):
+    """Probe a video file for {w, h, duration_s} via ffprobe (JSON output). Returns
+    None if ffprobe is unavailable, the file can't be read, or parsing fails — callers
+    degrade gracefully (path stored, meta null). Picks the first video stream for w/h
+    and the container duration for duration_s."""
+    if not os.path.isfile(FFPROBE):
+        return None
+    try:
+        out = subprocess.run([FFPROBE, "-v", "error", "-show_entries",
+                              "stream=codec_type,width,height:format=duration",
+                              "-of", "json", path],
+                             capture_output=True, text=True, timeout=10).stdout
+        doc = json.loads(out)
+        vs = next((s for s in doc.get("streams", []) if s.get("codec_type") == "video"), None)
+        w = int(vs["width"]) if vs and vs.get("width") is not None else None
+        h = int(vs["height"]) if vs and vs.get("height") is not None else None
+        dur = doc.get("format", {}).get("duration")
+        duration_s = float(dur) if dur is not None else None
+        return {"w": w, "h": h, "duration_s": duration_s}
     except Exception:
         return None
 

@@ -132,8 +132,19 @@ export function withResolved(p: Project, byWid: Record<number, ResolvedAnim[]>):
 export const withPos = (p: Project, pos: [number, number] = [960, 540]): Project =>
   mutate(p, (d) => { d.placement.pos = pos; d.placement.use_pos = true; });
 
-export const withVideo = (p: Project, path = "/abs/clip.mp4"): Project =>
-  mutate(p, (d) => { d.video = path; });
+export const withVideo = (
+  p: Project,
+  path = "/abs/clip.mp4",
+  meta: { w?: number | null; h?: number | null; duration_s?: number | null } = {},
+): Project =>
+  mutate(p, (d) => {
+    d.video = {
+      path,
+      w: meta.w ?? 1920,
+      h: meta.h ?? 1080,
+      duration_s: meta.duration_s ?? 42.18,
+    };
+  });
 
 export const withMergedTok = (p: Project): Project =>
   mutate(p, (d) => {

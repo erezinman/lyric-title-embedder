@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useProjectStore } from "../api/useProjectStore";
-import { burn, getAss } from "../api/client";
+import { burn, getAss, video as videoApi } from "../api/client";
 import { TopBar } from "./TopBar";
 import { ExportMenu } from "./ExportMenu";
 import { Icon } from "./icons/Icon";
 import { resolveStyle, eventWindow, wordSchedule } from "../model/resolve";
 import { computeMove, computeResize } from "../model/edit";
 import { boxFromState, anchorXY } from "../model/bbox";
-import type { Token } from "../types";
+import type { Token, Project } from "../types";
 import { fadeInAnim, fadeOutAnim, fadeAnimName, freshAnimId } from "../model/animPresets";
 
 // Panels
@@ -31,6 +31,17 @@ interface SelState {
   scope: "global" | "group" | "cue";
   gi: number;
   tok: { li: number; ti: number } | null;
+}
+
+/** Transport/ruler length. Derives from the last word end (+1.5s tail, min 8s),
+ *  but an attached video's probed duration OVERRIDES when it's longer — so the
+ *  waveform/transport span matches the footage (Feature A acceptance criterion:
+ *  "the waveform/transport length updates to match"). FLAG: this only extends, never
+ *  truncates below the lyrics span; revisit if a shorter video should clamp the ruler. */
+function projectDur(p: Project): number {
+  const lyricsDur = Math.max(8, ...p.words.map((w) => w.end)) + 1.5;
+  const vid = p.video?.duration_s ?? null;
+  return vid != null && isFinite(vid) ? Math.max(lyricsDur, vid) : lyricsDur;
 }
 
 export function Editor({ projectName, onHome }: { projectName: string; onHome: () => void }) {
@@ -237,7 +248,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     let last = performance.now();
     const step = (now: number) => {
       const project = pRef.current;
-      const dur = project ? Math.max(8, ...project.words.map((w) => w.end)) + 1.5 : 0;
+      const dur = project ? projectDur(project) : 0;
       const dt = (now - last) / 1000;
       last = now;
       const nt = timeRef.current + dt;
@@ -836,7 +847,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
 
   if (!P) return <div className="app"><div className="connecting">Connecting…</div></div>;
 
-  const dur = Math.max(8, ...P.words.map((w) => w.end)) + 1.5;
+  const dur = projectDur(P);
   const capWords = computeCapWords();
   const trackWords = computeTrackWords();
   // event/group boundary spans (min start / max end of each event's track words)
@@ -925,6 +936,17 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                     ? { use_pos: true, pos: anchorXY(box, P.placement.align) }
                     : { use_pos: false, pos: null };
                   dispatch("set_globals", { partial });
+                }}
+                onUploadVideo={async (file) => {
+                  // Upload streams via /api/video; the WS state echo (new `video`
+                  // object) updates the Attached meta. Errors surface in the toast;
+                  // resolve regardless so VideoControl clears its busy state.
+                  try { await videoApi.upload(file); }
+                  catch (e) { setErrMsg(e instanceof Error ? e.message : String(e)); }
+                }}
+                onClearVideo={async () => {
+                  try { await videoApi.clear(); }
+                  catch (e) { setErrMsg(e instanceof Error ? e.message : String(e)); }
                 }}
                 onOpenInspector={() => setRailTab("inspector")}
               />

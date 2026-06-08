@@ -90,6 +90,25 @@ export const projects = {
   },
 };
 
+import type { VideoMeta } from "../types";
+
+// Post-create video attach/swap/clear (Feature A). Upload streams bytes via
+// multipart; path mode names a same-host server file; clear detaches via DELETE.
+export const video = {
+  upload: async (file: File): Promise<{ video: VideoMeta | null }> => {
+    const form = new FormData();
+    form.append("video_file", file, file.name);
+    const res = await fetch("/api/video", { method: "POST", body: form });
+    return jsonOrThrow<{ video: VideoMeta | null }>(res);
+  },
+  setPath: async (path: string): Promise<{ video: VideoMeta | null }> =>
+    postJson<{ video: VideoMeta | null }>("/api/video", { path }),
+  clear: async (): Promise<{ video: VideoMeta | null }> => {
+    const res = await fetch("/api/video", { method: "DELETE" });
+    return jsonOrThrow<{ video: VideoMeta | null }>(res);
+  },
+};
+
 export async function burn(out: string, video_in?: string): Promise<{ job_id: string }> {
   return postJson<{ job_id: string }>("/api/burn", { out, video_in });
 }

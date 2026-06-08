@@ -165,6 +165,54 @@ def make_routes(ctx, hub):
             return _err(str(e))
         return JSONResponse({"saved": b["name"]})
 
+    async def video(request):
+        # POST /api/video — attach/swap the open project's video AFTER creation.
+        # Accepts EITHER multipart bytes (video_file → saved into the project dir,
+        # mirroring projects_create) OR JSON {path} naming a same-host server file.
+        # Server-path mode is loopback-gated like the env/same_host inputs. Routes
+        # through library.set_project_video → ctx.set_video, so it probes + broadcasts
+        # + autosaves + persists. Returns {video: {path,w,h,duration_s}|null}.
+        name = autosaver.name
+        if not name:
+            return _err("no project open", 409)
+        kwargs = {}
+        ctype = request.headers.get("content-type", "")
+        if ctype.startswith("multipart/"):
+            form = await request.form()
+            vf = form.get("video_file")
+            if vf is None or not hasattr(vf, "read"):
+                return _err("multipart upload requires a 'video_file' part")
+            kwargs["video_bytes"] = await vf.read()
+            kwargs["video_name"] = getattr(vf, "filename", "video.mp4")
+        else:
+            body = await request.json()
+            path = body.get("path")
+            if path:
+                client = request.client
+                same = bool(client and client.host in ("127.0.0.1", "::1"))
+                if not same:
+                    return _err("server-side video paths are only allowed from localhost", 403)
+                kwargs["video_path"] = path
+            # else: no bytes, no path → clear (detach) via empty kwargs
+        try:
+            meta = library.set_project_video(ctx, request.app.state.projects_dir, name, **kwargs)
+        except ValueError as e:
+            return _err(str(e), 400)
+        except Exception as e:
+            return _err(f"{type(e).__name__}: {e}", 422)
+        return JSONResponse({"video": meta})
+
+    async def video_clear(request):
+        # DELETE /api/video — detach the media pointer only (cues/styling kept).
+        name = autosaver.name
+        if not name:
+            return _err("no project open", 409)
+        try:
+            library.set_project_video(ctx, request.app.state.projects_dir, name)
+        except ValueError as e:
+            return _err(str(e), 400)
+        return JSONResponse({"video": None})
+
     async def env(request):
         # same_host gates the server-path inputs in the web UI: only a client
         # connecting from loopback can name files on the daemon's filesystem.
@@ -208,4 +256,4 @@ def make_routes(ctx, hub):
 
     return call, state, render, ass, srt, vtt, ws_endpoint, frame, font, burn, burn_status, \
            projects_list, projects_new, projects_open, projects_save, env, projects_create, \
-           connect, fonts
+           connect, fonts, video, video_clear

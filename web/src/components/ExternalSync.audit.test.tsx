@@ -640,20 +640,19 @@ describe("ungroup_event", () => {
 // set_video  (set_globals video field)
 // ===========================================================================
 describe("set_video", () => {
-  it("F-37 — video push shows basename in the Project tab Video field, '—' when cleared", async () => {
+  it("F-37 — video push shows the basename in the VideoControl, Empty dropwell when cleared", async () => {
     const { container } = await boot();
-    const videoField = () => {
-      const labels = [...container.querySelectorAll(".ctl label")];
-      const lbl = labels.find((l) => l.textContent === "Video")!;
-      return lbl.parentElement!.querySelector(".path") as HTMLElement;
-    };
-    expect(videoField().textContent).toBe("—");
+    const fname = () => container.querySelector(".vc-fname") as HTMLElement | null;
+    // Empty initially: no filename row, Attach button present.
+    expect(fname()).toBeNull();
+    expect(screen.getByRole("button", { name: /attach video/i })).toBeInTheDocument();
 
     emitState(withVideo(baseProject(), "/abs/clip.mp4"));
-    await waitFor(() => expect(videoField().textContent).toBe("clip.mp4"));
+    await waitFor(() => expect(fname()?.textContent).toBe("clip.mp4"));
 
     emitState(baseProject());
-    await waitFor(() => expect(videoField().textContent).toBe("—"));
+    await waitFor(() => expect(fname()).toBeNull());
+    expect(screen.getByRole("button", { name: /attach video/i })).toBeInTheDocument();
   });
 });
 
