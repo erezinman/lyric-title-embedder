@@ -31,7 +31,7 @@ function proj(): Project {
     anim_tags: [],
     globals: { linger: 0.0, animations: [] },
     global_style: {
-      font: "Space Grotesk", fontsize: 64, bold: true, primary: "#FFFFFF",
+      font: "Space Grotesk", fontsize: 64, bold: true, italic: false, underline: false, primary: "#FFFFFF",
       outline: "#000000", back: "#000000", back_alpha: "80",
       outline_w: 3, shadow: 0, border_style: 1, align: 2,
     },

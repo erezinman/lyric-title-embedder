@@ -38,7 +38,7 @@ function proj(): Project {
     ],
     globals: { linger: 0.0, animations: [] },
     global_style: {
-      font: "Space Grotesk", fontsize: 64, bold: true, primary: "#FFFFFF",
+      font: "Space Grotesk", fontsize: 64, bold: true, italic: false, underline: false, primary: "#FFFFFF",
       outline: "#000000", back: "#000000", back_alpha: "80", outline_w: 3, shadow: 0, border_style: 1, align: 2,
     },
     placement: { align: 2, play_w: 1920, play_h: 1080, margin_l: 60, margin_r: 60, margin_v: 60, pos: null },

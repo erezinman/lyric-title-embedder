@@ -10,7 +10,7 @@ import type { Project, GlobalStyle, Placement, LayoutGroup, Animation, AnimTag }
 import { fadeInAnim, fadeOutAnim, anim, seg, time } from "../model/animPresets";
 
 export const GLOBAL_STYLE: GlobalStyle = {
-  font: "Space Grotesk", fontsize: 64, bold: true, primary: "#FFFFFF", outline: "#000000",
+  font: "Space Grotesk", fontsize: 64, bold: true, italic: false, underline: false, primary: "#FFFFFF", outline: "#000000",
   back: "#000000", back_alpha: "80", outline_w: 3, shadow: 0, border_style: 1, align: 2,
 };
 

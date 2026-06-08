@@ -100,6 +100,9 @@ interface PropRowProps {
 function PropRow({ pkey, isGlobal, inheritFrom, overridden, onSet, onClear }: PropRowProps) {
   const meta = STYLE_META[pkey];
   const fonts = useFonts();
+  // Typography keys (bold/italic/underline) are driven by the FontPicker, not by
+  // a standalone row — they have no STYLE_META entry and must not render here.
+  if (!meta) return null;
   const solid = isGlobal || overridden != null;
   const val = solid
     ? (isGlobal ? (overridden?.value ?? inheritFrom.value) : overridden!.value)
