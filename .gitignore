@@ -35,3 +35,5 @@ web/vite.config.js
 *.zip
 /*.CSV
 .~lock.*
+
+desktop/node_modules
