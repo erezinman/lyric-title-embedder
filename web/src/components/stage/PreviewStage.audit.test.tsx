@@ -21,7 +21,7 @@ const base: PlacementState = {
 const W = 1920, H = 1080;
 const cap = (over: Partial<CapWord> = {}): CapWord => ({
   wid: 0, li: 0, text: "alpha", live: false, pending: false, sel: false,
-  fill: null, scale: 1, bold: null, ...over,
+  fill: null, scale: 1, bold: null, italic: null, underline: null, ...over,
 });
 
 interface Spies {
@@ -560,5 +560,29 @@ describe("PreviewStage audit — readout chip", () => {
     expect(ro.style.top).toBe("336px");  // 320 + 16
     fireEvent.pointerUp(window, { clientX: 430, clientY: 320 });
     expect(s.container.querySelector(".drag-readout")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe("PreviewStage audit — caption typography (italic / underline)", () => {
+  const capSpan = (c: HTMLElement) => c.querySelector(".cap .w") as HTMLElement;
+
+  it("B-24 — italic word renders fontStyle: italic on its span", () => {
+    const s = setup(base, { capWords: [cap({ italic: true })] });
+    expect(capSpan(s.container).style.fontStyle).toBe("italic");
+  });
+  it("B-25 — underline word renders textDecoration: underline", () => {
+    const s = setup(base, { capWords: [cap({ underline: true })] });
+    expect(capSpan(s.container).style.textDecoration).toBe("underline");
+  });
+  it("B-26 — explicit non-italic/non-underline override sets normal/none (not blank)", () => {
+    const s = setup(base, { capWords: [cap({ italic: false, underline: false })] });
+    expect(capSpan(s.container).style.fontStyle).toBe("normal");
+    expect(capSpan(s.container).style.textDecoration).toBe("none");
+  });
+  it("B-27 — null italic/underline leave the span without inline typography (inherit)", () => {
+    const s = setup(base, { capWords: [cap({ italic: null, underline: null })] });
+    expect(capSpan(s.container).style.fontStyle).toBe("");
+    expect(capSpan(s.container).style.textDecoration).toBe("");
   });
 });

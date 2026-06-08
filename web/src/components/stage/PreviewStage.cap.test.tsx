@@ -9,7 +9,7 @@ const placement: PlacementState = { align: 2, play_w: 1920, play_h: 1080,
 function setup(pl: PlacementState = placement) {
   const onPlacement = vi.fn();
   const r = render(
-    <PreviewStage capWords={[{ wid: 0, li: 0, text: "hi", live: true, pending: false, sel: false, fill: null, scale: 1, bold: null }]}
+    <PreviewStage capWords={[{ wid: 0, li: 0, text: "hi", live: true, pending: false, sel: false, fill: null, scale: 1, bold: null, italic: null, underline: null }]}
       time={0} mode="live" onMode={() => {}}
       onRenderExact={() => {}} onSelectWord={() => {}}
       playW={pl.play_w} playH={pl.play_h}
@@ -57,9 +57,9 @@ describe("caption line breaks", () => {
     const onPlacement = vi.fn();
     const r = render(
       <PreviewStage capWords={[
-        { wid: 0, li: 0, text: "hello", live: false, pending: false, sel: false, fill: null, scale: 1, bold: null },
-        { wid: 1, li: 0, text: "world", live: false, pending: false, sel: false, fill: null, scale: 1, bold: null },
-        { wid: 2, li: 1, text: "second", live: false, pending: false, sel: false, fill: null, scale: 1, bold: null },
+        { wid: 0, li: 0, text: "hello", live: false, pending: false, sel: false, fill: null, scale: 1, bold: null, italic: null, underline: null },
+        { wid: 1, li: 0, text: "world", live: false, pending: false, sel: false, fill: null, scale: 1, bold: null, italic: null, underline: null },
+        { wid: 2, li: 1, text: "second", live: false, pending: false, sel: false, fill: null, scale: 1, bold: null, italic: null, underline: null },
       ]} time={0} mode="live" onMode={() => {}} onRenderExact={() => {}} onSelectWord={() => {}}
         playW={1920} playH={1080} placement={placement} onPlacement={onPlacement} />
     );
@@ -75,7 +75,7 @@ describe("caption reflects resolved cue style", () => {
   it("applies scale and bold to a word span", () => {
     const r = render(
       <PreviewStage capWords={[
-        { wid: 0, li: 0, text: "big", live: false, pending: false, sel: false, fill: null, scale: 1.5, bold: false },
+        { wid: 0, li: 0, text: "big", live: false, pending: false, sel: false, fill: null, scale: 1.5, bold: false, italic: null, underline: null },
       ]} time={0} mode="live" onMode={() => {}} onRenderExact={() => {}} onSelectWord={() => {}}
         playW={1920} playH={1080} placement={placement} onPlacement={vi.fn()} />
     );

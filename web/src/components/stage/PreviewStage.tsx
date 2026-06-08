@@ -20,6 +20,8 @@ export interface CapWord {
   fill: string | null;
   scale: number;          // resolved fontsize / global fontsize (1 = inherit)
   bold: boolean | null;   // resolved bold when it differs from global, else null
+  italic: boolean | null;     // resolved italic when it differs from global, else null
+  underline: boolean | null;  // resolved underline when it differs from global, else null
 }
 
 interface PreviewStageProps {
@@ -339,6 +341,8 @@ export function PreviewStage({
                         ...(w.fill ? { color: w.fill } : null),
                         ...(w.scale !== 1 ? { fontSize: `${w.scale}em` } : null),
                         ...(w.bold != null ? { fontWeight: w.bold ? 700 : 400 } : null),
+                        ...(w.italic != null ? { fontStyle: w.italic ? "italic" : "normal" } : null),
+                        ...(w.underline != null ? { textDecoration: w.underline ? "underline" : "none" } : null),
                       }}
                       onClick={() => onSelectWord(w.wid)}
                     >

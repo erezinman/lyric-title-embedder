@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { PreviewStage } from "./PreviewStage";
 import type { PlacementState } from "../../model/bbox";
 
-const caps = [{ wid: 0, li: 0, text: "Caught", live: true, pending: false, sel: false, fill: "#FF3DA6", scale: 1, bold: null }];
+const caps = [{ wid: 0, li: 0, text: "Caught", live: true, pending: false, sel: false, fill: "#FF3DA6", scale: 1, bold: null, italic: null, underline: null }];
 const pl: PlacementState = { align: 2, play_w: 1920, play_h: 1080,
   margin_l: 80, margin_r: 80, margin_v: 60, pos: null };
 

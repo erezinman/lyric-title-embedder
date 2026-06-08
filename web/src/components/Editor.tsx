@@ -518,12 +518,18 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
           ? Number(fsEntry.value) / P.global_style.fontsize : 1;
         const boldEntry = resolved["bold"];
         const bold = boldEntry && boldEntry.src !== "global" ? Boolean(boldEntry.value) : null;
+        const italicEntry = resolved["italic"];
+        const italic = italicEntry && italicEntry.src !== "global" ? Boolean(italicEntry.value) : null;
+        const underlineEntry = resolved["underline"];
+        const underline = underlineEntry && underlineEntry.src !== "global" ? Boolean(underlineEntry.value) : null;
         const isSel = wid != null && tok.ids.includes(wid);
         caps.push({
           wid: tok.ids[0],
           li,
           scale,
           bold,
+          italic,
+          underline,
           text: tok.ids.map((id) => P.words[id]?.text ?? "").join(tok.sep || " "),
           live,
           pending,

@@ -208,6 +208,28 @@ describe("set_group_style", () => {
     await waitFor(() => expect(capWord(container, "alpha")!.style.fontWeight).toBe(""));
   });
 
+  it("F-08i — group italic override sets caption fontStyle on that group's words", async () => {
+    const { container } = await boot();
+    expect(capWord(container, "alpha")!.style.fontStyle).toBe("");
+
+    emitState(withGroupStyle(baseProject(), 0, { italic: true }));
+    await waitFor(() => expect(capWord(container, "alpha")!.style.fontStyle).toBe("italic"));
+
+    emitState(baseProject());
+    await waitFor(() => expect(capWord(container, "alpha")!.style.fontStyle).toBe(""));
+  });
+
+  it("F-08u — group underline override sets caption textDecoration on that group's words", async () => {
+    const { container } = await boot();
+    expect(capWord(container, "alpha")!.style.textDecoration).toBe("");
+
+    emitState(withGroupStyle(baseProject(), 0, { underline: true }));
+    await waitFor(() => expect(capWord(container, "alpha")!.style.textDecoration).toBe("underline"));
+
+    emitState(baseProject());
+    await waitFor(() => expect(capWord(container, "alpha")!.style.textDecoration).toBe(""));
+  });
+
   it("F-09 — group primary override sets caption color on that group's words", async () => {
     const { container } = await boot();
     expect(capWord(container, "alpha")!.style.color).toBe("");
@@ -275,6 +297,30 @@ describe("set_cue_style", () => {
 
     emitState(baseProject());
     await waitFor(() => expect(capWord(container, "alpha")!.style.fontWeight).toBe(""));
+  });
+
+  it("F-12i — cue italic on ONE token sets only that caption word's fontStyle", async () => {
+    const { container } = await boot();
+    expect(capWord(container, "alpha")!.style.fontStyle).toBe("");
+
+    emitState(withCueStyle(baseProject(), 0, 0, 0, { italic: true }));
+    await waitFor(() => expect(capWord(container, "alpha")!.style.fontStyle).toBe("italic"));
+    expect(capWord(container, "bravo")!.style.fontStyle).toBe("");
+
+    emitState(baseProject());
+    await waitFor(() => expect(capWord(container, "alpha")!.style.fontStyle).toBe(""));
+  });
+
+  it("F-12u — cue underline on ONE token sets only that caption word's textDecoration", async () => {
+    const { container } = await boot();
+    expect(capWord(container, "alpha")!.style.textDecoration).toBe("");
+
+    emitState(withCueStyle(baseProject(), 0, 0, 0, { underline: true }));
+    await waitFor(() => expect(capWord(container, "alpha")!.style.textDecoration).toBe("underline"));
+    expect(capWord(container, "bravo")!.style.textDecoration).toBe("");
+
+    emitState(baseProject());
+    await waitFor(() => expect(capWord(container, "alpha")!.style.textDecoration).toBe(""));
   });
 
   it("F-13 — cue primary on ONE token sets only that caption word's color", async () => {
