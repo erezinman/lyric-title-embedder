@@ -67,8 +67,16 @@ export interface Placement {
   use_pos?: boolean;
 }
 export interface Globals { linger: number; animations: Animation[]; }
+/** Attached input video: the media pointer plus probed metadata. w/h/duration_s are
+ *  null when the probe failed (path still stored — Feature A degrades gracefully). */
+export interface VideoMeta {
+  path: string;
+  w: number | null;
+  h: number | null;
+  duration_s: number | null;
+}
 export interface Project {
   words: Word[]; layout: LayoutGroup[]; anim_tags: AnimTag[];
   globals: Globals; global_style: GlobalStyle; placement: Placement;
-  video: string | null;
+  video: VideoMeta | null;
 }

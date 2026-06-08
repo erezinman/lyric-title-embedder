@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { ControlsRail } from "./ControlsRail";
 import type { Project } from "../../types";
 
-function proj(overrides: Partial<Project["placement"]> = {}, video: string | null = null): Project {
+function proj(overrides: Partial<Project["placement"]> = {}, video: Project["video"] = null): Project {
   return {
     words: [], layout: [], anim_tags: [],
     globals: { linger: 0, animations: [] },
@@ -14,23 +14,27 @@ function proj(overrides: Partial<Project["placement"]> = {}, video: string | nul
   };
 }
 
+// Default video-control props for renders not exercising attach/clear.
+const VID_PROPS = { onUploadVideo: async () => {}, onClearVideo: async () => {} };
+
 describe("ControlsRail", () => {
-  it("shows real lyrics and video names", () => {
-    render(<ControlsRail project={proj({}, "/abs/path/clip.mp4")} projectName="mysong" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} />);
+  it("shows real lyrics and the attached video basename", () => {
+    render(<ControlsRail project={proj({}, { path: "/abs/path/clip.mp4", w: 1920, h: 1080, duration_s: 10 })}
+      projectName="mysong" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} {...VID_PROPS} />);
     expect(screen.getByText("mysong/lyrics.json")).toBeInTheDocument();
     expect(screen.getByText("clip.mp4")).toBeInTheDocument();
     expect(screen.queryByText(/bleating/)).not.toBeInTheDocument();
   });
 
-  it("shows an em-dash when there is no video and no group-by row", () => {
-    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} />);
-    expect(screen.getByText("—")).toBeInTheDocument();
+  it("shows the Empty dropwell when there is no video and no group-by row", () => {
+    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} {...VID_PROPS} />);
+    expect(screen.getByRole("button", { name: /attach video/i })).toBeInTheDocument();
     expect(screen.queryByText(/group lyrics by/i)).not.toBeInTheDocument();
   });
 
   it("alignment grid dispatches onSetGlobal when a cell is clicked", () => {
     const onSetGlobal = vi.fn();
-    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={onSetGlobal} onTogglePos={vi.fn()} />);
+    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={onSetGlobal} onTogglePos={vi.fn()} {...VID_PROPS} />);
     // Open the grid via the trigger button
     fireEvent.click(screen.getByLabelText(/alignment/i));
     // Click Top-Center (8)
@@ -39,30 +43,30 @@ describe("ControlsRail", () => {
   });
 
   it("pos toggle shows OFF when use_pos is false even though pos is set", () => {
-    render(<ControlsRail project={proj({ pos: [960, 540], use_pos: false })} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} />);
+    render(<ControlsRail project={proj({ pos: [960, 540], use_pos: false })} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} {...VID_PROPS} />);
     expect(screen.getByRole("switch", { name: /free placement/i })).toHaveAttribute("aria-checked", "false");
   });
 
   it("pos toggle fires onTogglePos", () => {
     const onTogglePos = vi.fn();
-    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={onTogglePos} />);
+    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={onTogglePos} {...VID_PROPS} />);
     fireEvent.click(screen.getByRole("switch", { name: /free placement/i }));
     expect(onTogglePos).toHaveBeenCalledWith(true);
   });
 
   it("note text reflects pin mode when pos is active", () => {
-    render(<ControlsRail project={proj({ pos: [960, 540], use_pos: true })} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} />);
+    render(<ControlsRail project={proj({ pos: [960, 540], use_pos: true })} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} {...VID_PROPS} />);
     expect(screen.getByText("Pin coordinate comes from dragging the preview box.")).toBeInTheDocument();
   });
 
   it("note text reflects margin mode when pos is off", () => {
-    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} />);
+    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} {...VID_PROPS} />);
     expect(screen.getByText("Margins come from dragging the preview box edges.")).toBeInTheDocument();
   });
 
   it("Animations pointer row fires onOpenInspector (rail-tab switch is Editor-owned)", () => {
     const onOpenInspector = vi.fn();
-    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} onOpenInspector={onOpenInspector} />);
+    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} onOpenInspector={onOpenInspector} {...VID_PROPS} />);
     fireEvent.click(screen.getByRole("button", { name: /animations/i }));
     expect(onOpenInspector).toHaveBeenCalledTimes(1);
   });

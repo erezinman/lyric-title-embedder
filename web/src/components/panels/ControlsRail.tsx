@@ -3,6 +3,7 @@
 // engine now has animations and the real entry is the Inspector AnimSection.
 import { Icon } from "../icons/Icon";
 import { AlignGrid } from "../atoms/AlignGrid";
+import { VideoControl } from "./VideoControl";
 import type { Project } from "../../types";
 import { posActive } from "../../model/bbox";
 
@@ -11,14 +12,18 @@ export interface ControlsRailProps {
   projectName: string;
   onSetGlobal: (key: string, value: number) => void;
   onTogglePos: (on: boolean) => void;
+  /** Attach/swap the project video (multipart upload → /api/video). */
+  onUploadVideo: (file: File) => Promise<void>;
+  /** Clear the project video (DELETE /api/video). Cues/styling are kept. */
+  onClearVideo: () => Promise<void>;
   /** Switch the rail to the Inspector tab (where the real AnimSection lives).
    *  The "Coming soon" animation stub was removed; this points at the live entry. */
   onOpenInspector?: () => void;
 }
 
-export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos, onOpenInspector }: ControlsRailProps) {
+export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos,
+  onUploadVideo, onClearVideo, onOpenInspector }: ControlsRailProps) {
   const pl = project.placement;
-  const videoName = project.video ? project.video.split("/").pop() : "—";
   const posOn = posActive(pl);
   return (
     <div>
@@ -29,12 +34,7 @@ export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos, o
           <span className="path">{projectName}/lyrics.json</span>
         </div>
       </div>
-      <div className="ctl">
-        <label>Video</label>
-        <div className="text-inp" style={{ maxWidth: 168 }}>
-          <span className="path">{videoName}</span>
-        </div>
-      </div>
+      <VideoControl video={project.video} onUpload={onUploadVideo} onClear={onClearVideo} />
 
       <div className="sec-t spacer"><Icon name="align" size={13} />Placement (global)</div>
       <div className="ctl">

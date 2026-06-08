@@ -19,21 +19,22 @@ import type { Project } from "../../types";
 describe("ControlsRail audit — display & toggle (direct render)", () => {
   const renderRail = (p: Project, spies: { onSetGlobal?: () => void; onTogglePos?: (b: boolean) => void } = {}) =>
     render(<ControlsRail project={p} projectName="mysong"
-      onSetGlobal={spies.onSetGlobal ?? vi.fn()} onTogglePos={spies.onTogglePos ?? vi.fn()} />);
+      onSetGlobal={spies.onSetGlobal ?? vi.fn()} onTogglePos={spies.onTogglePos ?? vi.fn()}
+      onUploadVideo={async () => {}} onClearVideo={async () => {}} />);
 
   it("B-41 — lyrics path shows <projectName>/lyrics.json", () => {
     renderRail(baseProject());
     expect(screen.getByText("mysong/lyrics.json")).toBeInTheDocument();
   });
 
-  it("B-42 — video shows the basename when set", () => {
+  it("B-42 — VideoControl shows the basename when a video is attached", () => {
     renderRail(withVideo(baseProject(), "/abs/path/song.mp4"));
     expect(screen.getByText("song.mp4")).toBeInTheDocument();
   });
 
-  it("B-43 — video shows em-dash '—' when null", () => {
+  it("B-43 — VideoControl shows the Empty dropwell when video is null", () => {
     renderRail(baseProject());
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /attach video/i })).toBeInTheDocument();
   });
 
   it("B-44 — Free-placement toggle OFF→ON fires onTogglePos(true)", () => {
