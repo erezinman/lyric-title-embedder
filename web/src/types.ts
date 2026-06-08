@@ -71,7 +71,16 @@ export interface Placement {
   text_direction?: "auto" | "ltr" | "rtl";
   bidi_marks?: boolean;
 }
-export interface Globals { linger: number; animations: Animation[]; }
+export type TextDirection = "auto" | "ltr" | "rtl";
+export interface Globals {
+  linger: number; animations: Animation[];
+  /** Base text direction for the project. "auto" lets libass/bidi infer from
+   *  content; "ltr"/"rtl" force it. Default "auto". (RTL support.) */
+  text_direction: TextDirection;
+  /** Insert Unicode bidi marks (LRM/RLM) around numbers & Latin in RTL runs so
+   *  they don't reorder unexpectedly. Default true. (RTL support.) */
+  bidi_marks: boolean;
+}
 /** Attached input video: the media pointer plus probed metadata. w/h/duration_s are
  *  null when the probe failed (path still stored — Feature A degrades gracefully). */
 export interface VideoMeta {

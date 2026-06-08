@@ -17,7 +17,7 @@ const TYPO_KEYS = ["bold", "italic", "underline"] as const;
 // Resolved per-tier context fed to the pickers so previews are truthful (the
 // real fill behind an outline/box stroke, the real weight/slant in the font
 // preview). ctxFor layers global → group → cue exactly like resolveStyle.
-interface TierCtx { text: string; font: string; fill: string; bold: boolean; italic: boolean; underline: boolean; }
+interface TierCtx { text: string; font: string; fill: string; bold: boolean; italic: boolean; underline: boolean; rtl?: boolean; }
 
 // ---- per-prop control metadata ----
 const STYLE_META: Record<string, { label: string; kind: string; fmt: (v: unknown) => string; step?: number; min?: number; max?: number; hex?: boolean }> = {
@@ -168,6 +168,7 @@ function PropRow({ pkey, isGlobal, inheritFrom, overridden, onSet, onClear, ctx,
             underline={typo.underline}
             onTypo={(k, v) => onTypo(k, v)}
             onChange={(f) => onSet(pkey, f)}
+            rtlHint={ctx.rtl}
           />
         </span>
       );
@@ -217,9 +218,11 @@ interface TierProps {
   aiHot?: boolean;
   /** Caption text used in the pickers' live previews. */
   previewText?: string;
+  /** Project base direction is RTL — surfaces the FontPicker coverage hint. */
+  rtl?: boolean;
 }
 
-function Tier({ tierClass, scope, title, badge, keys, styleDict, isGlobal, inherit, selected, onSelect, onSet, onClear, aiHot, previewText }: TierProps) {
+function Tier({ tierClass, scope, title, badge, keys, styleDict, isGlobal, inherit, selected, onSelect, onSet, onClear, aiHot, previewText, rtl }: TierProps) {
   // Resolved value for a key at this tier: explicit override wins, else inherited.
   const resolved = (k: string): unknown =>
     (styleDict && styleDict[k] != null) ? styleDict[k] : inherit[k]?.value;
@@ -231,6 +234,7 @@ function Tier({ tierClass, scope, title, badge, keys, styleDict, isGlobal, inher
     bold: !!resolved("bold"),
     italic: !!resolved("italic"),
     underline: !!resolved("underline"),
+    rtl,
   };
   const typo = { bold: ctx.bold, italic: ctx.italic, underline: ctx.underline };
   // ADJ-12 parity: toggling a typo flag to the inherited value clears the
@@ -287,6 +291,7 @@ export function StyleWaterfall({ project, sel, aiTier, onSelectTier, onSetStyle,
   const gi = sel.gi;
   const g = gi != null ? project.layout[gi] : null;
   const tok = sel.tok || null;
+  const isRtl = project.globals.text_direction === "rtl";
 
   return (
     <div className="insp">
@@ -300,6 +305,7 @@ export function StyleWaterfall({ project, sel, aiTier, onSelectTier, onSetStyle,
           scope="cue"
           title="CUE"
           previewText={project.words[tok.ids[0]]?.text || "Karaoke"}
+          rtl={isRtl}
           badge={<span className="t3-meta">"{project.words[tok.ids[0]]?.text ?? ""}"</span>}
           keys={CUE_STYLE_KEYS}
           styleDict={tok.style as Record<string, unknown>}
@@ -318,6 +324,7 @@ export function StyleWaterfall({ project, sel, aiTier, onSelectTier, onSetStyle,
           scope="group"
           title="GROUP"
           previewText={g.label || "Karaoke"}
+          rtl={isRtl}
           badge={<span className="t3-meta">{g.label}</span>}
           keys={STYLE_KEYS}
           styleDict={g.style as Record<string, unknown>}
@@ -334,6 +341,7 @@ export function StyleWaterfall({ project, sel, aiTier, onSelectTier, onSetStyle,
         tierClass="global"
         scope="global"
         title="GLOBAL"
+        rtl={isRtl}
         badge={<span className="t3-meta">defaults</span>}
         keys={STYLE_KEYS}
         styleDict={project.global_style as unknown as Record<string, unknown>}

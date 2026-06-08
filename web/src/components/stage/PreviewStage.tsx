@@ -4,6 +4,8 @@ import { initJassub, type JassubClient } from "../../preview/jassubClient";
 import { boxFromState, marginsFromBox, anchorXY, applyMove, applyResize, posActive, alignRow, alignCol,
   snapPlacement, snapPoint, snapTargetsX, snapTargetsY } from "../../model/bbox";
 import type { Box, PlacementState, SnapLocks } from "../../model/bbox";
+import { resolveDir } from "../../model/bidi";
+import type { TextDirection } from "../../types";
 
 // Live preview renders the real .ass via jassub (libass-in-wasm). Disable with
 // VITE_JASSUB=0 (tests/e2e that don't want wasm). Default ON.
@@ -39,6 +41,10 @@ interface PreviewStageProps {
    *  jassub via setTrack. When provided AND the feature flag is on, the live mode
    *  renders the real .ass and the DOM caption layer becomes a transparent overlay. */
   assText?: string | null;
+  /** Project base text direction (globals.text_direction). Drives only the
+   *  transparent selection-overlay's `dir` so its span geometry matches libass.
+   *  "auto" / undefined auto-detects from the caption text's first strong char. */
+  textDirection?: TextDirection;
 }
 
 interface DragState {
@@ -52,7 +58,7 @@ interface DragState {
 
 export function PreviewStage({
   capWords, time, mode, onMode, onRenderExact, onSelectWord, playW, playH,
-  placement, onPlacement, assText,
+  placement, onPlacement, assText, textDirection,
 }: PreviewStageProps) {
   const [preview, setPreview] = useState<Box | null>(null);
   const [readout, setReadout] = useState<{ x: number; y: number } | null>(null);
@@ -165,6 +171,11 @@ export function PreviewStage({
   const capInnerStyle: React.CSSProperties = {
     justifyContent: capCol === "left" ? "flex-start" : capCol === "right" ? "flex-end" : "center",
   };
+  // Resolve the overlay base direction. The jassub canvas already paints
+  // bidi-correct pixels; we only set `dir` on the transparent selection overlay
+  // so its spans visually reorder to match libass. Spans stay in logical order,
+  // so element onClick keeps selecting the right wid regardless of dir.
+  const capDir = resolveDir(textDirection, capWords.map((w) => w.text).join(" "));
   const readoutText = pinned
     ? `pos ${ax}, ${ay}`
     : (() => { const m = marginsFromBox(box, placement);
@@ -324,7 +335,8 @@ export function PreviewStage({
             {jassActive && (
               <canvas key={`${W}x${H}`} ref={jassCanvasRef} className="jass-canvas" />
             )}
-            <div className={"cap" + (jassActive ? " jass-overlay" : "")} style={capStyle}>
+            <div className={"cap" + (jassActive ? " jass-overlay" : "")}
+                 dir={capDir} style={{ ...capStyle, direction: capDir }}>
               {[...new Set(capWords.map((w) => w.li))].sort((a, b) => a - b).map((li) => (
               <div key={li} style={capInnerStyle}>
                 {capWords.filter((w) => w.li === li).map((w) => {

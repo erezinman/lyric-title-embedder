@@ -22,6 +22,11 @@ export const KSP_FONTS: FontOption[] = [
   { name: "Impact", cat: "classic" },
   { name: "Georgia", cat: "serif" },
   { name: "Courier New", cat: "mono" },
+  // RTL-friendly defaults (Hebrew/Arabic coverage). Names only — they may or may
+  // not be installed on the render host; that's fine (passive suggestion).
+  { name: "Heebo", cat: "hebrew" },
+  { name: "Noto Sans Hebrew", cat: "hebrew" },
+  { name: "Noto Sans Arabic", cat: "arabic" },
 ];
 
 type FIconName = "search" | "check" | "chev" | "type" | "bold" | "italic" | "underline" | "upload" | "x";
@@ -109,6 +114,10 @@ export interface FontPickerProps {
   align?: "left" | "right";
   up?: boolean;
   flat?: boolean;
+  /** Show a passive RTL coverage hint (set when the project text_direction is
+   *  RTL). Full glyph-coverage detection is out of scope — this just nudges the
+   *  user toward an RTL-covering face. */
+  rtlHint?: boolean;
 }
 
 // normalize the typography-flags contract (bold / italic / underline)
@@ -135,7 +144,7 @@ function TypoToggles({ typo, onTypo }: { typo: ReturnType<typeof kspTypo>; onTyp
   );
 }
 
-export function FontPanel({ value, onChange, fonts, previewText, color, label, search = true, flat, onTypo, allowUpload = true, onUploadFont, ...rest }: FontPickerProps) {
+export function FontPanel({ value, onChange, fonts, previewText, color, label, search = true, flat, onTypo, allowUpload = true, onUploadFont, rtlHint, ...rest }: FontPickerProps) {
   const uploaded = kspUseUploadedFonts();
   const base = kspFontList(fonts);
   const list: ListFont[] = base.slice();
@@ -203,6 +212,10 @@ export function FontPanel({ value, onChange, fonts, previewText, color, label, s
         </div>
 
         <TypoToggles typo={typo} onTypo={onTypo} />
+
+        {rtlHint && (
+          <div className="ksp-rtl-hint">pick an RTL-covering font (e.g. Heebo, Noto Sans Hebrew/Arabic)</div>
+        )}
 
         {search && (
           <div className="ksp-search">

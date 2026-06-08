@@ -36,7 +36,7 @@ function proj(): Project {
       { ids: [0], anims: [fadeInAnim("a1")], suppress: [] },
       { ids: [3], anims: [fadeOutAnim("a2")], suppress: [] },
     ],
-    globals: { linger: 0.0, animations: [] },
+    globals: { linger: 0.0, animations: [], text_direction: "auto", bidi_marks: true },
     global_style: {
       font: "Space Grotesk", fontsize: 64, bold: true, italic: false, underline: false, primary: "#FFFFFF",
       outline: "#000000", back: "#000000", back_alpha: "80", outline_w: 3, shadow: 0, border_style: 1, align: 2,

@@ -39,7 +39,7 @@ export function baseProject(): Project {
     words: texts.map((text, i) => ({ text, start: 0.5 + i, end: 1.2 + i })),
     layout: [ev("Verse 1", [[0, 1, 2, 3], [4, 5, 6]]), ev("Chorus", [[7, 8]])],
     anim_tags: [],
-    globals: { linger: 0, animations: [] },
+    globals: { linger: 0, animations: [], text_direction: "auto", bidi_marks: true },
     global_style: { ...GLOBAL_STYLE },
     placement: { ...PLACEMENT },
     video: null,

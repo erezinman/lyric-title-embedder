@@ -998,6 +998,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
             placement={P.placement}
             onPlacement={(partial) => dispatch("set_globals", { partial })}
             assText={assText}
+            textDirection={P.globals.text_direction}
           />
         </main>
       </div>

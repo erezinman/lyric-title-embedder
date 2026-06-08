@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { ControlsRail } from "./ControlsRail";
 import type { Project } from "../../types";
 
 function proj(overrides: Partial<Project["placement"]> = {}, video: Project["video"] = null): Project {
   return {
     words: [], layout: [], anim_tags: [],
-    globals: { linger: 0, animations: [] },
+    globals: { linger: 0, animations: [], text_direction: "auto", bidi_marks: true },
     global_style: { font: "x", fontsize: 64, bold: true, italic: false, underline: false, primary: "#fff", outline: "#000",
       back: "#000", back_alpha: "80", outline_w: 3, shadow: 0, border_style: 1, align: 2 },
     placement: { align: 2, play_w: 1920, play_h: 1080, margin_l: 80, margin_r: 80, margin_v: 60, pos: null, ...overrides },
@@ -62,6 +62,58 @@ describe("ControlsRail", () => {
   it("note text reflects margin mode when pos is off", () => {
     render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} {...VID_PROPS} />);
     expect(screen.getByText("Margins come from dragging the preview box edges.")).toBeInTheDocument();
+  });
+
+  it("text-direction segmented reflects the current globals value (auto by default)", () => {
+    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} {...VID_PROPS} />);
+    const grp = screen.getByRole("group", { name: /text direction/i });
+    expect(within(grp).getByRole("button", { name: /^auto$/i })).toHaveAttribute("aria-pressed", "true");
+    expect(within(grp).getByRole("button", { name: /^rtl$/i })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("text-direction reflects an explicit rtl value", () => {
+    const p = proj();
+    p.globals.text_direction = "rtl";
+    render(<ControlsRail project={p} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} {...VID_PROPS} />);
+    const grp = screen.getByRole("group", { name: /text direction/i });
+    expect(within(grp).getByRole("button", { name: /^rtl$/i })).toHaveAttribute("aria-pressed", "true");
+    expect(within(grp).getByRole("button", { name: /^auto$/i })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("clicking RTL dispatches onSetGlobal('text_direction','rtl')", () => {
+    const onSetGlobal = vi.fn();
+    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={onSetGlobal} onTogglePos={vi.fn()} {...VID_PROPS} />);
+    const grp = screen.getByRole("group", { name: /text direction/i });
+    fireEvent.click(within(grp).getByRole("button", { name: /^rtl$/i }));
+    expect(onSetGlobal).toHaveBeenCalledWith("text_direction", "rtl");
+  });
+
+  it("clicking LTR dispatches onSetGlobal('text_direction','ltr')", () => {
+    const onSetGlobal = vi.fn();
+    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={onSetGlobal} onTogglePos={vi.fn()} {...VID_PROPS} />);
+    const grp = screen.getByRole("group", { name: /text direction/i });
+    fireEvent.click(within(grp).getByRole("button", { name: /^ltr$/i }));
+    expect(onSetGlobal).toHaveBeenCalledWith("text_direction", "ltr");
+  });
+
+  it("bidi-marks toggle reflects globals.bidi_marks (on by default) and dispatches the inverse", () => {
+    const onSetGlobal = vi.fn();
+    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={onSetGlobal} onTogglePos={vi.fn()} {...VID_PROPS} />);
+    const sw = screen.getByRole("switch", { name: /bidi marks/i });
+    expect(sw).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(sw);
+    expect(onSetGlobal).toHaveBeenCalledWith("bidi_marks", false);
+  });
+
+  it("bidi-marks toggle reflects an off value and dispatches true when clicked", () => {
+    const onSetGlobal = vi.fn();
+    const p = proj();
+    p.globals.bidi_marks = false;
+    render(<ControlsRail project={p} projectName="p" onSetGlobal={onSetGlobal} onTogglePos={vi.fn()} {...VID_PROPS} />);
+    const sw = screen.getByRole("switch", { name: /bidi marks/i });
+    expect(sw).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(sw);
+    expect(onSetGlobal).toHaveBeenCalledWith("bidi_marks", true);
   });
 
   it("Animations pointer row fires onOpenInspector (rail-tab switch is Editor-owned)", () => {
