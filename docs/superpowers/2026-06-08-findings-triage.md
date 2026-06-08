@@ -54,6 +54,7 @@ outcome).
 | **Advanced animation editor** (channels/curves) | gap#6 | High lev | The big one: an "Advanced" Inspector sub-panel exposing the engine's latent channels (`scale_y`, `clip_rect` direction, multi-segment `accel` curves, `step_unit` toggle). Engine+tool already accept it; needs the editor design |
 | **Search / find-replace surface** | gap#5 | Med | Where search lives (a panel? a TopBar field?), the replace-confirm flow, jump-to-time-at-playhead UX |
 | **Find-by-time at playhead** | gap#5 | Low | The affordance for "select the cue under the playhead" |
+| **Remote burned-video download-back** | file-access seam | High lev | A hosted/`transfer` deployment that wants full video burn must burn to a server temp file and stream the mp4 back to the browser. Needs UX for: burn-then-download progress, connection-drop / failed-download recovery, resumable/range download, large-file handling, where the file lands client-side, retry affordance, server temp-file cleanup. **Until designed, `transfer` keeps burn disabled** (subtitle export only). See `docs/.../plans/...file-access-seam` (the streamed-plotting-wilkes plan). |
 
 ---
 
