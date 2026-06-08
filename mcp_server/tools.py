@@ -253,6 +253,18 @@ def undo(ctx): ctx.run(lambda: ctx.session.undo()); return get_state(ctx)
 def redo(ctx): ctx.run(lambda: ctx.session.redo()); return get_state(ctx)
 
 
+def set_video(ctx, path=None):
+    """Set (or clear, path=None) the project's input video. Rides the shared undo
+    timeline via ctx.set_video -> session.record, so it broadcasts + autosaves and
+    is undoable. Returns the project view (video appears under get_project)."""
+    def f():
+        if path is not None and not isinstance(path, str):
+            raise ValueError(f"video path must be a string or null, got {type(path).__name__}")
+        ctx.set_video(path)
+    ctx.run(f)
+    return get_project(ctx)
+
+
 def get_globals(ctx): return ctx.get_globals()
 def set_globals(ctx, partial): ctx.set_globals(partial); return ctx.get_globals()
 

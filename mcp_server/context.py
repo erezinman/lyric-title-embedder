@@ -33,10 +33,13 @@ class HeadlessContext(EngineContext):
         self._g["pos"] = None
         # Register _g as the session's auxiliary state so set_globals edits
         # (align/margins/pos/use_pos/style) join the shared undo timeline.
-        self.session = controller.Session(aux_get=self._aux_get, aux_set=self._aux_set)
         self._video = None
-    def _aux_get(self): return self._g
-    def _aux_set(self, g): self._g = g
+        self.session = controller.Session(aux_get=self._aux_get, aux_set=self._aux_set)
+    # Auxiliary undo state = global style/placement (_g) PLUS the input video path.
+    # Bundling video into the snapshot makes set_video undoable and lets it ride the
+    # shared timeline (and, in the daemon, broadcast + autosave) like a globals edit.
+    def _aux_get(self): return {"g": self._g, "video": self._video}
+    def _aux_set(self, aux): self._g = aux["g"]; self._video = aux["video"]
     def run(self, fn): return fn()
     def get_globals(self): return dict(self._g)
     def set_globals(self, partial):
@@ -44,7 +47,9 @@ class HeadlessContext(EngineContext):
             for k, v in partial.items():
                 if k in GLOBAL_KEYS: self._g[k] = v
         self.session.record(apply)
-    def set_video(self, path): self._video = path or None
+    def set_video(self, path):
+        def apply(): self._video = path or None
+        self.session.record(apply)
     def video_path(self): return self._video
     def cfg(self):
         g = self._g

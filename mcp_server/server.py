@@ -87,6 +87,9 @@ def build_server(ctx, name="karaoke-subtitle-studio"):
     def redo() -> dict: return tools.redo(ctx)
 
     @mcp.tool()
+    def set_video(path: Optional[str] = None) -> dict: return tools.set_video(ctx, path)
+
+    @mcp.tool()
     def get_globals() -> dict: return tools.get_globals(ctx)
     @mcp.tool()
     def set_globals(partial: dict) -> dict: return tools.set_globals(ctx, partial)

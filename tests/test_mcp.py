@@ -218,6 +218,44 @@ def t_set_word_text_tool():
     tools.set_word_text(ctx, 0, "Zzz")
     return (ctx.session.project["words"][0]["text"] == "Zzz", ctx.session.project["words"][0]["text"])
 
+def t_set_video_sets_and_shows_in_project():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.set_video(ctx, "/tmp/clip.mp4")
+    return (ctx.video_path() == "/tmp/clip.mp4"
+            and tools.get_project(ctx)["video"] == "/tmp/clip.mp4"), ctx.video_path()
+
+def t_set_video_undo_reverts():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.set_video(ctx, "/tmp/clip.mp4")
+    tools.undo(ctx)
+    return (ctx.video_path() is None), ctx.video_path()
+
+def t_set_video_clear_with_none():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.set_video(ctx, "/tmp/clip.mp4")
+    tools.set_video(ctx, None)
+    return (ctx.video_path() is None and tools.get_project(ctx)["video"] is None), "cleared"
+
+def t_set_video_redo_restores():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    tools.set_video(ctx, "/tmp/clip.mp4")
+    tools.undo(ctx); tools.redo(ctx)
+    return (ctx.video_path() == "/tmp/clip.mp4"), ctx.video_path()
+
+def t_set_video_bad_type_raises():
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    try:
+        tools.set_video(ctx, 123); return (False, "no raise")
+    except ValueError:
+        return (True, "raised")
+
+def t_set_video_no_undo_step_on_noop():
+    # clearing an already-clear video must not create a history step
+    ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
+    before = len(ctx.session._undo)
+    tools.set_video(ctx, None)
+    return (len(ctx.session._undo) == before), f"undo depth {len(ctx.session._undo)}"
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)
