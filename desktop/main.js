@@ -7,6 +7,15 @@ const path = require("path");
 const { freePort, daemonArgs, repoPaths } = require("./lib");
 
 const SMOKE = process.argv.includes("--smoke");
+// --shot <path> (or --shot=<path>): after the window loads, capture it to a PNG and
+// quit. Headless visual smoke; no effect on a normal run.
+function shotPath() {
+  const i = process.argv.indexOf("--shot");
+  if (i !== -1 && process.argv[i + 1]) return process.argv[i + 1];
+  const eq = process.argv.find((a) => a.startsWith("--shot="));
+  return eq ? eq.slice("--shot=".length) : null;
+}
+const SHOT = shotPath();
 let daemon = null;
 
 function killDaemon() {
@@ -62,6 +71,14 @@ async function start() {
     },
   });
   await win.loadURL(`http://127.0.0.1:${port}/`);
+
+  if (SHOT) {
+    await new Promise((res) => setTimeout(res, 1800));   // let React paint
+    const img = await win.webContents.capturePage();
+    require("fs").writeFileSync(SHOT, img.toPNG());
+    console.log(`KSS_SHOT_OK ${SHOT}`);
+    app.isQuitting = true; killDaemon(); app.quit();
+  }
 }
 
 ipcMain.handle("kss:pickOpen", async (_e, opts) => {
