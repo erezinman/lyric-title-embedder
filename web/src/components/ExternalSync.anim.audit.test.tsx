@@ -138,7 +138,7 @@ describe("add_animation (pushed)", () => {
     await waitFor(() => expect(within(globalTier()).getByText("fade_in")).toBeTruthy());
     // lanes column (default dock tab) flips none → inh (global-sourced)
     const cell = animCell(container, "alpha");
-    expect(cell.classList.contains("inh")).toBe(true);
+    expect(cell.querySelector(".achip.inh")).toBeTruthy();   // inherited global chip
     expect(cell.classList.contains("none")).toBe(false);
     // timeline strip present once the Timeline dock tab is shown
     await openTimeline(user);           // VIS-CLICK
@@ -198,7 +198,7 @@ describe("remove_animation / tombstone (pushed)", () => {
     await user.click(within(groupTier()).getByRole("button", { name: /Inherited \(1\)/i }));
     expect(within(groupTier()).getByText("fade_in")).toBeTruthy();
     // lanes ANIMATION column shows the inherited marker before the push
-    expect(animCell(container, "alpha").classList.contains("inh")).toBe(true);
+    expect(animCell(container, "alpha").querySelector(".achip.inh")).toBeTruthy();
 
     // the only mutation: a tombstone push
     emitState(pushTombstone());
@@ -210,7 +210,7 @@ describe("remove_animation / tombstone (pushed)", () => {
     expect(within(tomb).getByText(/removed here/i)).toBeTruthy();
     expect(within(groupTier()).getByRole("button", { name: /Inherited \(1\)/i })).toBeTruthy();
     // lanes column shows the suppressed marker (cue 0 resolves empty + suppress carrier)
-    expect(animCell(container, "alpha").classList.contains("supp")).toBe(true);
+    expect(animCell(container, "alpha").querySelector(".achip.tomb")).toBeTruthy();
     // cue-0 strip disappears (resolves empty for the suppressed group); cue 4 keeps its
     // strip, so the g_fade strip count drops from 2 → 1.
     await openTimeline(user);           // VIS-CLICK
@@ -229,8 +229,8 @@ describe("remove_animation / tombstone (pushed)", () => {
 
     await waitFor(() => expect(groupTier().querySelector(".ov-row.tomb")).toBeNull());
     expect(within(groupTier()).getByText("fade_in")).toBeTruthy();
-    expect(animCell(container, "alpha").classList.contains("supp")).toBe(false);
-    expect(animCell(container, "alpha").classList.contains("inh")).toBe(true);
+    expect(animCell(container, "alpha").querySelector(".achip.tomb")).toBeNull();
+    expect(animCell(container, "alpha").querySelector(".achip.inh")).toBeTruthy();
     await openTimeline(user);           // VIS-CLICK
     expect(stripEl("g_fade")).toBeTruthy();
   });

@@ -346,59 +346,49 @@ describe("set_cue_style", () => {
 // with the animations migration; F-14..F-17, F-21, F-22 were deleted (coverage
 // returns in the AI/AM phases). The lane FADE columns now derive from anim_tags.
 // ===========================================================================
+// Redesign (zip 11): fades are no longer privileged FADE columns — they're ordinary
+// channel chips in the single ANIMATION lane (own = .achip.own, sourced from cueRows).
+// These assert the same external-sync semantics against the new chip surface.
+const animCell = (container: HTMLElement, word: string): HTMLElement =>
+  laneRow(container, word)!.querySelector(".lc.anim") as HTMLElement;
+const hasChip = (container: HTMLElement, word: string, re: RegExp): boolean =>
+  [...animCell(container, word).querySelectorAll(".achip")].some((c) => re.test(c.textContent || ""));
+
 describe("add_animation (fade preset, pushed)", () => {
-  it("F-18 — pushing a fade_in anim_tag fills the FADE-IN lane cell (grouped)", async () => {
+  it("F-18 — pushing a fade_in anim_tag adds an own 'fade in' chip to the ANIMATION lane", async () => {
     const { container } = await boot();
-    // baseline: alpha has no fade-in anim -> FadeCell ungrouped
-    const inCell = (word: string) => {
-      const row = laneRow(container, word)!;
-      // FADE-IN is the 2nd .lc cell (.word, fade-in, fade-out)
-      return [...row.querySelectorAll(".lc")][1] as HTMLElement;
-    };
-    expect(inCell("alpha").classList.contains("grouped")).toBe(false);
+    expect(hasChip(container, "alpha", /fade in/i)).toBe(false);
 
     emitState(withFadeAnims(baseProject()));
-    await waitFor(() => expect(inCell("alpha").classList.contains("grouped")).toBe(true));
+    await waitFor(() => expect(hasChip(container, "alpha", /fade in/i)).toBe(true));
 
     emitState(baseProject());
-    await waitFor(() => expect(inCell("alpha").classList.contains("grouped")).toBe(false));
+    await waitFor(() => expect(hasChip(container, "alpha", /fade in/i)).toBe(false));
   });
 
-  it("F-19 — FADE-OUT lane cell shows '· none' until a fade_out anim_tag is pushed", async () => {
+  it("F-19 — the ANIMATION lane shows '· none' until a fade_out anim_tag is pushed", async () => {
     const { container } = await boot();
-    const outCell = (word: string) => {
-      const row = laneRow(container, word)!;
-      return [...row.querySelectorAll(".lc")][2] as HTMLElement;
-    };
-    expect(outCell("echo").textContent).toContain("· none");
+    expect(animCell(container, "echo").textContent).toContain("· none");
 
-    // withFadeAnims puts a fade_out anim on ids [4,5,6]; "echo" = word 4 (end 5.2) → "@5.20"
+    // withFadeAnims puts a fade_out anim on ids [4,5,6]; "echo" = word 4
     emitState(withFadeAnims(baseProject()));
-    await waitFor(() => {
-      const cell = outCell("echo");
-      expect(cell.textContent).not.toContain("· none");
-      expect(cell.textContent).toContain("@5.20");
-    });
+    await waitFor(() => expect(hasChip(container, "echo", /fade out/i)).toBe(true));
 
     emitState(baseProject());
-    await waitFor(() => expect(outCell("echo").textContent).toContain("· none"));
+    await waitFor(() => expect(animCell(container, "echo").textContent).toContain("· none"));
   });
 });
 
 describe("remove_animation (fade preset, pushed)", () => {
-  it("F-20 — removing the fade_in anim_tag returns the FADE-IN cell to ungrouped", async () => {
+  it("F-20 — removing the fade_in anim_tag removes the 'fade in' chip", async () => {
     const { container } = await boot(withFadeAnims(baseProject()));
-    const inCell = (word: string) => {
-      const row = laneRow(container, word)!;
-      return [...row.querySelectorAll(".lc")][1] as HTMLElement;
-    };
-    expect(inCell("alpha").classList.contains("grouped")).toBe(true);
+    expect(hasChip(container, "alpha", /fade in/i)).toBe(true);
 
     emitState(mutate(withFadeAnims(baseProject()), (d) => { d.anim_tags = d.anim_tags.filter((t) => !t.ids.includes(0)); }));
-    await waitFor(() => expect(inCell("alpha").classList.contains("grouped")).toBe(false));
+    await waitFor(() => expect(hasChip(container, "alpha", /fade in/i)).toBe(false));
 
     emitState(withFadeAnims(baseProject()));
-    await waitFor(() => expect(inCell("alpha").classList.contains("grouped")).toBe(true));
+    await waitFor(() => expect(hasChip(container, "alpha", /fade in/i)).toBe(true));
   });
 });
 
