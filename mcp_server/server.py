@@ -28,6 +28,8 @@ def build_server(ctx, name="karaoke-subtitle-studio"):
     def get_srt() -> str: return tools.get_srt(ctx)
     @mcp.tool()
     def get_vtt() -> str: return tools.get_vtt(ctx)
+    @mcp.tool()
+    def lint() -> list: return tools.lint(ctx)
 
     @mcp.tool()
     def set_group_style(gi: int, partial: dict) -> dict: return tools.set_group_style(ctx, gi, partial)

@@ -129,6 +129,19 @@ def get_ass(ctx):
     return ctx.run(lambda: (_require_project(ctx), engine.build_ass(ctx.cfg(), engine.project_to_render(ctx.session.project))[0])[1])
 
 
+def lint(ctx):
+    """Export-readiness issues for the current project: a flat list of
+    {level, code, msg, where}. Aggregates persisted-animation validation errors,
+    same-scope channel overlaps, off-window (clamped) animation triggers, and an
+    off-canvas global \\pos. Empty list == clean."""
+    def f():
+        _require_project(ctx)
+        g = ctx.get_globals()
+        placement = {k: g.get(k) for k in ("pos", "use_pos", "play_w", "play_h")}
+        return engine.lint_project(ctx.session.project, placement)
+    return ctx.run(f)
+
+
 def get_srt(ctx):
     return ctx.run(lambda: (_require_project(ctx), engine.srt.to_srt(ctx.session.project))[1])
 

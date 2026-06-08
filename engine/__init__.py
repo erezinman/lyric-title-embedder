@@ -9,3 +9,5 @@ from engine import anim
 from engine import ffmpeg
 from engine import mutations
 from engine import srt
+from engine import lint
+from engine.lint import lint_project
