@@ -44,9 +44,11 @@ test("G-21 — cue color swatch sets tok style.primary + caption span color; cle
   await selectWord0(page);
   await inspector(page);
 
+  // REWRITTEN for the pickers feature: the Fill swatch row is now a ColorPicker
+  // field. Open it and pick the brand pink (#FF3DA6) swatch from the palette.
   const fillRow = prow(page, "word", "Fill");
-  // pick the pink swatch (#FF3DA6)
-  await fillRow.locator('.sw-dot').nth(1).click();
+  await fillRow.locator(".ksp-field").click();
+  await page.locator('.ksp-dot[title="#FF3DA6"]').first().click({ force: true });
 
   await until(async () => {
     const tok = (await apiState()).layout[0].lines[0].toks[0];
@@ -55,8 +57,8 @@ test("G-21 — cue color swatch sets tok style.primary + caption span color; cle
   const primary = (await apiState()).layout[0].lines[0].toks[0].style.primary as string;
   expect(primary.toUpperCase()).toBe("#FF3DA6");
 
-  // caption span color reflects it (when this word is in the active group's caption)
-  // clear
+  // close the popover, then clear the override (inherit)
+  await page.locator(".ksp-backdrop").click({ force: true });
   await fillRow.locator(".pclear").click();
   await until(async () => (await apiState()).layout[0].lines[0].toks[0].style.primary === undefined);
 });
@@ -70,15 +72,36 @@ test("G-22 — bold toggle twice = state reverted (back to inherited)", async ({
   await selectWord0(page);
   await inspector(page);
 
-  const boldRow = prow(page, "word", "Bold");
+  // REWRITTEN for the pickers feature: the standalone Bold toggle row was
+  // replaced by the FontPicker's B button (typography is now owned by the font
+  // picker). Open the cue-tier Font field popover, then toggle Bold.
+  const fontRow = prow(page, "word", "Font");
   const boldOf = async () => (await apiState()).layout[0].lines[0].toks[0].style.bold;
   expect(await boldOf()).toBeUndefined();
 
-  // first toggle flips off the inherited true -> explicit false
-  await boldRow.locator(".pv-ctl").click();
+  // Open the FontField fresh for EACH toggle. CRUCIAL: wait for the B button's
+  // aria-pressed to reflect the CURRENT state before clicking — until() polls the
+  // daemon, but the UI catches up a beat later via the WS echo, so without this
+  // the second toggle would fire against a stale UI and just re-set the same value.
+  // Scope to THIS row's popover — each tier renders its own Font picker with a
+  // "Bold" button. The popover is a fixed-position overlay, so positional clicks
+  // land on the wrong layer; fire the click on the element itself via .evaluate
+  // (real handler, no hit-testing) — the standard technique for overlay controls.
+  const b = fontRow.locator('button[title="Bold"]');
+  const toggleBold = async (pressedBefore: "true" | "false") => {
+    await fontRow.locator(".ksp-field").click();
+    await b.waitFor({ state: "visible" });
+    await expect(b).toHaveAttribute("aria-pressed", pressedBefore);
+    await b.evaluate((el: HTMLElement) => el.click());
+    // close this row's popover (click its backdrop element) and wait for unmount
+    await fontRow.locator(".ksp-backdrop").evaluate((el: HTMLElement) => el.click());
+    await b.waitFor({ state: "detached" });
+  };
+  // inherited bold is true → first toggle flips off to explicit false
+  await toggleBold("true");
   await until(async () => (await boldOf()) === false);
-  // second toggle should clear the override (revert to inherited undefined)
-  await boldRow.locator(".pv-ctl").click();
+  // UI now shows false → second toggle hits the inherited value and clears the override
+  await toggleBold("false");
   await until(async () => (await boldOf()) === undefined);
 });
 
