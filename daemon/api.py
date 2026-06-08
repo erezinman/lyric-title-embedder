@@ -181,9 +181,9 @@ def make_routes(ctx, hub):
     async def video(request):
         # POST /api/video — attach/swap the open project's video AFTER creation.
         # Accepts EITHER multipart bytes (video_file → saved into the project dir,
-        # mirroring projects_create) OR JSON {path} naming a same-host server file.
-        # Server-path mode is loopback-gated like the env/same_host inputs. Routes
-        # through library.set_project_video → ctx.set_video, so it probes + broadcasts
+        # mirroring projects_create) OR JSON {path} naming a server-side file.
+        # Server-path mode is gated to native deployments (_native). Routes through
+        # library.set_project_video → ctx.set_video, so it probes + broadcasts
         # + autosaves + persists. Returns {video: {path,w,h,duration_s}|null}.
         name = autosaver.name
         if not name:
