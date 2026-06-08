@@ -1,0 +1,122 @@
+<!-- Color & font pickers — live demo (reference). Loads the compiled DS bundle from the original project. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Color &amp; font pickers</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<link rel="stylesheet" href="pickers.css" />
+<style>
+  html, body { margin: 0; background: var(--bg); color: var(--text-1); font-family: var(--font-ui); }
+  .page { max-width: 1180px; margin: 0 auto; padding: 34px 30px 56px; }
+  .head { margin-bottom: 26px; }
+  .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+  .head h1 { font-family: var(--font-display); font-weight: 700; font-size: 30px; letter-spacing: -.02em; margin: 0 0 8px; }
+  .head p { margin: 0; color: var(--text-2); font-size: 14px; line-height: 1.55; max-width: 620px; }
+  .ctrlbar { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+  .ctrlbar label { font-size: 12px; color: var(--text-3); }
+  .ctrlbar input { height: 32px; background: var(--surface-3); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-1); font-family: var(--font-display); font-size: 13px; padding: 0 12px; width: 220px; }
+  .ctrlbar input:focus { outline: none; border-color: color-mix(in srgb, var(--accent) 55%, transparent); box-shadow: var(--ring-accent); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: start; }
+  .spec { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 16px; }
+  .spec-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
+  .spec-h .n { font-family: var(--font-display); font-weight: 600; font-size: 14px; color: var(--text-1); }
+  .spec-h .v { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); margin-left: auto; }
+  .spec-note { font-size: 11.5px; color: var(--text-3); line-height: 1.5; margin: 14px 0 0; }
+  .field-rows { display: flex; flex-direction: column; gap: 12px; }
+  .frow { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .frow > span.l { font-size: 12.5px; color: var(--text-2); }
+  .mini-stage { margin-top: 4px; position: relative; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-strong); aspect-ratio: 16/8; display: grid; place-items: center; background: radial-gradient(125% 130% at 70% 4%, #241a36 0%, #100a1a 52%, #060410 100%); }
+  .mini-stage .scan { position: absolute; inset: 0; opacity: .5; background: repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 3px); }
+  .mini-stage .cap { position: relative; z-index: 1; font-weight: 700; font-size: 34px; line-height: 1.06; text-align: center; padding: 0 16px; word-break: break-word; }
+  .full-w { grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds_bundle.js"></script>
+<script type="text/babel">
+const { ColorPicker, FontPicker } = window.KaraokeSubtitleStudioDesignSystem_aceaba;
+const { useState } = React;
+
+function Demo() {
+  const [text, setText] = useState("Bleating obsession");
+  const [fill, setFill] = useState("#FF3DA6");
+  const [fillA, setFillA] = useState(100);
+  const [outline, setOutline] = useState("#22041A");
+  const [box, setBox] = useState("#8A5BFF");
+  const [boxA, setBoxA] = useState(35);
+  const [font, setFont] = useState("Space Grotesk");
+  const [typo, setTypo] = useState({ bold: true, italic: false, underline: false });
+  const onTypo = (k, v) => setTypo((t) => ({ ...t, [k]: v }));
+
+  const fillRgb = `color-mix(in srgb, ${fill} ${fillA}%, transparent)`;
+  const boxRgb = `color-mix(in srgb, ${box} ${boxA}%, transparent)`;
+
+  return (
+    <div className="page">
+      <div className="head">
+        <div className="eyebrow">Components · pickers</div>
+        <h1>Color &amp; font pickers</h1>
+        <p>Pick fill, outline and box colors with preset palettes, an HSV spectrum, hex entry, an
+          alpha channel and a running queue of recent custom colors — and choose a face plus
+          <b> bold / italic / underline</b> from per-font previews. Every control renders the actual
+          cue text live, so you style what you'll ship. Use them inline (<b>panel</b>) or as compact
+          triggers (<b>field</b>) in the inspector.</p>
+        <div className="ctrlbar">
+          <label>Preview text</label>
+          <input value={text} onChange={(e) => setText(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="grid">
+        <div className="spec">
+          <div className="spec-h"><span className="n">Color — panel</span><span className="v">mode="panel"</span></div>
+          <ColorPicker value={fill} onChange={setFill} alpha={fillA} onAlphaChange={setFillA}
+            previewText={text} previewFont={font} label="Fill" flat />
+          <p className="spec-note">Preset palettes (Brand / Neon / Warm / Cool / Mono), saturation/value
+            square, hue &amp; alpha sliders, hex — and a <b>Recent</b> row that queues the custom colors
+            you pick. The preview shows the live caption in the chosen fill and font.</p>
+        </div>
+
+        <div className="spec">
+          <div className="spec-h"><span className="n">Font — panel</span><span className="v">mode="panel"</span></div>
+          <FontPicker value={font} onChange={setFont} previewText={text} color={fill} label="Font"
+            typo={typo} onTypo={onTypo} flat />
+          <p className="spec-note">Bold / italic / underline toggles, then a searchable list with each
+            name set in its own typeface — plus <b>Upload custom font</b> (.ttf/.otf/.woff) which
+            registers the face live. A big preview reflects the weight, slant and fill.</p>
+        </div>
+
+        <div className="spec">
+          <div className="spec-h"><span className="n">Field mode</span><span className="v">mode="field"</span></div>
+          <div className="field-rows">
+            <div className="frow"><span className="l">Fill</span>
+              <ColorPicker mode="field" align="right" value={fill} onChange={setFill} alpha={fillA} onAlphaChange={setFillA} previewText={text} previewFont={font} label="Fill" /></div>
+            <div className="frow"><span className="l">Outline</span>
+              <ColorPicker mode="field" align="right" value={outline} onChange={setOutline} previewText={text} previewFont={font} previewRole="outline" previewFill={fill} label="Outline" /></div>
+            <div className="frow"><span className="l">Box</span>
+              <ColorPicker mode="field" align="right" value={box} onChange={setBox} alpha={boxA} onAlphaChange={setBoxA} previewText={text} previewFont={font} previewRole="box" previewFill={fill} label="Box" /></div>
+            <div className="frow"><span className="l">Font</span>
+              <FontPicker mode="field" align="right" value={font} onChange={setFont} previewText={text} color={fill} typo={typo} onTypo={onTypo} /></div>
+          </div>
+          <div className="mini-stage">
+            <div className="scan"></div>
+            <div className="cap" style={{ fontFamily: font, color: fillRgb, fontWeight: typo.bold ? 800 : 600, fontStyle: typo.italic ? "italic" : "normal", textDecoration: typo.underline ? "underline" : "none", textUnderlineOffset: "0.1em", WebkitTextStroke: `1.5px ${outline}`, background: "transparent", padding: "4px 14px", borderRadius: 6, boxShadow: `inset 0 0 0 100px ${boxRgb}` }}>{text}</div>
+          </div>
+          <p className="spec-note">How they drop into the editor's style waterfall — compact triggers
+            that open the full picker, feeding one combined caption render.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Demo />);
+</script>
+</body>
+</html>

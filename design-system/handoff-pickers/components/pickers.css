@@ -1,0 +1,235 @@
+/* ============================================================================
+   Karaoke Subtitle Studio — Color & Font picker components
+   Companion stylesheet for ColorPicker.jsx + FontPicker.jsx.
+   Self-contained: only depends on the design tokens in colors_and_type.css.
+   Load colors_and_type.css first, then this file.
+   ============================================================================ */
+
+/* Caption-friendly preview faces (Space Grotesk + Hanken already come from tokens). */
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Oswald:wght@400;600;700&family=Montserrat:wght@600;700;800&family=Archivo+Black&display=swap');
+
+/* ---- shared shell ---------------------------------------------------------- */
+.ksp { font-family: var(--font-ui); color: var(--text-1); -webkit-user-select: none; user-select: none; }
+.ksp * { box-sizing: border-box; }
+
+.ksp-panel {
+  width: 268px; background: var(--surface-2); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg); padding: 12px; display: flex; flex-direction: column; gap: 12px;
+}
+.ksp-panel.flat { background: transparent; border: 0; padding: 0; }
+
+.ksp-head {
+  display: flex; align-items: center; gap: 8px; font-family: var(--font-display);
+  font-weight: 600; font-size: 12px; color: var(--text-1);
+}
+.ksp-head .ksp-tag {
+  margin-left: auto; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .04em;
+  color: var(--text-3); border: 1px solid var(--border); border-radius: var(--radius-xs); padding: 1px 6px;
+}
+.ksp-head svg { color: var(--accent); }
+
+/* ---- live preview tile (shared) ------------------------------------------- */
+.ksp-preview {
+  position: relative; border-radius: var(--radius-md); overflow: hidden;
+  border: 1px solid var(--border-strong); aspect-ratio: 16 / 7; min-height: 64px;
+  display: grid; place-items: center; padding: 8px 14px;
+  background: radial-gradient(125% 130% at 70% 4%, #241a36 0%, #100a1a 52%, #060410 100%);
+}
+.ksp-preview::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 3px);
+}
+.ksp-preview .ksp-cap {
+  position: relative; z-index: 1; font-family: var(--font-display); font-weight: 700;
+  font-size: 30px; line-height: 1.1; letter-spacing: -.01em; text-align: center;
+  text-shadow: 0 2px 0 rgba(0,0,0,.6), 0 0 18px rgba(0,0,0,.55); word-break: break-word;
+}
+.ksp-preview .ksp-pv-label {
+  position: absolute; left: 9px; top: 8px; z-index: 1; font-family: var(--font-mono);
+  font-size: 9px; letter-spacing: .06em; color: var(--text-3); text-transform: uppercase;
+}
+
+/* ---- color: saturation/value square --------------------------------------- */
+.ksp-sv {
+  position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); cursor: crosshair; touch-action: none;
+  background:
+    linear-gradient(to top, #000 0%, transparent 100%),
+    linear-gradient(to right, #fff 0%, transparent 100%),
+    var(--ksp-hue, #f06);
+}
+.ksp-sv-thumb, .ksp-track-thumb {
+  position: absolute; width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.5);
+  transform: translate(-50%, -50%); pointer-events: none;
+}
+
+/* ---- color: hue + alpha sliders ------------------------------------------- */
+.ksp-track {
+  position: relative; height: 14px; border-radius: var(--radius-pill);
+  border: 1px solid var(--border); cursor: pointer; touch-action: none;
+}
+.ksp-track.hue {
+  background: linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
+}
+.ksp-track.alpha { background-image: var(--ksp-alpha-grad), var(--ksp-checker); background-size: auto, 10px 10px; }
+.ksp-track .ksp-track-thumb { top: 50%; }
+
+/* alpha checkerboard base, drawn behind the gradient via a pseudo */
+.ksp-track.alpha { background-color: #fff; }
+.ksp-track.alpha::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1;
+  background:
+    conic-gradient(#7a7287 25%, transparent 0 50%, #7a7287 0 75%, transparent 0) 0 0 / 8px 8px,
+    #3a3450;
+}
+
+/* ---- color: inputs + swatches --------------------------------------------- */
+.ksp-inputs { display: flex; align-items: center; gap: 8px; }
+.ksp-chip {
+  width: 30px; height: 30px; border-radius: var(--radius-sm); flex: 0 0 auto;
+  border: 1px solid rgba(255,255,255,.16);
+  background:
+    conic-gradient(#7a7287 25%, transparent 0 50%, #7a7287 0 75%, transparent 0) 0 0 / 8px 8px,
+    #3a3450;
+}
+.ksp-chip-fill { display: block; width: 100%; height: 100%; border-radius: inherit; }
+.ksp-hex {
+  flex: 1; min-width: 0; height: 30px; background: var(--surface-3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text-1); font-family: var(--font-mono); font-size: 12px;
+  padding: 0 10px; text-transform: uppercase;
+}
+.ksp-hex:focus { outline: none; border-color: color-mix(in srgb, var(--accent) 55%, transparent); box-shadow: var(--ring-accent); }
+.ksp-num {
+  width: 58px; height: 30px; background: var(--surface-3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text-1); font-family: var(--font-mono); font-size: 12px; padding: 0 8px;
+}
+.ksp-num:focus { outline: none; border-color: color-mix(in srgb, var(--accent) 55%, transparent); box-shadow: var(--ring-accent); }
+.ksp-unit { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); margin-left: -4px; }
+
+.ksp-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.ksp-dot {
+  width: 22px; height: 22px; border-radius: var(--radius-xs); cursor: pointer;
+  border: 1px solid rgba(255,255,255,.16); transition: transform var(--dur-fast) var(--ease-out);
+}
+.ksp-dot:hover { transform: scale(1.12); }
+.ksp-dot.on { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--accent); }
+.ksp-sub { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .05em; color: var(--text-3); text-transform: uppercase; }
+
+/* preset palette pills + section header row */
+.ksp-prow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.ksp-presets { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+.ksp-preset {
+  font-family: var(--font-ui); font-size: 10px; line-height: 1; cursor: pointer;
+  padding: 4px 7px; border-radius: var(--radius-pill); border: 1px solid var(--border);
+  background: var(--surface-3); color: var(--text-3);
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.ksp-preset:hover { color: var(--text-1); border-color: var(--border-strong); }
+.ksp-preset.on {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent); color: var(--accent);
+}
+.ksp-recent-n { margin-left: auto; font-size: 9.5px; color: var(--text-3); }
+
+/* ---- font: big preview + list --------------------------------------------- */
+.ksp-fpanel { width: 280px; }
+.ksp-search {
+  display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px;
+  background: var(--surface-3); border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+.ksp-search svg { color: var(--text-3); flex: 0 0 auto; }
+.ksp-search input {
+  flex: 1; min-width: 0; background: transparent; border: 0; outline: none;
+  color: var(--text-1); font-family: var(--font-ui); font-size: 12.5px;
+}
+.ksp-search input::placeholder { color: var(--text-3); }
+
+.ksp-list {
+  display: flex; flex-direction: column; gap: 3px; max-height: 224px; overflow-y: auto;
+  padding-right: 2px; margin: 0 -2px;
+}
+.ksp-list::-webkit-scrollbar { width: 9px; }
+.ksp-list::-webkit-scrollbar-thumb { background: var(--surface-4); border-radius: 99px; border: 3px solid var(--surface-2); }
+.ksp-fitem {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid transparent;
+  background: transparent; color: var(--text-1); cursor: pointer; transition: background var(--dur-fast) var(--ease-out);
+}
+.ksp-fitem:hover { background: var(--surface-3); }
+.ksp-fitem.on { background: color-mix(in srgb, var(--accent) 12%, transparent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.ksp-fitem .ksp-fname { flex: 1; min-width: 0; font-size: 19px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ksp-fitem .ksp-fmeta { font-family: var(--font-mono); font-size: 9px; color: var(--text-3); letter-spacing: .04em; }
+.ksp-fitem .ksp-check { color: var(--accent); flex: 0 0 auto; opacity: 0; }
+.ksp-fitem.on .ksp-check { opacity: 1; }
+.ksp-empty { font-size: 12px; color: var(--text-3); text-align: center; padding: 16px 0; }
+
+/* custom-font remove (×) on uploaded rows */
+.ksp-frm {
+  flex: 0 0 auto; display: grid; place-items: center; width: 20px; height: 20px; border-radius: var(--radius-xs);
+  color: var(--text-3); opacity: 0; cursor: pointer; transition: opacity var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.ksp-fitem:hover .ksp-frm { opacity: 1; }
+.ksp-frm:hover { color: #fff; background: color-mix(in srgb, var(--danger, #FF6B6B) 70%, transparent); }
+
+/* ---- font: upload custom font --------------------------------------------- */
+.ksp-upload { display: flex; flex-direction: column; gap: 5px; }
+.ksp-upload-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 34px;
+  cursor: pointer; font-family: var(--font-ui); font-size: 12px; color: var(--text-1);
+  background: var(--surface-3); border: 1px dashed var(--border-strong); border-radius: var(--radius-sm);
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.ksp-upload-btn:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 60%, transparent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface-3)); }
+.ksp-upload-btn svg { color: var(--accent); }
+.ksp-upload-btn:disabled { opacity: .6; cursor: default; }
+.ksp-upload-note { font-family: var(--font-mono); font-size: 9px; letter-spacing: .04em; color: var(--text-3); text-align: center; }
+.ksp-upload-note.err { color: var(--danger, #FF6B6B); }
+
+/* ---- font: B / I / U typography toggles ----------------------------------- */
+.ksp-typo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.ksp-typo-btn {
+  display: grid; place-items: center; height: 32px; cursor: pointer;
+  background: var(--surface-3); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text-2); transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.ksp-typo-btn:hover { color: var(--text-1); border-color: var(--border-strong); }
+.ksp-typo-btn.on {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--accent);
+}
+
+/* ---- field trigger + popover (mode="field") -------------------------------- */
+.ksp-field {
+  display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px 0 6px;
+  background: var(--surface-3); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text-1); cursor: pointer; max-width: 100%; transition: border-color var(--dur-fast) var(--ease-out);
+}
+.ksp-field:hover { border-color: var(--border-strong); }
+.ksp-field.open { border-color: color-mix(in srgb, var(--accent) 55%, transparent); box-shadow: var(--ring-accent); }
+.ksp-field-sw {
+  width: 20px; height: 20px; border-radius: var(--radius-xs); flex: 0 0 auto; border: 1px solid rgba(255,255,255,.18);
+  background:
+    conic-gradient(#7a7287 25%, transparent 0 50%, #7a7287 0 75%, transparent 0) 0 0 / 7px 7px,
+    #3a3450;
+}
+.ksp-field-sw .ksp-chip-fill { display: block; width: 100%; height: 100%; border-radius: inherit; }
+.ksp-field-val { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ksp-field-val.mono { font-family: var(--font-mono); text-transform: uppercase; }
+.ksp-field .ksp-caret { margin-left: auto; color: var(--text-3); flex: 0 0 auto; }
+
+.ksp-anchor { position: relative; display: inline-flex; max-width: 100%; }
+.ksp-pop {
+  position: absolute; z-index: 80; top: calc(100% + 6px); left: 0;
+  background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop); padding: 12px; animation: kspPop .14s var(--ease-out);
+  transform-origin: top left;
+}
+.ksp-pop.right { left: auto; right: 0; transform-origin: top right; }
+.ksp-pop.up { top: auto; bottom: calc(100% + 6px); transform-origin: bottom left; }
+.ksp-pop.up.right { transform-origin: bottom right; }
+/* fixed flavor: positioned from JS (top/left inline) so it escapes scrolling/clipping parents */
+.ksp-pop.fixed { position: fixed; left: auto; right: auto; top: auto; bottom: auto; }
+.ksp-pop.fixed.up { transform-origin: bottom left; }
+@keyframes kspPop { from { opacity: 0; transform: scale(.97) translateY(-4px); } to { opacity: 1; transform: none; } }
+.ksp-backdrop { position: fixed; inset: 0; z-index: 79; }

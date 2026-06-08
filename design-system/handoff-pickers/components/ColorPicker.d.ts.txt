@@ -1,0 +1,71 @@
+// ColorPicker.d.ts — type contract for the Karaoke Subtitle Studio color picker.
+import * as React from "react";
+
+export interface ColorPalette {
+  /** Pill label, e.g. "Brand" / "Neon". */
+  name: string;
+  /** Swatch colors for this palette. */
+  colors: string[];
+}
+
+export interface ColorPickerProps {
+  /** Current color as a hex string, e.g. "#FF3DA6". */
+  value: string;
+  /** Called with the new hex string whenever the color changes. */
+  onChange: (hex: string) => void;
+  /** Opacity 0–100. Provide together with onAlphaChange to show the alpha slider. */
+  alpha?: number;
+  /** Called with the new opacity (0–100). Omit to hide the alpha channel. */
+  onAlphaChange?: (alpha: number) => void;
+  /** Pin a single swatch row (disables preset switching). Defaults to the named preset palettes. */
+  swatches?: string[];
+  /** Named preset palettes shown as switchable pills. Defaults to KSP_PALETTES (Brand/Neon/Warm/Cool/Mono). */
+  presets?: ColorPalette[];
+  /** Controlled recent-colors queue. Omit to use the built-in shared, localStorage-backed queue. */
+  recent?: string[];
+  /** Called with each newly committed custom color (hex). Use to maintain your own recents queue. */
+  onAddRecent?: (hex: string) => void;
+  /** Live-preview caption text. Defaults to "Karaoke". */
+  previewText?: string;
+  /** Font family used to render the live preview. */
+  previewFont?: string;
+  /** What the picked color represents in the preview: "fill" paints the text (default),
+   *  "outline" strokes it, "box" puts it behind the text as a caption box. */
+  previewRole?: "fill" | "outline" | "box";
+  /** The text fill color used when previewRole is "outline" or "box" (so the preview shows a
+   *  real caption: fill glyph + picked outline, or fill glyph on the picked box). Defaults to white. */
+  previewFill?: string;
+  /** Header label, e.g. "Fill" / "Outline" / "Box". */
+  label?: string;
+  /** "panel" (inline, default) or "field" (compact swatch trigger that opens a popover). */
+  mode?: "panel" | "field";
+  /** field mode: anchor the popover to the right edge. */
+  align?: "left" | "right";
+  /** field mode: open the popover upward. */
+  up?: boolean;
+  /** panel mode: drop the panel chrome (border/bg) to embed inside another surface. */
+  flat?: boolean;
+}
+
+/**
+ * Solid color picker with named preset palettes, an HSV spectrum (saturation/value
+ * square + hue slider), hex input, optional alpha slider, a running queue of
+ * recently picked custom colors, and a live caption preview that renders the
+ * actual cue text in the chosen color + font.
+ *
+ * The recent-colors queue is shared across all instances (localStorage-backed) by
+ * default; pass `recent` + `onAddRecent` to control it yourself. Custom colors
+ * (spectrum drag or hex entry) are queued; preset swatch clicks are not.
+ *
+ * Resolves global → group → cue in the editor's style waterfall. Reads design
+ * tokens from colors_and_type.css; load components/pickers.css for styling.
+ */
+export const ColorPicker: React.FC<ColorPickerProps>;
+/** The picker panel only (no trigger). Equivalent to ColorPicker mode="panel". */
+export const ColorPanel: React.FC<ColorPickerProps>;
+/** The compact trigger + popover. Equivalent to ColorPicker mode="field". */
+export const ColorField: React.FC<ColorPickerProps>;
+/** Default brand palette used when a single `swatches` row is requested. */
+export const KSP_BRAND_SWATCHES: string[];
+/** Default named preset palettes (Brand / Neon / Warm / Cool / Mono). */
+export const KSP_PALETTES: ColorPalette[];

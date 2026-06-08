@@ -1,0 +1,74 @@
+// FontPicker.d.ts — type contract for the Karaoke Subtitle Studio font picker.
+import * as React from "react";
+
+export interface FontOption {
+  /** Font family name (must be loaded / web-safe). */
+  name: string;
+  /** Short descriptor shown beside the name, e.g. "condensed". */
+  cat?: string;
+}
+
+export interface FontPickerProps {
+  /** Currently selected font family. */
+  value: string;
+  /** Called with the new font family when a row is picked. */
+  onChange: (font: string) => void;
+  /** Font list — strings or { name, cat }. Defaults to the curated caption set (KSP_FONTS). */
+  fonts?: (string | FontOption)[];
+  /** Live-preview caption text. Defaults to "Karaoke". */
+  previewText?: string;
+  /** Fill color for the live preview. Defaults to white. */
+  color?: string;
+  /** Header label. Defaults to "Font". */
+  label?: string;
+  /** Show the search box (default true). */
+  search?: boolean;
+  /** Typography flags as an object: { bold, italic, underline }. Alternative to the individual props. */
+  typo?: { bold?: boolean; italic?: boolean; underline?: boolean };
+  /** Bold flag (overrides typo.bold). */
+  bold?: boolean;
+  /** Italic flag (overrides typo.italic). */
+  italic?: boolean;
+  /** Underline flag (overrides typo.underline). */
+  underline?: boolean;
+  /** Provide to show the B / I / U toggles. Called with (key, nextValue) where key is "bold"|"italic"|"underline". */
+  onTypo?: (key: "bold" | "italic" | "underline", value: boolean) => void;
+  /** Show the "Upload custom font" control (default true). Uploaded faces are FontFace-registered document-wide and persisted. */
+  allowUpload?: boolean;
+  /** Called after a custom font is successfully loaded: { name, file }. */
+  onUploadFont?: (font: { name: string; file: File }) => void;
+  /** "panel" (inline, default) or "field" (compact trigger that opens a popover). */
+  mode?: "panel" | "field";
+  /** field mode: anchor the popover to the right edge. */
+  align?: "left" | "right";
+  /** field mode: open the popover upward. */
+  up?: boolean;
+  /** panel mode: drop the panel chrome to embed inside another surface. */
+  flat?: boolean;
+}
+
+/**
+ * Font picker. Each row renders its own typeface so you read the face, not just
+ * the name; the selected face is shown large in a live caption preview using the
+ * actual cue text + color. Optional search filters the list.
+ *
+ * Typography (bold / italic / underline) lives here too: pass `onTypo` (plus the
+ * current flags via `typo` or `bold`/`italic`/`underline`) to show the B/I/U
+ * toggles. The preview and list rows reflect the active weight + slant live.
+ *
+ * Custom fonts: the "Upload custom font" control (`allowUpload`, default on) takes a
+ * .ttf/.otf/.woff/.woff2 file, registers it with the FontFace API document-wide
+ * (so it renders in previews and the live caption), persists it, and adds it to the
+ * list. Uploaded faces are shared across every picker instance. Note: exporting to
+ * .ass/burning still needs the font file present on the libass render host.
+ *
+ * Reads design tokens from colors_and_type.css; load components/pickers.css for
+ * styling (it also @imports the preview faces).
+ */
+export const FontPicker: React.FC<FontPickerProps>;
+/** The picker panel only (no trigger). Equivalent to FontPicker mode="panel". */
+export const FontPanel: React.FC<FontPickerProps>;
+/** The compact trigger + popover. Equivalent to FontPicker mode="field". */
+export const FontField: React.FC<FontPickerProps>;
+/** Default curated caption fonts used when no `fonts` prop is given. */
+export const KSP_FONTS: FontOption[];

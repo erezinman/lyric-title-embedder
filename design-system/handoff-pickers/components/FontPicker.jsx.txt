@@ -1,0 +1,256 @@
+// FontPicker.jsx — Karaoke Subtitle Studio design system
+// Searchable font list (each name set in its own typeface) + a big live caption
+// preview of the chosen face. Pairs with components/pickers.css.
+
+// Curated caption-friendly faces. The Google ones are loaded by pickers.css;
+// the rest are web-safe. `cat` is just a tiny descriptor shown in the row.
+const KSP_FONTS = [
+  { name: "Space Grotesk", cat: "brand" },
+  { name: "Anton", cat: "display" },
+  { name: "Bebas Neue", cat: "condensed" },
+  { name: "Oswald", cat: "condensed" },
+  { name: "Montserrat", cat: "geometric" },
+  { name: "Archivo Black", cat: "heavy" },
+  { name: "Hanken Grotesk", cat: "clean" },
+  { name: "Impact", cat: "classic" },
+  { name: "Georgia", cat: "serif" },
+  { name: "Courier New", cat: "mono" },
+];
+
+function kspFIcon(name, size) {
+  const p = {
+    search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+    check: '<path d="M20 6L9 17l-5-5"/>',
+    chev: '<path d="M6 9l6 6 6-6"/>',
+    type: '<path d="M4 7V5h16v2M9 19h6M12 5v14"/>',
+    bold: '<path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z"/>',
+    italic: '<line x1="19" y1="5" x2="11" y2="5"/><line x1="13" y1="19" x2="5" y2="19"/><line x1="15" y1="5" x2="9" y2="19"/>',
+    underline: '<path d="M7 4v7a5 5 0 0 0 10 0V4"/><line x1="5" y1="20" x2="19" y2="20"/>',
+    upload: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 20h14"/>',
+    x: '<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>',
+  }[name];
+  return (
+    <svg width={size || 14} height={size || 14} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+      dangerouslySetInnerHTML={{ __html: p }} />
+  );
+}
+
+/* ---- uploaded fonts (shared, persisted, FontFace-registered) -------------- */
+// A custom font dropped in here is registered with the FontFace API on the whole
+// document — so it renders in every picker preview AND in the live caption stage.
+// Persisted as data URLs in localStorage and re-registered on load.
+const KSP_FONTS_KEY = "kss.customFonts";
+function kspLoadFontFace(family, url) {
+  if (!family || !url || typeof window.FontFace !== "function") return Promise.reject();
+  try {
+    const ff = new window.FontFace(family, "url(" + url + ")");
+    return ff.load().then((f) => { document.fonts.add(f); return f; });
+  } catch (e) { return Promise.reject(e); }
+}
+function kspFamilyFromFile(filename) {
+  const n = String(filename || "").replace(/\.(ttf|otf|woff2?|ttc)$/i, "").replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+  return n || "Custom Font";
+}
+const kspFontStore = (() => {
+  let list = [];
+  try { const raw = window.localStorage.getItem(KSP_FONTS_KEY); if (raw) list = JSON.parse(raw) || []; } catch (e) {}
+  list.forEach((f) => kspLoadFontFace(f.name, f.url)); // re-register persisted faces
+  const subs = new Set();
+  const save = () => { try { window.localStorage.setItem(KSP_FONTS_KEY, JSON.stringify(list)); } catch (e) {} };
+  return {
+    get: () => list,
+    add(name, url) {
+      list = [{ name, url, cat: "custom" }, ...list.filter((f) => f.name !== name)];
+      save(); subs.forEach((fn) => fn(list));
+    },
+    remove(name) { list = list.filter((f) => f.name !== name); save(); subs.forEach((fn) => fn(list)); },
+    subscribe(fn) { subs.add(fn); return () => subs.delete(fn); },
+  };
+})();
+function kspUseUploadedFonts() {
+  const [list, setList] = React.useState(kspFontStore.get());
+  React.useEffect(() => kspFontStore.subscribe(setList), []);
+  return list;
+}
+
+function kspFontList(fonts) {
+  if (!fonts || !fonts.length) return KSP_FONTS;
+  return fonts.map((f) => (typeof f === "string" ? { name: f, cat: "" } : f));
+}
+
+// normalize the typography-flags contract (bold / italic / underline)
+function kspTypo(props) {
+  const t = props.typo || {};
+  return {
+    bold: props.bold != null ? !!props.bold : !!t.bold,
+    italic: props.italic != null ? !!props.italic : !!t.italic,
+    underline: props.underline != null ? !!props.underline : !!t.underline,
+  };
+}
+
+function TypoToggles({ typo, onTypo }) {
+  if (!onTypo) return null;
+  const flags = [["bold", "Bold"], ["italic", "Italic"], ["underline", "Underline"]];
+  return (
+    <div className="ksp-typo" role="group" aria-label="Type style">
+      {flags.map(([k, label]) => (
+        <button key={k} type="button" title={label} aria-pressed={!!typo[k]}
+          className={"ksp-typo-btn" + (typo[k] ? " on" : "")}
+          onClick={() => onTypo(k, !typo[k])}>{kspFIcon(k, 15)}</button>
+      ))}
+    </div>
+  );
+}
+
+function FontPanel({ value, onChange, fonts, previewText, color, label, search = true, flat, onTypo, allowUpload = true, onUploadFont, ...rest }) {
+  const uploaded = kspUseUploadedFonts();
+  const base = kspFontList(fonts);
+  const list = base.slice();
+  uploaded.forEach((u) => { if (!list.some((f) => f.name === u.name)) list.push({ name: u.name, cat: u.cat || "custom", custom: true }); });
+  const typo = kspTypo({ onTypo, ...rest });
+  const [q, setQ] = React.useState("");
+  const filtered = q ? list.filter((f) => f.name.toLowerCase().includes(q.toLowerCase())) : list;
+
+  const fileRef = React.useRef(null);
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState(null);
+  const onFile = (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    setErr(null); setBusy(true);
+    const family = kspFamilyFromFile(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      kspLoadFontFace(family, reader.result).then(() => {
+        kspFontStore.add(family, reader.result);
+        setBusy(false); onChange(family);
+        if (onUploadFont) onUploadFont({ name: family, file });
+      }).catch(() => { setBusy(false); setErr("Couldn’t load that font file."); });
+    };
+    reader.onerror = () => { setBusy(false); setErr("Couldn’t read that file."); };
+    reader.readAsDataURL(file);
+  };
+  const removeFont = (name) => { kspFontStore.remove(name); if (value === name && base[0]) onChange(base[0].name); };
+
+  const capStyle = {
+    fontFamily: value, color: color || "#fff",
+    fontWeight: typo.bold ? 800 : 600,
+    fontStyle: typo.italic ? "italic" : "normal",
+    textDecoration: typo.underline ? "underline" : "none",
+    textUnderlineOffset: "0.12em",
+  };
+  // list rows echo weight + slant so you read the actual face (underline stays off — too noisy per row)
+  const rowFace = (f) => ({ fontFamily: f.name, fontWeight: typo.bold ? 700 : 500, fontStyle: typo.italic ? "italic" : "normal" });
+
+  return (
+    <div className="ksp ksp-font">
+      <div className={"ksp-panel ksp-fpanel" + (flat ? " flat" : "")}>
+        <div className="ksp-head">{kspFIcon("type", 13)}{label || "Font"}<span className="ksp-tag">{value}</span></div>
+
+        <div className="ksp-preview">
+          <span className="ksp-pv-label">preview</span>
+          <span className="ksp-cap" style={capStyle}>{previewText || "Karaoke"}</span>
+        </div>
+
+        <TypoToggles typo={typo} onTypo={onTypo} />
+
+        {search && (
+          <div className="ksp-search">
+            {kspFIcon("search", 14)}
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search fonts" spellCheck={false} />
+          </div>
+        )}
+
+        {allowUpload && (
+          <div className="ksp-upload">
+            <button type="button" className="ksp-upload-btn" disabled={busy}
+              onClick={() => fileRef.current && fileRef.current.click()}>
+              {kspFIcon("upload", 14)}{busy ? "Loading font…" : "Upload custom font"}
+            </button>
+            <input ref={fileRef} type="file" hidden onChange={onFile}
+              accept=".ttf,.otf,.woff,.woff2,.ttc,font/ttf,font/otf,font/woff,font/woff2" />
+            {err
+              ? <div className="ksp-upload-note err">{err}</div>
+              : <div className="ksp-upload-note">.ttf · .otf · .woff · .woff2</div>}
+          </div>
+        )}
+
+        <div className="ksp-list">
+          {filtered.map((f) => (
+            <button key={f.name} type="button" className={"ksp-fitem" + (f.name === value ? " on" : "")} onClick={() => onChange(f.name)}>
+              <span className="ksp-fname" style={rowFace(f)}>{f.name}</span>
+              {f.cat ? <span className="ksp-fmeta">{f.cat}</span> : null}
+              {f.custom
+                ? <span className="ksp-frm" role="button" title="Remove custom font"
+                    onClick={(e) => { e.stopPropagation(); removeFont(f.name); }}>{kspFIcon("x", 13)}</span>
+                : <span className="ksp-check">{kspFIcon("check", 15)}</span>}
+            </button>
+          ))}
+          {!filtered.length && <div className="ksp-empty">No fonts match “{q}”.</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function kspUsePopoverF(panelH) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  const [pos, setPos] = React.useState(null);
+  const place = React.useCallback(() => {
+    const el = ref.current; if (!el) return;
+    const r = el.getBoundingClientRect();
+    const PW = 304, PH = panelH || 420, gap = 6;
+    let left = r.left;
+    if (left + PW > window.innerWidth - 8) left = Math.max(8, r.right - PW);
+    let top = r.bottom + gap, up = false;
+    if (top + PH > window.innerHeight - 8 && r.top - gap - PH > 8) { top = r.top - gap - PH; up = true; }
+    top = Math.max(8, Math.min(top, window.innerHeight - PH - 8));
+    setPos({ left, top, up });
+  }, [panelH]);
+  React.useEffect(() => {
+    if (!open) return;
+    const f = () => place();
+    window.addEventListener("resize", f);
+    window.addEventListener("scroll", f, true);
+    return () => { window.removeEventListener("resize", f); window.removeEventListener("scroll", f, true); };
+  }, [open, place]);
+  const toggle = () => { if (!open) place(); setOpen((o) => !o); };
+  return { open, setOpen, ref, pos, toggle };
+}
+
+function FontField(props) {
+  const extra = props.allowUpload === false ? 0 : 66;
+  const { open, setOpen, ref, pos, toggle } = kspUsePopoverF((props.onTypo ? 488 : 440) + extra);
+  const typo = kspTypo(props);
+  const valStyle = {
+    fontFamily: props.value,
+    fontWeight: typo.bold ? 700 : 500,
+    fontStyle: typo.italic ? "italic" : "normal",
+    textDecoration: typo.underline ? "underline" : "none",
+  };
+  return (
+    <span className="ksp ksp-anchor">
+      <button type="button" ref={ref} className={"ksp-field" + (open ? " open" : "")} onClick={toggle}>
+        <span className="ksp-field-val" style={valStyle}>{props.value}</span>
+        <span className="ksp-caret">{kspFIcon("chev", 14)}</span>
+      </button>
+      {open && pos && (
+        <>
+          <span className="ksp-backdrop" onClick={() => setOpen(false)} />
+          <span className={"ksp-pop fixed" + (pos.up ? " up" : "")} style={{ top: pos.top, left: pos.left }}>
+            <FontPanel {...props} flat />
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
+
+function FontPicker(props) {
+  return props.mode === "field" ? <FontField {...props} /> : <FontPanel {...props} />;
+}
+
+export { FontPicker, FontPanel, FontField, KSP_FONTS, kspFontStore };
