@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getAss, getEnv, lint, type LintIssue, type LintSeverity } from "../api/client";
+import { getAss, getSrt, getVtt, getEnv, lint, type LintIssue, type LintSeverity } from "../api/client";
 import { Icon } from "./icons/Icon";
 
 const SEV_META: Record<LintSeverity, { cls: string; icon: string }> = {
@@ -50,7 +50,13 @@ export function ExportMenu({
 }) {
   const [out, setOut] = useState(`${projectName}_subbed.mp4`);
   const [videoIn, setVideoIn] = useState("");
-  const [sameHost, setSameHost] = useState(false);
+  // Capabilities from the daemon's file-access mode. canBurn gates the whole burn UI
+  // (output path + Burn button); canServerPaths gates the server-side input-video field.
+  // Optimistic-native by default (the primary deployment) so the burn UI renders with no
+  // flash; flipped off only once getEnv confirms a transfer/hosted daemon. The daemon
+  // enforces the gate (403) regardless, so the flag is purely UX.
+  const [canBurn, setCanBurn] = useState(true);
+  const [canServerPaths, setCanServerPaths] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [burning, setBurning] = useState(false);
 
@@ -58,7 +64,11 @@ export function ExportMenu({
   const [issues, setIssues] = useState<LintIssue[] | null>(null);
   const [checking, setChecking] = useState(false);
 
-  useEffect(() => { void getEnv().then((e) => setSameHost(e.same_host)).catch(() => setSameHost(false)); }, []);
+  useEffect(() => {
+    void getEnv()
+      .then((e) => { setCanBurn(e.can_burn_video); setCanServerPaths(e.can_use_server_paths); })
+      .catch(() => { setCanBurn(false); setCanServerPaths(false); });
+  }, []);
 
   const runCheck = useCallback(() => {
     setChecking(true);
@@ -71,12 +81,14 @@ export function ExportMenu({
   // Auto-check on open.
   useEffect(() => { runCheck(); }, [runCheck]);
 
-  const downloadAss = async () => {
+  // Client-side blob download of a subtitle text (no server file / no server path) —
+  // works in both native and transfer mode.
+  const downloadText = async (getter: () => Promise<string>, ext: string) => {
     try {
-      const text = await getAss();
+      const text = await getter();
       const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
       const a = document.createElement("a");
-      a.href = url; a.download = `${projectName}.ass`;
+      a.href = url; a.download = `${projectName}.${ext}`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 0);   // defer: revoking synchronously races the download in some engines
       onClose();
@@ -181,32 +193,58 @@ export function ExportMenu({
 
       <div className="exp-div" />
 
-      <div className="exp-sec">
-        <label className="exp-l" htmlFor="exp-out">Output filename</label>
-        <input id="exp-out" className="exp-inp mono" aria-label="Output file"
-               value={out} onChange={(e) => setOut(e.target.value)} />
-        {sameHost && (
-          <>
-            <label className="exp-l" htmlFor="exp-vid">Input video <span className="exp-opt">optional · same-host path · defaults to project video</span></label>
-            <input id="exp-vid" className="exp-inp mono" aria-label="Input video" placeholder="project video"
-                   value={videoIn} onChange={(e) => setVideoIn(e.target.value)} />
-          </>
-        )}
-        {err && <div className="form-err" role="alert">{err}</div>}
-        <button className={"btn exp-burn " + (advisoryOnly ? "go" : "primary")}
-                disabled={burning || hasBlocking}
-                onClick={handleBurn}>
-          <Icon name="film" size={15} />{burnLabel}
-        </button>
-      </div>
-      <div className="exp-div" />
+      {/* Burn UI — native deployments only. transfer mode = subtitle export only. */}
+      {canBurn && (
+        <>
+          <div className="exp-sec">
+            <label className="exp-l" htmlFor="exp-out">Output filename</label>
+            <input id="exp-out" className="exp-inp mono" aria-label="Output file"
+                   value={out} onChange={(e) => setOut(e.target.value)} />
+            {canServerPaths && (
+              <>
+                <label className="exp-l" htmlFor="exp-vid">Input video <span className="exp-opt">optional · server path · defaults to project video</span></label>
+                <input id="exp-vid" className="exp-inp mono" aria-label="Input video" placeholder="project video"
+                       value={videoIn} onChange={(e) => setVideoIn(e.target.value)} />
+              </>
+            )}
+            <button className={"btn exp-burn " + (advisoryOnly ? "go" : "primary")}
+                    disabled={burning || hasBlocking}
+                    onClick={handleBurn}>
+              <Icon name="film" size={15} />{burnLabel}
+            </button>
+          </div>
+          <div className="exp-div" />
+        </>
+      )}
+
+      {err && <div className="form-err" role="alert">{err}</div>}
+
+      {/* Subtitle downloads — client-side blobs, available in every mode. */}
       <div className="exp-row" role="button" tabIndex={0} aria-label="Download .ass"
-           onClick={() => void downloadAss()}
-           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void downloadAss(); } }}>
+           onClick={() => void downloadText(getAss, "ass")}
+           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void downloadText(getAss, "ass"); } }}>
         <span className="exp-row-i"><Icon name="download" size={16} /></span>
         <span className="exp-row-t">
           <b>Download .ass</b>
-          <span className="exp-row-s">Subtitle file only — no render</span>
+          <span className="exp-row-s">Styled subtitle — no render</span>
+        </span>
+      </div>
+      <div className="exp-row" role="button" tabIndex={0} aria-label="Download .srt"
+           onClick={() => void downloadText(getSrt, "srt")}
+           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void downloadText(getSrt, "srt"); } }}>
+        <span className="exp-row-i"><Icon name="download" size={16} /></span>
+        <span className="exp-row-t">
+          <b>Download .srt</b>
+          <span className="exp-row-s">Plain captions — broad compatibility</span>
+        </span>
+      </div>
+      <div className="exp-row" role="button" tabIndex={0} aria-label="Download .vtt"
+           onClick={() => void downloadText(getVtt, "vtt")}
+           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void downloadText(getVtt, "vtt"); } }}>
+        <span className="exp-row-i"><Icon name="download" size={16} /></span>
+        <span className="exp-row-t">
+          <b>Download .vtt</b>
+          <span className="exp-row-s">Web captions (WebVTT)</span>
         </span>
       </div>
     </div>

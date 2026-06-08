@@ -12,7 +12,7 @@ export function CreateProjectModal({
   onCreated: (name: string) => void;
   onClose: () => void;
 }) {
-  const [sameHost, setSameHost] = useState(false);
+  const [canServerPaths, setCanServerPaths] = useState(false);
   const [name, setName] = useState("");
   const [source, setSource] = useState<Source>("suno_json");
 
@@ -36,7 +36,7 @@ export function CreateProjectModal({
     name.trim() !== "" &&
     (lyricsMode === "upload" ? lyricsFile !== null : lyricsPath.trim() !== "");
 
-  useEffect(() => { void getEnv().then((e) => setSameHost(e.same_host)).catch(() => setSameHost(false)); }, []);
+  useEffect(() => { void getEnv().then((e) => setCanServerPaths(e.can_use_server_paths)).catch(() => setCanServerPaths(false)); }, []);
 
   const submit = async () => {
     setError(null);
@@ -63,7 +63,7 @@ export function CreateProjectModal({
   const ModeSwitch = ({ mode, set }: { mode: Provide; set: (m: Provide) => void }) => (
     <div className="seg2" role="group">
       <button type="button" className={"seg-btn" + (mode === "upload" ? " on" : "")} onClick={() => set("upload")}>Upload</button>
-      {sameHost && (
+      {canServerPaths && (
         <button type="button" className={"seg-btn" + (mode === "path" ? " on" : "")} onClick={() => set("path")}>Server path</button>
       )}
     </div>

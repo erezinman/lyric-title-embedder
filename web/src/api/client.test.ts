@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { call, getFrameUrl, projects, burn, getEnv } from "./client";
+import { call, getFrameUrl, projects, burn, getEnv, getSrt, getVtt } from "./client";
 
 beforeEach(() => { vi.restoreAllMocks(); });
 
@@ -50,9 +50,25 @@ describe("getFrameUrl", () => {
 });
 
 describe("getEnv", () => {
-  it("returns same_host flag", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ same_host: true }), { status: 200 })));
-    expect(await getEnv()).toEqual({ same_host: true });
+  it("returns the capabilities object", async () => {
+    const caps = { file_access: "transfer", can_use_server_paths: false, can_burn_video: false };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(caps), { status: 200 })));
+    expect(await getEnv()).toEqual(caps);
+  });
+});
+
+describe("subtitle downloads", () => {
+  it("getSrt fetches /api/srt as text", async () => {
+    const f = vi.fn(async () => new Response("1\n00:00:01,000 --> 00:00:02,000\nhi\n", { status: 200 }));
+    vi.stubGlobal("fetch", f);
+    expect(await getSrt()).toContain("00:00:01,000");
+    expect(f).toHaveBeenCalledWith("/api/srt");
+  });
+  it("getVtt fetches /api/vtt as text", async () => {
+    const f = vi.fn(async () => new Response("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nhi\n", { status: 200 }));
+    vi.stubGlobal("fetch", f);
+    expect(await getVtt()).toContain("WEBVTT");
+    expect(f).toHaveBeenCalledWith("/api/vtt");
   });
 });
 

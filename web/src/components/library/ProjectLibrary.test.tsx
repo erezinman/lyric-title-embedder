@@ -6,7 +6,7 @@ import * as client from "../../api/client";
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.spyOn(client.projects, "list").mockResolvedValue([]);
-  vi.spyOn(client, "getEnv").mockResolvedValue({ same_host: false });
+  vi.spyOn(client, "getEnv").mockResolvedValue({ file_access: "native", can_use_server_paths: true, can_burn_video: true });
 });
 
 describe("ProjectLibrary", () => {

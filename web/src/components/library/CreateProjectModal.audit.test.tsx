@@ -12,7 +12,11 @@ beforeEach(() => {
 });
 
 function setup(sameHost = false) {
-  vi.spyOn(client, "getEnv").mockResolvedValue({ same_host: sameHost });
+  vi.spyOn(client, "getEnv").mockResolvedValue({
+    file_access: sameHost ? "native" : "transfer",
+    can_use_server_paths: sameHost,
+    can_burn_video: sameHost,
+  });
   const onCreated = vi.fn();
   const onClose = vi.fn();
   render(<CreateProjectModal onCreated={onCreated} onClose={onClose} />);

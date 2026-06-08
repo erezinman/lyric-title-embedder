@@ -22,8 +22,17 @@ export async function getState(): Promise<Project> {
   return jsonOrThrow<Project>(await fetch("/api/state"));
 }
 
-export async function getEnv(): Promise<{ same_host: boolean }> {
-  return jsonOrThrow<{ same_host: boolean }>(await fetch("/api/env"));
+// Deployment capabilities, driven by the daemon's launch-time file-access mode (not
+// client IP). native = local/desktop (server paths + burn); transfer = hosted/remote
+// (upload + subtitle-download only).
+export interface Caps {
+  file_access: "native" | "transfer";
+  can_use_server_paths: boolean;
+  can_burn_video: boolean;
+}
+
+export async function getEnv(): Promise<Caps> {
+  return jsonOrThrow<Caps>(await fetch("/api/env"));
 }
 
 export async function getRender(): Promise<unknown> {
@@ -99,6 +108,20 @@ export async function lint(): Promise<LintIssue[]> {
 
 export async function getAss(): Promise<string> {
   const res = await fetch("/api/ass");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.text();
+}
+
+// Subtitle text for client-side blob download. No server file write / no server path,
+// so these work identically in native and transfer mode (ungated).
+export async function getSrt(): Promise<string> {
+  const res = await fetch("/api/srt");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.text();
+}
+
+export async function getVtt(): Promise<string> {
+  const res = await fetch("/api/vtt");
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.text();
 }

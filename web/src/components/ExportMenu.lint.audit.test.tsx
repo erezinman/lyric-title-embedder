@@ -13,7 +13,8 @@ beforeEach(() => {
   vi.restoreAllMocks();
   (URL as any).createObjectURL ??= () => "blob:x";
   (URL as any).revokeObjectURL ??= () => {};
-  vi.spyOn(client, "getEnv").mockResolvedValue({ same_host: false });
+  // Lint gating is a burn-readiness concern → native mode (burn UI present).
+  vi.spyOn(client, "getEnv").mockResolvedValue({ file_access: "native", can_use_server_paths: true, can_burn_video: true });
 });
 
 const overlap: LintIssue = {

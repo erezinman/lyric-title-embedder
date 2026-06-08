@@ -6,7 +6,11 @@ import * as client from "../../api/client";
 beforeEach(() => { vi.restoreAllMocks(); });
 
 function setup(envSameHost = false) {
-  vi.spyOn(client, "getEnv").mockResolvedValue({ same_host: envSameHost });
+  vi.spyOn(client, "getEnv").mockResolvedValue({
+    file_access: envSameHost ? "native" : "transfer",
+    can_use_server_paths: envSameHost,
+    can_burn_video: envSameHost,
+  });
   const onCreated = vi.fn();
   const onClose = vi.fn();
   render(<CreateProjectModal onCreated={onCreated} onClose={onClose} />);

@@ -25,7 +25,7 @@ beforeEach(() => {
   vi.spyOn(globalThis, "fetch").mockResolvedValue(
     new Response(JSON.stringify({ result: {}, job_id: "j1" }), { status: 200, headers: { "Content-Type": "application/json" } }) as Response
   );
-  vi.spyOn(client, "getEnv").mockResolvedValue({ same_host: false });
+  vi.spyOn(client, "getEnv").mockResolvedValue({ file_access: "native", can_use_server_paths: true, can_burn_video: true });
 });
 
 describe("Editor burn", () => {

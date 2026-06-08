@@ -7,7 +7,7 @@ beforeEach(() => {
   vi.restoreAllMocks();
   (URL as any).createObjectURL ??= () => "blob:x";
   (URL as any).revokeObjectURL ??= () => {};
-  vi.spyOn(client, "getEnv").mockResolvedValue({ same_host: false });
+  vi.spyOn(client, "getEnv").mockResolvedValue({ file_access: "native", can_use_server_paths: true, can_burn_video: true });
 });
 
 function setup() {
@@ -38,8 +38,7 @@ describe("ExportMenu", () => {
     expect(onBurn).toHaveBeenCalledWith("final.mp4", undefined);
   });
 
-  it("offers a video override only when same-host", async () => {
-    vi.spyOn(client, "getEnv").mockResolvedValue({ same_host: true });
+  it("offers a video override in native mode", async () => {
     const { onBurn } = setup();
     const vid = await screen.findByLabelText(/input video/i);
     fireEvent.change(vid, { target: { value: "/abs/clip.mp4" } });

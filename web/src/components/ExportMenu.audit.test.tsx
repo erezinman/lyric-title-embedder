@@ -16,8 +16,14 @@ beforeEach(() => {
     if (!origCreate) (URL as any).createObjectURL = () => "blob:x";
     if (!origRevoke) (URL as any).revokeObjectURL = () => {};
   }
-  vi.spyOn(client, "getEnv").mockResolvedValue({ same_host: false });
+  // Default: native deployment (server paths + burn available) — the common editing case.
+  vi.spyOn(client, "getEnv").mockResolvedValue(caps(true));
 });
+
+function caps(native: boolean) {
+  return { file_access: native ? "native" : "transfer", can_use_server_paths: native, can_burn_video: native } as const;
+}
+function setTransfer() { vi.spyOn(client, "getEnv").mockResolvedValue(caps(false)); }
 
 function setup(projectName = "mysong") {
   const onBurn = vi.fn();
@@ -64,25 +70,15 @@ describe("E-52 — editing the output filename", () => {
 });
 
 // ---------------------------------------------------------------------------
-// E-53  Video override only when same_host
+// E-53  Native shows full burn UI (incl. server-path input video)
 // ---------------------------------------------------------------------------
-describe("E-53 — video override input only when same_host", () => {
-  it("E-53a — input video field is NOT shown when same_host=false", async () => {
-    vi.spyOn(client, "getEnv").mockResolvedValue({ same_host: false });
-    setup();
-    await waitFor(() => {
-      expect(screen.queryByLabelText(/input video/i)).not.toBeInTheDocument();
-    });
-  });
-
-  it("E-53b — input video field IS shown when same_host=true", async () => {
-    vi.spyOn(client, "getEnv").mockResolvedValue({ same_host: true });
+describe("E-53 — native: input video field + burn path", () => {
+  it("E-53b — input video field IS shown in native mode", async () => {
     setup();
     expect(await screen.findByLabelText(/input video/i)).toBeInTheDocument();
   });
 
   it("E-53c — editing input video and burning sends the path", async () => {
-    vi.spyOn(client, "getEnv").mockResolvedValue({ same_host: true });
     const { onBurn } = setup();
     const vid = await screen.findByLabelText(/input video/i);
     fireEvent.change(vid, { target: { value: "/abs/clip.mp4" } });
@@ -90,13 +86,55 @@ describe("E-53 — video override input only when same_host", () => {
     expect(onBurn).toHaveBeenCalledWith("mysong_subbed.mp4", "/abs/clip.mp4");
   });
 
-  it("E-53d — empty input video field passes undefined to onBurn (same_host=true)", async () => {
-    vi.spyOn(client, "getEnv").mockResolvedValue({ same_host: true });
+  it("E-53d — empty input video field passes undefined to onBurn", async () => {
     const { onBurn } = setup();
     await screen.findByLabelText(/input video/i);
-    // Don't type anything — leave empty
     fireEvent.click(screen.getByRole("button", { name: /burn video/i }));
     expect(onBurn).toHaveBeenCalledWith("mysong_subbed.mp4", undefined);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E-53T  Transfer mode: subtitle downloads only — no burn UI at all
+// ---------------------------------------------------------------------------
+describe("E-53T — transfer mode hides all burn/server-path UI", () => {
+  it("E-53T-a — no Burn button, output-filename field, or input-video field", async () => {
+    setTransfer();
+    setup();
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /burn video/i })).not.toBeInTheDocument();
+    });
+    expect(screen.queryByLabelText(/output file/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/input video/i)).not.toBeInTheDocument();
+  });
+
+  it("E-53T-b — subtitle download rows are still present in transfer mode", async () => {
+    setTransfer();
+    setup();
+    expect(await screen.findByRole("button", { name: /download \.ass/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /download \.srt/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /download \.vtt/i })).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E-53D  Subtitle downloads (.srt/.vtt) available in BOTH modes
+// ---------------------------------------------------------------------------
+describe("E-53D — .srt/.vtt download rows present in native mode too", () => {
+  it("E-53D-a — native renders .ass/.srt/.vtt download rows", async () => {
+    setup();
+    expect(await screen.findByRole("button", { name: /download \.srt/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /download \.vtt/i })).toBeInTheDocument();
+  });
+
+  it("E-53D-b — clicking Download .srt fetches srt text and creates a blob", async () => {
+    setup();
+    const srtSpy = vi.spyOn(client, "getSrt").mockResolvedValue("1\n00:00:01,000 --> 00:00:02,000\nhi\n");
+    const createSpy = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:x");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    fireEvent.click(await screen.findByRole("button", { name: /download \.srt/i }));
+    await waitFor(() => expect(srtSpy).toHaveBeenCalled());
+    expect(createSpy).toHaveBeenCalled();
   });
 });
 
