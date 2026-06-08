@@ -211,8 +211,9 @@ interface TierProps {
   styleDict: Record<string, unknown>;
   isGlobal?: boolean;
   inherit: Record<string, { value: unknown; src: string }>;
-  selected: boolean;
-  onSelect: () => void;
+  /** Whole-tier collapse state (header chevron) + toggle. */
+  collapsed: boolean;
+  onToggle: () => void;
   onSet: (tier: TierScope, pk: string, v: unknown) => void;
   onClear: (tier: TierScope, pk: string) => void;
   aiHot?: boolean;
@@ -222,7 +223,7 @@ interface TierProps {
   rtl?: boolean;
 }
 
-function Tier({ tierClass, scope, title, badge, keys, styleDict, isGlobal, inherit, selected, onSelect, onSet, onClear, aiHot, previewText, rtl }: TierProps) {
+function Tier({ tierClass, scope, title, badge, keys, styleDict, isGlobal, inherit, collapsed, onToggle, onSet, onClear, aiHot, previewText, rtl }: TierProps) {
   // Resolved value for a key at this tier: explicit override wins, else inherited.
   const resolved = (k: string): unknown =>
     (styleDict && styleDict[k] != null) ? styleDict[k] : inherit[k]?.value;
@@ -246,11 +247,11 @@ function Tier({ tierClass, scope, title, badge, keys, styleDict, isGlobal, inher
   };
 
   return (
-    <div
-      className={"tier3 " + tierClass + (selected ? " sel" : "") + (aiHot ? " aihot" : "")}
-      onClick={onSelect}
-    >
-      <div className="t3-h">
+    <div className={"tier3 " + tierClass + (collapsed ? " collapsed" : "") + (aiHot ? " aihot" : "")}>
+      <div className="t3-h" onClick={onToggle} role="button" tabIndex={0}
+           aria-expanded={!collapsed}
+           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}>
+        <span className="t3-chev"><Icon name="chevDown" size={13} stroke={2} /></span>
         <span className={"tier-tag " + tierClass}>{title}</span>
         {badge}
       </div>
@@ -282,16 +283,32 @@ export interface StyleWaterfallProps {
   project: Project;
   sel: { scope: "global" | "group" | "cue"; gi: number; tok: Token | null };
   aiTier: "global" | "group" | "cue" | null;
-  onSelectTier: (scope: TierScope) => void;
   onSetStyle: (tier: TierScope, key: string, value: unknown) => void;
   onClearStyle: (tier: TierScope, key: string) => void;
 }
 
-export function StyleWaterfall({ project, sel, aiTier, onSelectTier, onSetStyle, onClearStyle }: StyleWaterfallProps) {
+// Whole-tier collapse state, persisted (mirrors the kss.* pane-persistence pattern).
+function loadWfCollapsed(): Set<string> {
+  try {
+    const a = JSON.parse(localStorage.getItem("kss.wfCollapsed") || "[]");
+    if (Array.isArray(a)) return new Set(a.map(String));
+  } catch { /* ignore */ }
+  return new Set();
+}
+
+export function StyleWaterfall({ project, sel, aiTier, onSetStyle, onClearStyle }: StyleWaterfallProps) {
   const gi = sel.gi;
   const g = gi != null ? project.layout[gi] : null;
   const tok = sel.tok || null;
   const isRtl = project.globals.text_direction === "rtl";
+
+  const [wfC, setWfC] = React.useState<Set<string>>(loadWfCollapsed);
+  const toggleTier = (scope: TierScope) => setWfC((prev) => {
+    const n = new Set(prev);
+    if (n.has(scope)) n.delete(scope); else n.add(scope);
+    try { localStorage.setItem("kss.wfCollapsed", JSON.stringify([...n])); } catch { /* ignore */ }
+    return n;
+  });
 
   return (
     <div className="insp">
@@ -310,9 +327,9 @@ export function StyleWaterfall({ project, sel, aiTier, onSelectTier, onSetStyle,
           keys={CUE_STYLE_KEYS}
           styleDict={tok.style as Record<string, unknown>}
           inherit={inheritMap(project, gi, "cue")}
-          selected={sel.scope === "cue"}
+          collapsed={wfC.has("cue")}
           aiHot={aiTier === "cue"}
-          onSelect={() => onSelectTier("cue")}
+          onToggle={() => toggleTier("cue")}
           onSet={onSetStyle}
           onClear={onClearStyle}
         />
@@ -329,9 +346,9 @@ export function StyleWaterfall({ project, sel, aiTier, onSelectTier, onSetStyle,
           keys={STYLE_KEYS}
           styleDict={g.style as Record<string, unknown>}
           inherit={inheritMap(project, gi, "group")}
-          selected={sel.scope === "group"}
+          collapsed={wfC.has("group")}
           aiHot={aiTier === "group"}
-          onSelect={() => onSelectTier("group")}
+          onToggle={() => toggleTier("group")}
           onSet={onSetStyle}
           onClear={onClearStyle}
         />
@@ -347,9 +364,9 @@ export function StyleWaterfall({ project, sel, aiTier, onSelectTier, onSetStyle,
         styleDict={project.global_style as unknown as Record<string, unknown>}
         isGlobal={true}
         inherit={{}}
-        selected={sel.scope === "global"}
+        collapsed={wfC.has("global")}
         aiHot={aiTier === "global"}
-        onSelect={() => onSelectTier("global")}
+        onToggle={() => toggleTier("global")}
         onSet={onSetStyle}
         onClear={() => {}}
       />

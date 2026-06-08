@@ -443,10 +443,6 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     setGroupExplicitSel(true);
   }, []);
 
-  const selectTier = useCallback((scope: "global" | "group" | "cue") => {
-    setSel((s) => ({ ...s, scope }));
-  }, []);
-
   // ---- jumpToWord: select a word by id and move the playhead to its time ----
   // (used by the export pre-flight panel's "Jump to cue" affordance)
   const jumpToWord = useCallback((wid: number, time: number) => {
@@ -1005,7 +1001,6 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                   project={P}
                   sel={waterfallSel}
                   aiTier={aiTier}
-                  onSelectTier={selectTier}
                   onSetStyle={setStyle}
                   onClearStyle={clearStyle}
                 />

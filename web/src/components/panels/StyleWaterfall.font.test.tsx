@@ -47,7 +47,6 @@ function renderWith(scope: "global" | "group" | "cue", onSetStyle = vi.fn(), onC
       project={p}
       sel={{ scope, gi: 0, tok }}
       aiTier={null}
-      onSelectTier={() => {}}
       onSetStyle={onSetStyle}
       onClearStyle={onClearStyle}
     />,

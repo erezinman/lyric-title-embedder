@@ -50,7 +50,6 @@ describe("StyleWaterfall", () => {
         project={p}
         sel={{ scope: "cue", gi: 0, tok: p.layout[0].lines[0].toks[3] }}
         aiTier={null}
-        onSelectTier={() => {}}
         onSetStyle={onSetStyle}
         onClearStyle={onClearStyle}
       />
@@ -75,7 +74,6 @@ describe("StyleWaterfall", () => {
         project={p}
         sel={{ scope: "group", gi: 0, tok: null }}
         aiTier={null}
-        onSelectTier={() => {}}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
       />
@@ -93,7 +91,6 @@ describe("StyleWaterfall", () => {
         project={p}
         sel={{ scope: "group", gi: 0, tok: null }}
         aiTier={null}
-        onSelectTier={() => {}}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -112,7 +109,6 @@ describe("StyleWaterfall", () => {
         project={p}
         sel={{ scope: "global", gi: 0, tok: null }}
         aiTier={null}
-        onSelectTier={() => {}}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
       />

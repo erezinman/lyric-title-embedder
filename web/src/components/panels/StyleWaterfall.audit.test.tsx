@@ -1,11 +1,14 @@
 // StyleWaterfall.audit.test.tsx — Cluster C audit: every editable style key,
 // tier selection, inheritance, stepper mechanics, color swatches, border mode, align.
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StyleWaterfall } from "./StyleWaterfall";
 import { baseProject, withGroupStyle, withCueStyle } from "../../test-util/fixtures";
+import { stubLocalStorage } from "../../test-util/storage";
 import type { Project } from "../../types";
+
+beforeEach(() => { stubLocalStorage(); });
 
 // ---------- helpers ----------
 
@@ -27,7 +30,6 @@ function mkProps(overrides: Partial<Parameters<typeof StyleWaterfall>[0]> = {}) 
     project: p,
     sel: selGroup(),
     aiTier: null as null,
-    onSelectTier: vi.fn(),
     onSetStyle: vi.fn(),
     onClearStyle: vi.fn(),
     ...overrides,
@@ -35,76 +37,32 @@ function mkProps(overrides: Partial<Parameters<typeof StyleWaterfall>[0]> = {}) 
 }
 void mkProps;
 
-// ---------- C-01 — Tier selection ----------
+// ---------- C-01 — Tier header = collapse only (zip 11 §7) ----------
 
-describe("C-01 — tier selection fires onSelectTier", () => {
-  it("C-01a — clicking GLOBAL tier calls onSelectTier('global')", async () => {
-    const onSelectTier = vi.fn();
+describe("C-01 — tier header collapses; no scope-select, no selected ring", () => {
+  it("C-01a — clicking a tier header collapses its rows and persists", async () => {
     const p = baseProject();
-    render(
-      <StyleWaterfall
-        project={p}
-        sel={selGroup()}
-        aiTier={null}
-        onSelectTier={onSelectTier}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-      />
-    );
-    await userEvent.click(screen.getByText("GLOBAL").closest(".tier3")!);
-    expect(onSelectTier).toHaveBeenCalledWith("global");
-  });
-
-  it("C-01b — clicking GROUP tier calls onSelectTier('group')", async () => {
-    const onSelectTier = vi.fn();
-    const p = baseProject();
-    render(
-      <StyleWaterfall
-        project={p}
-        sel={selGlobal()}
-        aiTier={null}
-        onSelectTier={onSelectTier}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-      />
-    );
-    await userEvent.click(screen.getByText("GROUP").closest(".tier3")!);
-    expect(onSelectTier).toHaveBeenCalledWith("group");
-  });
-
-  it("C-01c — clicking CUE tier calls onSelectTier('cue')", async () => {
-    const onSelectTier = vi.fn();
-    const p = baseProject();
-    render(
-      <StyleWaterfall
-        project={p}
-        sel={selCue(p)}
-        aiTier={null}
-        onSelectTier={onSelectTier}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-      />
-    );
-    await userEvent.click(screen.getByText("CUE").closest(".tier3")!);
-    expect(onSelectTier).toHaveBeenCalledWith("cue");
-  });
-
-  it("C-01d — selected tier has 'sel' class", () => {
-    const p = baseProject();
-    render(
-      <StyleWaterfall
-        project={p}
-        sel={selGroup()}
-        aiTier={null}
-        onSelectTier={vi.fn()}
-        onSetStyle={vi.fn()}
-        onClearStyle={vi.fn()}
-      />
-    );
+    render(<StyleWaterfall project={p} sel={selGroup()} aiTier={null} onSetStyle={vi.fn()} onClearStyle={vi.fn()} />);
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
-    expect(groupTier.classList.contains("sel")).toBe(true);
-    const globalTier = screen.getByText("GLOBAL").closest(".tier3") as HTMLElement;
-    expect(globalTier.classList.contains("sel")).toBe(false);
+    expect(groupTier.classList.contains("collapsed")).toBe(false);
+    await userEvent.click(within(groupTier).getByText("GROUP"));
+    expect(groupTier.classList.contains("collapsed")).toBe(true);
+    expect(JSON.parse(localStorage.getItem("kss.wfCollapsed")!)).toContain("group");
+  });
+
+  it("C-01b — clicking the header twice expands again", async () => {
+    const p = baseProject();
+    render(<StyleWaterfall project={p} sel={selGroup()} aiTier={null} onSetStyle={vi.fn()} onClearStyle={vi.fn()} />);
+    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
+    await userEvent.click(within(groupTier).getByText("GROUP"));
+    await userEvent.click(within(groupTier).getByText("GROUP"));
+    expect(groupTier.classList.contains("collapsed")).toBe(false);
+  });
+
+  it("C-01c — no tier carries a selected ring (.sel removed)", () => {
+    const p = baseProject();
+    const { container } = render(<StyleWaterfall project={p} sel={selGroup()} aiTier={null} onSetStyle={vi.fn()} onClearStyle={vi.fn()} />);
+    expect(container.querySelectorAll(".tier3.sel").length).toBe(0);
   });
 });
 
@@ -119,7 +77,6 @@ describe("C-02 — fontsize stepper at group tier", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -138,7 +95,6 @@ describe("C-02 — fontsize stepper at group tier", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -157,7 +113,6 @@ describe("C-02 — fontsize stepper at group tier", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -178,7 +133,6 @@ describe("C-02 — fontsize stepper at group tier", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -195,7 +149,6 @@ describe("C-02 — fontsize stepper at group tier", () => {
         project={p2}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -214,7 +167,6 @@ describe("C-02 — fontsize stepper at group tier", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -228,7 +180,6 @@ describe("C-02 — fontsize stepper at group tier", () => {
         project={p2}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -251,7 +202,6 @@ describe("C-03 — outline_w stepper", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -270,7 +220,6 @@ describe("C-03 — outline_w stepper", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -293,7 +242,6 @@ describe("C-04 — shadow stepper", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -312,7 +260,6 @@ describe("C-04 — shadow stepper", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -335,7 +282,6 @@ describe("C-05 — back_alpha stepper (hex)", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -355,7 +301,6 @@ describe("C-05 — back_alpha stepper (hex)", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -375,7 +320,6 @@ describe("C-05 — back_alpha stepper (hex)", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -404,8 +348,7 @@ describe("C-06 — bold (FontPicker B) at group tier", () => {
     const onSetStyle = vi.fn();
     const p = withGroupStyle(baseProject(), 0, { bold: true });
     render(
-      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
-        onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
     const pop = await openFontPopover(groupTier);
@@ -420,8 +363,7 @@ describe("C-06 — bold (FontPicker B) at group tier", () => {
     const onClearStyle = vi.fn();
     const p = withGroupStyle(baseProject(), 0, { bold: false });
     render(
-      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
-        onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={onClearStyle} />
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null} onSetStyle={onSetStyle} onClearStyle={onClearStyle} />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
     const pop = await openFontPopover(groupTier);
@@ -434,8 +376,7 @@ describe("C-06 — bold (FontPicker B) at group tier", () => {
     const onSetStyle = vi.fn();
     const p = baseProject(); // global italic/underline are false
     render(
-      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
-        onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
     const pop = await openFontPopover(groupTier);
@@ -448,8 +389,7 @@ describe("C-06 — bold (FontPicker B) at group tier", () => {
   it("C-06d — typography keys are NOT rendered as standalone rows", () => {
     const p = baseProject();
     render(
-      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
-        onSelectTier={vi.fn()} onSetStyle={vi.fn()} onClearStyle={vi.fn()} />
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null} onSetStyle={vi.fn()} onClearStyle={vi.fn()} />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
     expect(within(groupTier).queryByText(/^Bold$/)).toBeNull();
@@ -479,8 +419,7 @@ describe("C-07 — color rows are ColorPicker fields (primary) at group tier", (
   it("C-07a — the Fill row renders a ColorPicker field trigger (no inline .sw-dot row)", () => {
     const p = baseProject();
     render(
-      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
-        onSelectTier={vi.fn()} onSetStyle={vi.fn()} onClearStyle={vi.fn()} />
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null} onSetStyle={vi.fn()} onClearStyle={vi.fn()} />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
     const fillRow = within(groupTier).getByText(/^Fill$/).closest(".prow") as HTMLElement;
@@ -494,8 +433,7 @@ describe("C-07 — color rows are ColorPicker fields (primary) at group tier", (
       const onSetStyle = vi.fn();
       const p = withGroupStyle(baseProject(), 0, { primary: "#FFFFFF" });
       render(
-        <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
-          onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
+        <StyleWaterfall project={p} sel={selGroup()} aiTier={null} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
       );
       const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
       const pop = await openColorPopover(groupTier, /^Fill$/);
@@ -507,8 +445,7 @@ describe("C-07 — color rows are ColorPicker fields (primary) at group tier", (
   it("C-07c — the field trigger shows the current value", () => {
     const p = withGroupStyle(baseProject(), 0, { primary: "#FF3DA6" });
     render(
-      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
-        onSelectTier={vi.fn()} onSetStyle={vi.fn()} onClearStyle={vi.fn()} />
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null} onSetStyle={vi.fn()} onClearStyle={vi.fn()} />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
     const fillRow = within(groupTier).getByText(/^Fill$/).closest(".prow") as HTMLElement;
@@ -523,8 +460,7 @@ describe("C-08 — color fields for outline and back at group tier", () => {
     const onSetStyle = vi.fn();
     const p = baseProject();
     render(
-      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
-        onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
     const outlineLabel = within(groupTier).getAllByText(/^Outline$/).find((el) => el.className === "pl") as HTMLElement;
@@ -541,8 +477,7 @@ describe("C-08 — color fields for outline and back at group tier", () => {
     const onSetStyle = vi.fn();
     const p = baseProject();
     render(
-      <StyleWaterfall project={p} sel={selGroup()} aiTier={null}
-        onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
+      <StyleWaterfall project={p} sel={selGroup()} aiTier={null} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
     );
     const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
     const pop = await openColorPopover(groupTier, /^Box color$/);
@@ -563,7 +498,6 @@ describe("C-09 — border_style Outline/Box buttons at group tier", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -582,7 +516,6 @@ describe("C-09 — border_style Outline/Box buttons at group tier", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -600,7 +533,6 @@ describe("C-09 — border_style Outline/Box buttons at group tier", () => {
         project={p}
         sel={selCue(p)}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
       />
@@ -621,7 +553,6 @@ describe("C-10 — align grid at group tier", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -646,7 +577,6 @@ describe("C-10 — align grid at group tier", () => {
         project={p}
         sel={selCue(p)}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
       />
@@ -666,7 +596,6 @@ describe("C-11 — inheritance display and clear override", () => {
         project={p}
         sel={selCue(p)}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
       />
@@ -684,7 +613,6 @@ describe("C-11 — inheritance display and clear override", () => {
         project={p}
         sel={selCue(p)}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
       />
@@ -701,7 +629,6 @@ describe("C-11 — inheritance display and clear override", () => {
         project={p}
         sel={selCue(p)}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
       />
@@ -719,7 +646,6 @@ describe("C-11 — inheritance display and clear override", () => {
         project={p}
         sel={selCue(p)}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={onClearStyle}
       />
@@ -738,7 +664,6 @@ describe("C-11 — inheritance display and clear override", () => {
         project={p}
         sel={selCue(p)}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
       />
@@ -755,7 +680,6 @@ describe("C-11 — inheritance display and clear override", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
       />
@@ -774,7 +698,6 @@ describe("C-11 — inheritance display and clear override", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={onClearStyle}
       />
@@ -797,7 +720,6 @@ describe("C-12 — cue tier style controls", () => {
         project={p}
         sel={selCue(p)}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -812,8 +734,7 @@ describe("C-12 — cue tier style controls", () => {
     const onSetStyle = vi.fn();
     const p = withCueStyle(baseProject(), 0, 0, 0, { primary: "#FFFFFF" });
     render(
-      <StyleWaterfall project={p} sel={selCue(p)} aiTier={null}
-        onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
+      <StyleWaterfall project={p} sel={selCue(p)} aiTier={null} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
     );
     const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
     const pop = await openColorPopover(cueTier, /^Fill$/);
@@ -825,8 +746,7 @@ describe("C-12 — cue tier style controls", () => {
     const onSetStyle = vi.fn();
     const p = withCueStyle(baseProject(), 0, 0, 0, { bold: true });
     render(
-      <StyleWaterfall project={p} sel={selCue(p)} aiTier={null}
-        onSelectTier={vi.fn()} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
+      <StyleWaterfall project={p} sel={selCue(p)} aiTier={null} onSetStyle={onSetStyle} onClearStyle={vi.fn()} />
     );
     const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
     const pop = await openFontPopover(cueTier);
@@ -846,7 +766,6 @@ describe("C-13 — global tier controls", () => {
         project={p}
         sel={selGlobal()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={onSetStyle}
         onClearStyle={vi.fn()}
       />
@@ -864,7 +783,6 @@ describe("C-13 — global tier controls", () => {
         project={p}
         sel={selGlobal()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
       />
@@ -887,7 +805,6 @@ describe("C-15 — CUE tier badge", () => {
         project={p}
         sel={selCue(p)}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
       />
@@ -908,7 +825,6 @@ describe("C-16 — aiTier hot class", () => {
         project={p}
         sel={selGroup()}
         aiTier="group"
-        onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
       />
@@ -924,7 +840,6 @@ describe("C-16 — aiTier hot class", () => {
         project={p}
         sel={selGroup()}
         aiTier={null}
-        onSelectTier={vi.fn()}
         onSetStyle={vi.fn()}
         onClearStyle={vi.fn()}
       />

@@ -31,7 +31,6 @@ describe("group-level alignment (global < group, no cue)", () => {
         project={proj()}
         sel={{ scope: "group", gi: 0, tok: null }}
         aiTier={null}
-        onSelectTier={() => {}}
         onSetStyle={() => {}}
         onClearStyle={() => {}}
       />

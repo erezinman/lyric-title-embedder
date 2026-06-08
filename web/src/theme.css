@@ -536,13 +536,16 @@ body.col-resizing .col-grip::after { background: var(--cyan); }
 .wf-head { font-size: 11px; color: var(--text-3); line-height: 1.5; margin-bottom: 2px; }
 .wf-head b { color: var(--text-1); font-weight: 600; }
 .tier3 { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 11px 12px; background: var(--surface-2);
-  cursor: pointer; transition: border-color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out); }
+  transition: border-color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out); }
 .tier3:hover { border-color: var(--border-strong); }
-.tier3.sel { border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), 0 6px 20px var(--glow-accent); }
 .tier3.aihot { animation: aipulse 1.3s var(--ease-out); }
 @keyframes aipulse { 0% { box-shadow: 0 0 0 2px var(--accent), 0 0 22px var(--glow-accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
-.t3-h { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+/* zip 11: tier header = collapse only (chevron). No scope-select, no selected ring. */
+.t3-h { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; cursor: pointer; user-select: none; }
+.t3-chev { display: inline-flex; color: var(--text-3); transition: transform var(--dur) var(--ease-out); }
+.tier3.collapsed .t3-h { margin-bottom: 0; }
+.tier3.collapsed .t3-chev { transform: rotate(-90deg); }
+.tier3.collapsed .t3-body { display: none; }
 .t3-meta { font-size: 11.5px; color: var(--text-2); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .t3-body { display: flex; flex-direction: column; gap: 3px; }
 
