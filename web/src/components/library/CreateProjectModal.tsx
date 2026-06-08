@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getEnv, projects } from "../../api/client";
+import { isDesktop, pickOpen } from "../../model/desktop";
 
 type Source = "suno_json" | "srt";
 type Provide = "upload" | "path";
@@ -37,6 +38,16 @@ export function CreateProjectModal({
     (lyricsMode === "upload" ? lyricsFile !== null : lyricsPath.trim() !== "");
 
   useEffect(() => { void getEnv().then((e) => setCanServerPaths(e.can_use_server_paths)).catch(() => setCanServerPaths(false)); }, []);
+
+  const browseLyrics = async () => {
+    const ext = source === "srt" ? ["srt"] : ["json"];
+    const p = await pickOpen({ filters: [{ name: "Lyrics", extensions: ext }] });
+    if (p) { setLyricsMode("path"); setLyricsPath(p); }
+  };
+  const browseVideo = async () => {
+    const p = await pickOpen({ filters: [{ name: "Video", extensions: ["mp4", "mov", "mkv", "webm"] }] });
+    if (p) { setVideoMode("path"); setVideoPath(p); }
+  };
 
   const submit = async () => {
     setError(null);
@@ -93,6 +104,10 @@ export function CreateProjectModal({
         <div className="fld">
           <span>Lyrics</span>
           <ModeSwitch mode={lyricsMode} set={setLyricsMode} />
+          {isDesktop && (
+            <button type="button" className="btn ghost browse-btn" aria-label="Browse lyrics"
+                    onClick={() => void browseLyrics()}>Browse…</button>
+          )}
           {lyricsMode === "upload" ? (
             <input type="file" aria-label="Lyrics file" accept={source === "srt" ? ".srt,text/plain" : ".json,application/json"}
                    onChange={(e) => setLyricsFile(e.target.files?.[0] ?? null)} />
@@ -104,6 +119,10 @@ export function CreateProjectModal({
         <div className="fld">
           <span>Video (optional)</span>
           <ModeSwitch mode={videoMode} set={setVideoMode} />
+          {isDesktop && (
+            <button type="button" className="btn ghost browse-btn" aria-label="Browse video"
+                    onClick={() => void browseVideo()}>Browse…</button>
+          )}
           {videoMode === "upload" ? (
             <input type="file" aria-label="Video file" accept="video/*" onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)} />
           ) : (

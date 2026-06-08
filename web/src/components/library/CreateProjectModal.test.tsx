@@ -3,7 +3,16 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CreateProjectModal } from "./CreateProjectModal";
 import * as client from "../../api/client";
 
-beforeEach(() => { vi.restoreAllMocks(); });
+// Mock the desktop bridge with a live getter so isDesktop can be toggled per test.
+// Default false → existing tests render no Browse… buttons (plain-browser parity).
+const dt = vi.hoisted(() => ({ isDesktop: false, pickOpen: vi.fn(), pickSave: vi.fn() }));
+vi.mock("../../model/desktop", () => ({
+  get isDesktop() { return dt.isDesktop; },
+  pickOpen: (o: unknown) => dt.pickOpen(o),
+  pickSave: (o: unknown) => dt.pickSave(o),
+}));
+
+beforeEach(() => { vi.restoreAllMocks(); dt.isDesktop = false; dt.pickOpen.mockReset(); dt.pickSave.mockReset(); });
 
 function setup(envSameHost = false) {
   vi.spyOn(client, "getEnv").mockResolvedValue({
@@ -67,5 +76,24 @@ describe("CreateProjectModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
     expect(await screen.findByText(/name exists/i)).toBeInTheDocument();
     expect(onCreated).not.toHaveBeenCalled();
+  });
+});
+
+describe("CreateProjectModal — desktop Browse…", () => {
+  it("Browse… sets the lyrics server path via the native picker", async () => {
+    dt.isDesktop = true;
+    dt.pickOpen.mockResolvedValue("/abs/lyrics.json");
+    setup(true);                                  // native caps → server-path UI available
+    const browse = await screen.findByRole("button", { name: /browse lyrics/i });
+    fireEvent.click(browse);
+    await waitFor(() =>
+      expect((screen.getByLabelText(/lyrics server path/i) as HTMLInputElement).value)
+        .toBe("/abs/lyrics.json"));
+  });
+
+  it("no Browse… buttons when not desktop", async () => {
+    setup(true);
+    await screen.findByText(/new project/i);
+    expect(screen.queryByRole("button", { name: /browse lyrics/i })).not.toBeInTheDocument();
   });
 });
