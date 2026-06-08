@@ -28,7 +28,7 @@ function proj(): Project {
       lines: [{ toks: [{ ids: [0], sep: "", del: false, style: { font: "Oswald" } }] }],
     }],
     anim_tags: [],
-    globals: { linger: 0.0, animations: [] },
+    globals: { linger: 0.0, animations: [], text_direction: "auto", bidi_marks: true },
     global_style: {
       font: "Space Grotesk", fontsize: 64, bold: true, italic: false, underline: false, primary: "#FFFFFF",
       outline: "#000000", back: "#000000", back_alpha: "80",

@@ -42,7 +42,7 @@ function projectTwoCues(): Project {
       },
     ],
     anim_tags: [],
-    globals: { linger: 0, animations: [] },
+    globals: { linger: 0, animations: [], text_direction: "auto", bidi_marks: true },
     global_style: {
       font: "x", fontsize: 64, bold: true, italic: false, underline: false, primary: "#fff", outline: "#000",
       back: "#000", back_alpha: "80", outline_w: 3, shadow: 0, border_style: 1, align: 2,
