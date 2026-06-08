@@ -179,7 +179,8 @@ def t_get_project_minimal_shape():
     keys = set(pj.keys())
     # REWRITE (animations migration): get_project now exposes anim_tags + per-group
     # animations/suppress instead of fin_tags/fout_tags/group.fade.
-    ok = (keys == {"words", "layout", "anim_tags", "globals", "global_style", "placement", "video"}
+    ok = (keys == {"words", "layout", "anim_tags", "globals", "global_style", "placement", "video",
+                   "can_undo", "can_redo"}
           and set(pj["global_style"].keys()) == set(STYLE_KEYS)
           and "use_pos" in pj["placement"]   # exposed so clients can't misreport \pos state
           and "pos" in pj["placement"]
