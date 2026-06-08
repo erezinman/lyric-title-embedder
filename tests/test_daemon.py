@@ -244,6 +244,47 @@ def t_native_does_not_gate_server_paths():
     rb = c.post("/api/burn", json={"out": "/tmp/_kss_x.mp4", "video_in": "/nope.mp4"})
     return (rv.status_code != 403 and rb.status_code != 403), f"video={rv.status_code} burn={rb.status_code}"
 
+def _client_webdist():
+    import tempfile, os
+    d = tempfile.mkdtemp(prefix="kss_webdist_")
+    with open(os.path.join(d, "index.html"), "w") as fh: fh.write("<!doctype html><title>KSS</title>")
+    os.makedirs(os.path.join(d, "assets"), exist_ok=True)
+    with open(os.path.join(d, "assets", "app.js"), "w") as fh: fh.write("console.log('kss')")
+    hub = Hub(); ctx = DaemonContext(hub); ctx.load_lyrics("aligned_lyrics.json")
+    app = build_app(ctx, hub, token=None, projects_dir="/tmp/_kss_projects", web_dist=d)
+    return TestClient(app), d
+
+def t_spa_index_served_at_root():
+    c, _ = _client_webdist()
+    r = c.get("/")
+    return (r.status_code == 200 and "<title>KSS</title>" in r.text), f"status={r.status_code}"
+
+def t_spa_asset_served():
+    c, _ = _client_webdist()
+    r = c.get("/assets/app.js")
+    return (r.status_code == 200 and "kss" in r.text), f"status={r.status_code}"
+
+def t_spa_deep_route_falls_back_to_index():
+    c, _ = _client_webdist()
+    r = c.get("/some/editor/route")
+    return (r.status_code == 200 and "<title>KSS</title>" in r.text), f"status={r.status_code}"
+
+def t_spa_does_not_shadow_api():
+    c, _ = _client_webdist()
+    r = c.get("/api/state")
+    body = r.json()
+    return (r.status_code == 200 and "layout" in body), f"status={r.status_code}"
+
+def t_spa_unknown_api_not_index():
+    c, _ = _client_webdist()
+    r = c.get("/api/no_such_route")
+    return (r.status_code == 404 and "<title>" not in r.text), f"status={r.status_code} body={r.text[:40]!r}"
+
+def t_no_spa_without_web_dist():
+    c, _ = _client()   # default: web_dist=None
+    r = c.get("/")
+    return (r.status_code == 404), f"status={r.status_code}"
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)

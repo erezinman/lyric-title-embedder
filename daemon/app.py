@@ -1,12 +1,13 @@
-# daemon/app.py — build the unified Starlette app (/api + /ws + /mcp).
+# daemon/app.py — build the unified Starlette app (/api + /ws + /mcp [+ optional SPA]).
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from starlette.applications import Starlette
 from starlette.routing import Route, WebSocketRoute, Mount
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import PlainTextResponse
+from starlette.responses import PlainTextResponse, FileResponse
 from daemon.api import make_routes
 from mcp_server.server import build_server
 
@@ -18,7 +19,7 @@ class _Auth(BaseHTTPMiddleware):
             return PlainTextResponse("unauthorized", status_code=401)
         return await call_next(request)
 
-def build_app(ctx, hub, token=None, projects_dir="projects", file_access="native"):
+def build_app(ctx, hub, token=None, projects_dir="projects", file_access="native", web_dist=None):
     (call, state, render, ass, srt, vtt, ws_endpoint, frame, font, burn, burn_status,
      projects_list, projects_new, projects_open, projects_save, env, projects_create,
      connect, fonts, video, video_clear, fonts_upload, fonts_file, fonts_delete) = make_routes(ctx, hub)
@@ -56,6 +57,28 @@ def build_app(ctx, hub, token=None, projects_dir="projects", file_access="native
         Route("/api/fonts/file/{family:path}", fonts_file, methods=["GET"]),
         Route("/api/fonts/{family:path}", fonts_delete, methods=["DELETE"]),
     ]
+    # Optional: serve the built web SPA so a single local origin hosts UI + API (the
+    # Electron shell loads http://127.0.0.1:<port>/). Appended LAST so the explicit
+    # /api, /ws, /mcp routes above always match first.
+    if web_dist and os.path.isdir(web_dist):
+        base = os.path.abspath(web_dist)
+        index = os.path.join(base, "index.html")
+
+        async def _spa(request):
+            rel = request.path_params.get("path", "")
+            if rel in ("ws", "api", "mcp") or rel.startswith("api/") or rel.startswith("mcp/"):
+                return PlainTextResponse("not found", status_code=404)
+            candidate = os.path.abspath(os.path.join(base, rel))
+            if (candidate == base or candidate.startswith(base + os.sep)) and os.path.isfile(candidate):
+                return FileResponse(candidate)
+            return FileResponse(index)            # SPA deep-link fallback
+
+        async def _spa_root(request):
+            return FileResponse(index)
+
+        routes.append(Route("/", _spa_root, methods=["GET"]))
+        routes.append(Route("/{path:path}", _spa, methods=["GET"]))
+
     middleware = [Middleware(CORSMiddleware, allow_origins=["http://127.0.0.1:5173",
                   "http://localhost:5173"], allow_methods=["*"], allow_headers=["*"])]
     if token:
@@ -64,4 +87,5 @@ def build_app(ctx, hub, token=None, projects_dir="projects", file_access="native
     app.state.ctx = ctx; app.state.hub = hub
     app.state.token = token; app.state.projects_dir = projects_dir
     app.state.file_access = file_access
+    app.state.web_dist = web_dist
     return app
