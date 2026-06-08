@@ -185,6 +185,7 @@
 .ksp-upload-btn:disabled { opacity: .6; cursor: default; }
 .ksp-upload-note { font-family: var(--font-mono); font-size: 9px; letter-spacing: .04em; color: var(--text-3); text-align: center; }
 .ksp-upload-note.err { color: var(--danger, #FF6B6B); }
+.ksp-rtl-hint { font-family: var(--font-mono); font-size: 9px; letter-spacing: .03em; color: var(--cyan, var(--text-3)); margin: 2px 0 4px; padding: 4px 7px; border: 1px dashed var(--border); border-radius: var(--radius-sm); }
 
 /* ---- font: B / I / U typography toggles ----------------------------------- */
 .ksp-typo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }

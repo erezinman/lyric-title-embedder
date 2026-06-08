@@ -62,6 +62,29 @@ describe("FontPicker — list & search", () => {
   });
 });
 
+describe("FontPicker — RTL default faces + coverage hint", () => {
+  it("includes RTL-friendly faces in the curated list", () => {
+    render(<FontPicker value="Anton" onChange={vi.fn()} />);
+    expect(screen.getByText("Heebo")).toBeTruthy();
+    expect(screen.getByText("Noto Sans Hebrew")).toBeTruthy();
+    expect(screen.getByText("Noto Sans Arabic")).toBeTruthy();
+  });
+
+  it("shows the RTL coverage hint only when rtlHint is set", () => {
+    const { rerender } = render(<FontPicker value="Anton" onChange={vi.fn()} />);
+    expect(screen.queryByText(/RTL-covering font/i)).toBeNull();
+    rerender(<FontPicker value="Anton" onChange={vi.fn()} rtlHint />);
+    expect(screen.getByText(/RTL-covering font/i)).toBeTruthy();
+  });
+
+  it("still fires onChange when picking an RTL face with the hint shown", async () => {
+    const onChange = vi.fn();
+    render(<FontPicker value="Anton" onChange={onChange} rtlHint />);
+    await userEvent.click(screen.getByText("Heebo"));
+    expect(onChange).toHaveBeenCalledWith("Heebo");
+  });
+});
+
 describe("FontPicker — B/I/U toggles", () => {
   it("shows toggles only when onTypo is provided, with aria-pressed reflecting state", () => {
     const { rerender } = render(<FontPicker value="Anton" onChange={vi.fn()} />);
