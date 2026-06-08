@@ -176,6 +176,16 @@ def merge_words(ctx, gi, li, ti, sep=""):
 def join_lines(ctx, gi, li):
     _do(ctx, "remove_break", gi, li); return ctx.run(lambda: _event_view(ctx, gi))
 
+def break_after_each(ctx, gi, li, tis):
+    """Atomic multi-break: split line `li` after each token index in `tis` as ONE
+    undo step. A single-element `tis` is equivalent to break_line(after=True)."""
+    _do(ctx, "break_after_each", gi, li, list(tis)); return ctx.run(lambda: _event_view(ctx, gi))
+
+def join_lines_multi(ctx, gi, lis):
+    """Atomic multi-join: collapse the contiguous line indices `lis` into one line
+    as ONE undo step."""
+    _do(ctx, "join_lines_multi", gi, list(lis)); return ctx.run(lambda: _event_view(ctx, gi))
+
 
 def merge_word_span(ctx, gi, li, ti_first, ti_last, sep=""):
     _do(ctx, "merge_token_span", gi, li, ti_first, ti_last, sep)

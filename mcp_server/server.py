@@ -53,6 +53,10 @@ def build_server(ctx, name="karaoke-subtitle-studio"):
     @mcp.tool()
     def join_lines(gi: int, li: int) -> dict: return tools.join_lines(ctx, gi, li)
     @mcp.tool()
+    def break_after_each(gi: int, li: int, tis: list) -> dict: return tools.break_after_each(ctx, gi, li, tis)
+    @mcp.tool()
+    def join_lines_multi(gi: int, lis: list) -> dict: return tools.join_lines_multi(ctx, gi, lis)
+    @mcp.tool()
     def merge_words(gi: int, li: int, ti: int, sep: str = "") -> dict: return tools.merge_words(ctx, gi, li, ti, sep)
     @mcp.tool()
     def merge_word_span(gi: int, li: int, ti_first: int, ti_last: int, sep: str = "") -> dict:

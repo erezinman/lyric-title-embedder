@@ -117,6 +117,52 @@ def remove_break(project, gi, li):
     del lines[li + 1]
 
 
+def break_after_each(project, gi, li, tis):
+    """Split a single line `li` of event `gi` AFTER each given token index, in ONE
+    step (one undo reverts every cut). `tis` are token positions within line `li`;
+    a break is placed after token ti (i.e. ti+1 starts a new line) for each ti in
+    `tis`. Boundary positions (after the last token / before the first) are inert,
+    matching add_break. Empty / single-element `tis` behave exactly like the
+    equivalent add_break calls. ValueError on an out-of-range gi/li/ti."""
+    lines = project["layout"][gi]["lines"]
+    if not (0 <= li < len(lines)):
+        raise ValueError(f"break_after_each: line {li} out of range for {len(lines)} lines")
+    toks = lines[li]["toks"]
+    n = len(toks)
+    for ti in tis:
+        if not (0 <= ti < n):
+            raise ValueError(f"break_after_each: token index {ti} out of range for {n} tokens")
+    # cut positions = token boundaries strictly inside the line (after ti => ti+1)
+    cuts = sorted({ti + 1 for ti in tis if 0 < ti + 1 < n})
+    if not cuts:
+        return
+    bounds = [0] + cuts + [n]
+    new_lines = [{"toks": toks[a:b]} for a, b in zip(bounds, bounds[1:])]
+    lines[li:li + 1] = new_lines
+
+
+def join_lines_multi(project, gi, lis):
+    """Collapse the given line indices of event `gi` into ONE line, in ONE step
+    (one undo reverts the whole join). `lis` must be a contiguous run of line
+    indices; their tokens concatenate in line order onto the first line and the
+    rest are removed. A single-element `lis` is a no-op (nothing to join).
+    ValueError if indices are out of range or not contiguous."""
+    lines = project["layout"][gi]["lines"]
+    idx = sorted(set(lis))
+    if not idx:
+        return
+    for li in idx:
+        if not (0 <= li < len(lines)):
+            raise ValueError(f"join_lines_multi: line {li} out of range for {len(lines)} lines")
+    if idx != list(range(idx[0], idx[-1] + 1)):
+        raise ValueError(f"join_lines_multi: line indices {idx} are not contiguous")
+    if len(idx) < 2:
+        return
+    lo, hi = idx[0], idx[-1]
+    merged = [t for li in range(lo, hi + 1) for t in lines[li]["toks"]]
+    lines[lo:hi + 1] = [{"toks": merged}]
+
+
 def merge_prev_word(project, gi, li, ti, sep=""):
     toks = project["layout"][gi]["lines"][li]["toks"]
     if ti > 0:
