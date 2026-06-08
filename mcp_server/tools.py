@@ -120,7 +120,7 @@ def get_project(ctx):
                 "globals": gl,
                 "global_style": {k: g[k] for k in STYLE_KEYS},
                 "placement": {k: g.get(k) for k in _PLACE_KEYS},
-                "video": ctx.video_path(),
+                "video": ctx.video_meta(),
                 "can_undo": ctx.session.can_undo(), "can_redo": ctx.session.can_redo()}
     return ctx.run(f)
 

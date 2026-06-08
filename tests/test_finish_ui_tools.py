@@ -35,8 +35,10 @@ def t_get_project_video_null_then_set():
     p0 = tools.get_project(c)
     c.set_video("/tmp/some_clip.mp4")
     p1 = tools.get_project(c)
+    # `video` is now an object {path,w,h,duration_s}; check the path field.
     return ("video" in p0 and p0["video"] is None
-            and p1["video"] == "/tmp/some_clip.mp4"), str(p1.get("video"))
+            and isinstance(p1["video"], dict)
+            and p1["video"]["path"] == "/tmp/some_clip.mp4"), str(p1.get("video"))
 
 def t_get_project_exposes_use_pos():
     c = _ctx()

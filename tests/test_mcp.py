@@ -222,8 +222,12 @@ def t_set_word_text_tool():
 def t_set_video_sets_and_shows_in_project():
     ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")
     tools.set_video(ctx, "/tmp/clip.mp4")
+    # `video` is now an object {path,w,h,duration_s} (probe meta rides alongside the
+    # path); meta is null here since /tmp/clip.mp4 isn't a real file to probe.
+    v = tools.get_project(ctx)["video"]
     return (ctx.video_path() == "/tmp/clip.mp4"
-            and tools.get_project(ctx)["video"] == "/tmp/clip.mp4"), ctx.video_path()
+            and isinstance(v, dict) and v["path"] == "/tmp/clip.mp4"
+            and set(v) == {"path", "w", "h", "duration_s"}), ctx.video_path()
 
 def t_set_video_undo_reverts():
     ctx = HeadlessContext(); ctx.load_lyrics("aligned_lyrics.json")

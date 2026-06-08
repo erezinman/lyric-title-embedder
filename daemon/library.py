@@ -95,6 +95,34 @@ def create_project(ctx, projects_dir, name, *, source,
         raise
 
 
+def set_project_video(ctx, projects_dir, name, *, video_bytes=None, video_path=None,
+                      video_name=None):
+    """Attach/swap/clear the video on an already-open project AFTER creation.
+    Mirrors create_project's media handling: uploaded bytes are saved into the
+    project folder as video<ext>; a server-side path is validated + stored absolute;
+    clear (no bytes, no path) detaches. Calls ctx.set_video (which probes + rides the
+    undo/broadcast/autosave timeline) and re-saves project.json. Returns the stored
+    video meta dict (or None)."""
+    name = _safe(name)
+    folder = os.path.join(projects_dir, name)
+    if not os.path.isdir(folder):
+        raise ValueError(f"project not found: {name}")
+    if video_bytes is not None:
+        ext = os.path.splitext(video_name or "video.mp4")[1] or ".mp4"
+        vpath = os.path.join(folder, "video" + ext)
+        with open(vpath, "wb") as fh:
+            fh.write(video_bytes)
+    elif video_path:
+        if not os.path.isfile(video_path):
+            raise ValueError(f"video path not found: {video_path}")
+        vpath = os.path.abspath(video_path)
+    else:
+        vpath = None
+    ctx.set_video(vpath)
+    save_project(ctx, projects_dir, name)
+    return ctx.video_meta()
+
+
 def list_projects(projects_dir):
     if not os.path.isdir(projects_dir):
         return []

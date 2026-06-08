@@ -22,6 +22,7 @@ class EngineContext:
     def set_globals(self, partial): raise NotImplementedError
     def cfg(self): raise NotImplementedError
     def video_path(self): return None
+    def video_meta(self): return None
     def fonts(self): return core.list_font_families()
 
 class HeadlessContext(EngineContext):
@@ -48,9 +49,23 @@ class HeadlessContext(EngineContext):
                 if k in GLOBAL_KEYS: self._g[k] = v
         self.session.record(apply)
     def set_video(self, path):
-        def apply(): self._video = path or None
+        # Probe outside the recorded apply() so the undo snapshot captures the
+        # already-resolved meta dict (probe failure degrades to path + null meta).
+        if path:
+            import engine
+            meta = engine.ffmpeg.probe_video(path) or {"w": None, "h": None, "duration_s": None}
+            video = {"path": path, "w": meta.get("w"), "h": meta.get("h"),
+                     "duration_s": meta.get("duration_s")}
+        else:
+            video = None
+        def apply(): self._video = video
         self.session.record(apply)
-    def video_path(self): return self._video
+    def video_path(self):
+        return self._video["path"] if self._video else None
+    def video_meta(self):
+        # Full {path, w, h, duration_s} dict (or None). get_project surfaces this as
+        # the `video` field; video_path() stays the bare path for burn/frame/library.
+        return dict(self._video) if self._video else None
     def cfg(self):
         g = self._g
         c = {"font": g["font"], "fontsize": g["fontsize"], "bold": g["bold"], "align": g["align"],
@@ -122,6 +137,16 @@ class UIContext(EngineContext):
         if "e" in box: raise box["e"]
         return box.get("r")
     def video_path(self): return self.run(lambda: self.app.vid_var.get() or None)
+    def video_meta(self):
+        # The Tk app stores only a path string; probe on demand so the daemon-style
+        # `video` object (path + w/h/duration) is available to MCP/web clients too.
+        p = self.video_path()
+        if not p:
+            return None
+        import engine
+        meta = engine.ffmpeg.probe_video(p) or {"w": None, "h": None, "duration_s": None}
+        return {"path": p, "w": meta.get("w"), "h": meta.get("h"),
+                "duration_s": meta.get("duration_s")}
     def cfg(self): return self.run(lambda: self.app.cfg())
     def fonts(self):
         return core.list_font_families()
