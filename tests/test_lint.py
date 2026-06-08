@@ -24,7 +24,80 @@ def test_same_scope_overlap_warns():
     over = [i for i in issues if i["code"] == "anim_overlap"]
     assert over, issues
     assert over[0]["level"] == "warn"
+    assert over[0]["severity"] == "blocking"
     assert over[0]["where"]["channel"] == "scale_x"
+
+
+# ── severity tiers (3-tier model: blocking / advisory / info) ─────────────────
+
+def test_overlap_severity_blocking():
+    p = fx.with_same_scope_overlap()
+    over = [i for i in lint.lint_project(p) if i["code"] == "anim_overlap"]
+    assert over and all(i["severity"] == "blocking" for i in over), over
+
+
+def test_invalid_anim_severity_blocking():
+    p = fx.with_animations(fx.synth_project(),
+                           {"global": [fx._anim(id="bad", channel="not_a_channel")]})
+    inv = [i for i in lint.lint_project(p) if i["code"] == "anim_invalid"]
+    assert inv and all(i["severity"] == "blocking" for i in inv), inv
+
+
+def test_clamped_severity_advisory():
+    p = fx.with_animations(fx.synth_project(), {"group": {0: [
+        fx._anim(id="late", channel="alpha",
+                 segments=[fx._seg(fx._time("cue_end"), fx._time("cue_end", 100000), None, 0)])]}})
+    cl = [i for i in lint.lint_project(p) if i["code"] == "anim_clamped"]
+    assert cl and all(i["severity"] == "advisory" for i in cl), cl
+
+
+def test_pos_off_canvas_severity_info():
+    p = fx.synth_project()
+    placement = {"use_pos": True, "pos": [5000, 200], "play_w": 1920, "play_h": 1080}
+    pc = [i for i in lint.lint_project(p, placement) if i["code"] == "pos_off_canvas"]
+    assert pc and all(i["severity"] == "info" for i in pc), pc
+
+
+def test_blocking_present_implies_severity_blocking():
+    p = fx.with_same_scope_overlap()
+    issues = lint.lint_project(p)
+    assert any(i["severity"] == "blocking" for i in issues), issues
+
+
+def test_every_issue_has_severity():
+    p = fx.with_same_scope_overlap()
+    for i in lint.lint_project(p):
+        assert i["severity"] in ("blocking", "advisory", "info"), i
+
+
+# ── guaranteed jump-target in `where` ─────────────────────────────────────────
+
+def test_overlap_where_has_word_id_and_time():
+    p = fx.with_same_scope_overlap()
+    over = [i for i in lint.lint_project(p) if i["code"] == "anim_overlap"]
+    w = over[0]["where"]
+    assert isinstance(w.get("word_id"), int), w
+    assert isinstance(w.get("time"), (int, float)), w
+    # representative word_id is the first id of the offending cue's token; its time
+    # is that word's start (group-0 cue 0 -> word 0 @ 1.000s in synth_project)
+    assert w["word_id"] == 0 and abs(w["time"] - 1.000) < 1e-9, w
+
+
+def test_clamped_where_has_word_id_and_time():
+    p = fx.with_animations(fx.synth_project(), {"group": {0: [
+        fx._anim(id="late", channel="alpha",
+                 segments=[fx._seg(fx._time("cue_end"), fx._time("cue_end", 100000), None, 0)])]}})
+    cl = [i for i in lint.lint_project(p) if i["code"] == "anim_clamped"]
+    w = cl[0]["where"]
+    assert isinstance(w.get("word_id"), int) and isinstance(w.get("time"), (int, float)), w
+
+
+def test_placement_where_carries_pos_marker():
+    p = fx.synth_project()
+    placement = {"use_pos": True, "pos": [5000, 200], "play_w": 1920, "play_h": 1080}
+    pc = [i for i in lint.lint_project(p, placement) if i["code"] == "pos_off_canvas"]
+    w = pc[0]["where"]
+    assert w.get("placement") is True and w.get("pos") == [5000.0, 200.0], w
 
 
 def test_cross_scope_overlap_not_flagged_as_same_scope():
@@ -85,8 +158,9 @@ def test_in_window_anim_not_clamped():
 def test_issue_shape():
     p = fx.with_same_scope_overlap()
     for i in lint.lint_project(p):
-        assert set(i.keys()) == {"level", "code", "msg", "where"}
+        assert set(i.keys()) == {"level", "severity", "code", "msg", "where"}
         assert i["level"] in ("warn", "error")
+        assert i["severity"] in ("blocking", "advisory", "info")
         assert isinstance(i["msg"], str) and isinstance(i["where"], dict)
 
 
