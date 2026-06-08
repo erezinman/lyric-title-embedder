@@ -1,0 +1,53 @@
+/* ============================================================================
+   Karaoke Subtitle Studio — Design System · fonts.css
+   Self-hosted, EXTENSIBLE font spec.
+
+   Two tiers keep this easy to extend:
+     1. @font-face        — the actual files (vendored, variable .ttf, no network)
+     2. --family-* tokens — one raw token per typeface (the "font registry")
+   The semantic ROLE tier (--font-display / --font-ui / --font-mono) lives in
+   colors_and_type.css and points at these raw tokens.
+
+   ── To ADD a typeface ───────────────────────────────────────────────────────
+     1. Drop the file in  fonts/  (woff2 preferred for production; variable .ttf
+        is fine and covers a whole weight range in one file).
+     2. Add an @font-face block below. For a variable font give the real axis
+        range in `font-weight` (e.g. 300 700) and use format("truetype-variations").
+     3. Register it as a --family-<name> token in the :root block.
+     4. (Optional) Point a role at it in colors_and_type.css, e.g.
+            --font-display: var(--family-myface);
+   ── To SWAP the brand face ──────────────────────────────────────────────────
+     Just remap the role token — no need to touch these @font-face blocks.
+   ============================================================================ */
+
+/* ---- 1. Faces (vendored variable fonts — single file per family) ---------- */
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("fonts/SpaceGrotesk[wght].ttf") format("truetype-variations");
+  font-weight: 300 700;       /* SpaceGrotesk variable wght axis */
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  src: url("fonts/HankenGrotesk[wght].ttf") format("truetype-variations");
+  font-weight: 100 900;       /* HankenGrotesk variable wght axis */
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("fonts/JetBrainsMono[wght].ttf") format("truetype-variations");
+  font-weight: 100 800;       /* JetBrainsMono variable wght axis */
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---- 2. Family registry (raw tokens) -------------------------------------
+   Each token is `"<face>", <fallback stack>`. Roles reference these so a face
+   only ever names its fallbacks in ONE place. Add a line per new face. ------- */
+:root {
+  --family-space-grotesk:  "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif; /* @kind font */
+  --family-hanken-grotesk: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif; /* @kind font */
+  --family-jetbrains-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace; /* @kind font */
+}

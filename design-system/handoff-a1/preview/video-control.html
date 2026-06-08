@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Components" name="Video control — states" subtitle="Attach / swap / clear after creation (set_video)" viewport="760x420" -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../colors_and_type.css" />
+<link rel="stylesheet" href="card.css" />
+<style>
+  body{padding:20px 22px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;max-width:700px;}
+  .cell{display:flex;flex-direction:column;gap:9px;}
+  .st{font-family:var(--font-ui);font-weight:600;font-size:9.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--text-3);display:flex;align-items:center;gap:7px;}
+  .st .pip{width:6px;height:6px;border-radius:50%;background:var(--border-strong);}
+  .st.live .pip{background:var(--success);box-shadow:0 0 7px color-mix(in srgb,var(--success) 70%,transparent);}
+  .st.busy .pip{background:var(--cyan);box-shadow:0 0 7px var(--glow-cyan);}
+  .st.warn .pip{background:var(--warn);}
+
+  /* the control shell — sits in the ControlsRail */
+  .vc{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-lg);
+    padding:11px 12px;display:flex;flex-direction:column;gap:10px;}
+  .vc .hd{font-family:var(--font-ui);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);}
+
+  /* empty state — dashed dropwell */
+  .well{border:1.5px dashed var(--border-strong);border-radius:var(--radius-md);padding:16px 14px;
+    display:flex;flex-direction:column;align-items:center;gap:9px;text-align:center;color:var(--text-3);}
+  .well .ic{color:var(--text-3);}
+  .well .cap{font-size:12px;color:var(--text-2);}
+  .well .cap b{color:var(--text-1);font-weight:600;}
+  .well .hint{font-family:var(--font-mono);font-size:9.5px;color:var(--text-3);}
+
+  /* attached row */
+  .file{display:flex;align-items:center;gap:10px;background:var(--surface-3);border:1px solid var(--border);
+    border-radius:var(--radius-md);padding:9px 10px;}
+  .thumb{flex:none;width:46px;height:30px;border-radius:5px;background:
+    repeating-linear-gradient(135deg,#241C36 0 6px,#1A1528 6px 12px);
+    border:1px solid var(--border-strong);display:grid;place-items:center;color:var(--text-3);position:relative;overflow:hidden;}
+  .thumb.busy{background:var(--surface-4);}
+  .finfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .fname{font-family:var(--font-mono);font-size:12px;color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .fmeta{font-family:var(--font-mono);font-size:10px;color:var(--text-3);}
+  .fmeta .ok{color:var(--success);}
+  .fmeta .cy{color:var(--cyan);}
+  .acts{display:flex;gap:5px;flex:none;}
+  .ib{width:28px;height:28px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface-2);
+    color:var(--text-2);display:grid;place-items:center;}
+  .ib.danger{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 30%,transparent);}
+  .ib svg{display:block;}
+
+  /* swapping progress */
+  .prog{height:4px;border-radius:999px;background:var(--surface-4);overflow:hidden;}
+  .prog i{display:block;height:100%;width:46%;border-radius:999px;background:var(--grad-live);}
+  .spin{width:13px;height:13px;border-radius:50%;border:2px solid color-mix(in srgb,var(--cyan) 28%,transparent);
+    border-top-color:var(--cyan);animation:sp 0.7s linear infinite;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+
+  /* confirm clear */
+  .confirm{background:color-mix(in srgb,var(--danger) 8%,var(--surface-3));
+    border:1px solid color-mix(in srgb,var(--danger) 30%,transparent);border-radius:var(--radius-md);
+    padding:10px 11px;display:flex;flex-direction:column;gap:9px;}
+  .confirm .q{font-size:12px;color:var(--text-1);}
+  .confirm .q b{font-family:var(--font-mono);font-weight:500;}
+  .confirm .cr{display:flex;gap:7px;justify-content:flex-end;}
+  .btn{height:28px;padding:0 12px;border-radius:var(--radius-sm);border:1px solid var(--border);
+    background:var(--surface-2);color:var(--text-1);font-family:var(--font-ui);font-size:11.5px;font-weight:500;
+    display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+  .btn.danger{background:var(--danger);border-color:transparent;color:#2a0808;font-weight:600;}
+  .btn.attach{background:var(--grad-brand);border-color:transparent;color:var(--text-on-accent);font-weight:600;
+    box-shadow:var(--shadow-glow-accent);height:30px;padding:0 14px;}
+</style>
+</head>
+<body>
+  <div class="eyebrow">Video control · ControlsRail · set_video</div>
+  <div class="grid">
+
+    <!-- EMPTY -->
+    <div class="cell">
+      <div class="st"><span class="pip"></span>Empty — no video</div>
+      <div class="vc">
+        <div class="hd">Video</div>
+        <div class="well">
+          <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg></span>
+          <span class="cap">Drop a video or <b>browse…</b></span>
+          <span class="hint">.mp4 · .mov · .mkv</span>
+        </div>
+        <button class="btn attach" style="align-self:flex-start"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Attach video…</button>
+      </div>
+    </div>
+
+    <!-- ATTACHED -->
+    <div class="cell">
+      <div class="st live"><span class="pip"></span>Attached</div>
+      <div class="vc">
+        <div class="hd">Video</div>
+        <div class="file">
+          <span class="thumb"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20"/></svg></span>
+          <span class="finfo">
+            <span class="fname">bleating_obsession.mp4</span>
+            <span class="fmeta"><span class="cy">1920×1080</span> · 0:42.18 · <span class="ok">linked</span></span>
+          </span>
+          <span class="acts">
+            <span class="ib" title="Swap"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></span>
+            <span class="ib danger" title="Clear"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SWAPPING -->
+    <div class="cell">
+      <div class="st busy"><span class="pip"></span>Swapping</div>
+      <div class="vc">
+        <div class="hd">Video</div>
+        <div class="file">
+          <span class="thumb busy"><span class="spin"></span></span>
+          <span class="finfo">
+            <span class="fname">final_master_v3.mov</span>
+            <span class="fmeta"><span class="cy">replacing…</span> · re-probing duration</span>
+          </span>
+        </div>
+        <div class="prog"><i></i></div>
+      </div>
+    </div>
+
+    <!-- CONFIRM CLEAR -->
+    <div class="cell">
+      <div class="st warn"><span class="pip"></span>Clear — confirm</div>
+      <div class="vc">
+        <div class="hd">Video</div>
+        <div class="confirm">
+          <span class="q">Detach <b>bleating_obsession.mp4</b>? Cues &amp; styling are kept.</span>
+          <span class="cr">
+            <button class="btn">Cancel</button>
+            <button class="btn danger">Clear video</button>
+          </span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
