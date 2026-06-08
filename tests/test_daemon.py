@@ -168,6 +168,40 @@ def t_new_project_is_immediately_listable():
     lst = c.get("/api/projects").json()    # listable WITHOUT an explicit save
     return ("fresh" in lst, lst)
 
+def t_ws_echo_carries_cid():
+    c, ctx = _client()
+    with c.websocket_connect("/ws") as ws:
+        init = ws.receive_json()                 # initial push (cid null)
+        assert init.get("cid") is None, init
+        r = c.post("/api/call", json={"tool": "set_group_style",
+                                      "args": {"gi": 0, "partial": {"fontsize": 71}}, "cid": "abc123"})
+        assert r.json().get("cid") == "abc123", r.json()
+        msg = ws.receive_json()
+    return (msg["type"] == "state" and msg.get("cid") == "abc123"), f"cid={msg.get('cid')}"
+
+def t_ws_external_mutation_cid_null():
+    c, ctx = _client()
+    with c.websocket_connect("/ws") as ws:
+        ws.receive_json()                        # initial
+        # a side-channel mutation on the shared ctx (no /api/call, no cid)
+        from mcp_server import tools
+        tools.set_group_style(ctx, 0, {"fontsize": 72})
+        msg = ws.receive_json()
+    return (msg["type"] == "state" and msg.get("cid") is None), f"cid={msg.get('cid')}"
+
+def t_ws_cid_resets_between_calls():
+    # a cid'd call then an external mutation: the second broadcast must be cid null
+    c, ctx = _client()
+    with c.websocket_connect("/ws") as ws:
+        ws.receive_json()
+        c.post("/api/call", json={"tool": "set_group_style",
+                                  "args": {"gi": 0, "partial": {"fontsize": 73}}, "cid": "X"})
+        m1 = ws.receive_json()
+        from mcp_server import tools
+        tools.set_group_style(ctx, 0, {"fontsize": 74})
+        m2 = ws.receive_json()
+    return (m1.get("cid") == "X" and m2.get("cid") is None), f"m1={m1.get('cid')} m2={m2.get('cid')}"
+
 def t_api_state_carries_undo_flags():
     c, ctx = _client()
     b0 = c.get("/api/state").json()

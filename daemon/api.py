@@ -10,15 +10,30 @@ def make_routes(ctx, hub):
     async def call(request):
         body = await request.json()
         name = body.get("tool"); args = body.get("args") or {}
+        # Optional echo-correlation id: the WS state broadcast this call triggers
+        # carries it back (cid) so the originating client can recognize its own echo.
+        cid = body.get("cid", body.get("call_id"))
         fn = getattr(tools, name, None)
         if name is None or fn is None or name.startswith("_"):
             return _err(f"unknown tool {name!r}")
+        # Stamp the cid onto any broadcast fired synchronously by this tool. Reset
+        # in finally so subsequent external/unsolicited mutations broadcast cid=null.
+        prev = getattr(ctx, "_pending_cid", None)
         try:
-            return JSONResponse({"result": fn(ctx, **args)})
+            ctx._pending_cid = cid
+        except AttributeError:
+            pass
+        try:
+            return JSONResponse({"result": fn(ctx, **args), "cid": cid})
         except TypeError as e:
             return _err(f"bad args for {name}: {e}")
         except Exception as e:
             return _err(f"{type(e).__name__}: {e}", 422)
+        finally:
+            try:
+                ctx._pending_cid = prev
+            except AttributeError:
+                pass
 
     async def state(request):  return JSONResponse(tools.get_project(ctx))
     async def render(request): return JSONResponse(tools.get_render(ctx))
@@ -34,7 +49,7 @@ def make_routes(ctx, hub):
         await websocket.accept()
         hub.register(websocket)
         try:
-            await websocket.send_json({"type": "state", "state": tools.get_project(ctx)})
+            await websocket.send_json({"type": "state", "state": tools.get_project(ctx), "cid": None})
             while True:
                 await websocket.receive_text()
         except Exception:

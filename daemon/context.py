@@ -6,6 +6,10 @@ class DaemonContext(HeadlessContext):
         super().__init__()                  # standalone Session + dict globals (no Tk)
         self.hub = hub
         self.after_change = None             # optional hook (e.g. autosave), called after broadcast
+        # Correlation id of the in-flight /api/call (None for external/unsolicited
+        # mutations). _fire stamps it onto the state broadcast so a client can
+        # recognize its own echo. Set/cleared by the call handler around a tool run.
+        self._pending_cid = None
         self.session.on_change = self._fire  # wire change -> broadcast
 
     def _fire(self):
@@ -14,7 +18,7 @@ class DaemonContext(HeadlessContext):
             state = tools.get_project(self)
         except Exception:
             return
-        self.hub.schedule({"type": "state", "state": state})
+        self.hub.schedule({"type": "state", "state": state, "cid": self._pending_cid})
         if self.after_change:
             self.after_change()
 
