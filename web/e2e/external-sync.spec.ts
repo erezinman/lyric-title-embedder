@@ -119,13 +119,13 @@ const FADE_IN_ANIM = {
                t1: { anchor: "cue_start", offset: 250, unit: "ms" }, from: "FF", to: "00", accel: 1 }],
   enabled: true,
 };
-test("G-48 — external add_animation (fade tag): anim_tags populated + lane fade cell grouped + undo", async ({ page }) => {
+test("G-48 — external add_animation (fade tag): anim_tags populated + ANIMATION 'fade in' chip + undo", async ({ page }) => {
   await openAudit(page);
   await ensureLanes(page);
   await apiCall("add_animation", { scope: "tag", ref: [0, 1, 2, 3], anim: FADE_IN_ANIM });
   await until(async () => (await apiState()).anim_tags.some(
     (t: any) => t.ids.includes(0) && t.anims.some((a: any) => a.name === "fade_in")));
-  await expect(page.locator(".lane-row").first().locator(".lc.fade.grouped").first()).toBeVisible();
+  await expect(page.locator(".lane-row").first().locator(".lc.anim .achip.own", { hasText: /fade in/i }).first()).toBeVisible();
   await apiCall("undo");
   await until(async () => !(await apiState()).anim_tags.some(
     (t: any) => t.anims.some((a: any) => a.name === "fade_in")));

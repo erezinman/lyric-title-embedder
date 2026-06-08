@@ -54,7 +54,7 @@ async function openTimeline(page: Page) {
 }
 
 // ── AP-1 — add a fade preset via the UI (OpsToolbar Group fade-in) ───────────
-test("AP-1 — UI Group fade-in adds anim_tag + lane FADE-IN cell; Clear in → baseline", async ({ page }) => {
+test("AP-1 — UI Group fade-in adds anim_tag + ANIMATION 'fade in' chip; Clear in → baseline", async ({ page }) => {
   await openAudit(page);
   await selectWord0(page);
 
@@ -62,14 +62,14 @@ test("AP-1 — UI Group fade-in adds anim_tag + lane FADE-IN cell; Clear in → 
   await page.locator(".minibtn", { hasText: "Group fade-in" }).click();
   await until(async () => (await apiState()).anim_tags.some(
     (t: any) => t.ids.includes(0) && t.anims.some((a: any) => a.name === "fade_in")));
-  // UI: the lane FADE-IN cell becomes grouped
-  await expect(page.locator(".lane-row").first().locator(".lc.fade.grouped").first()).toBeVisible();
+  // UI: the lane row's ANIMATION cell gains an own "fade in" chip
+  await expect(page.locator(".lane-row").first().locator(".lc.anim .achip.own", { hasText: /fade in/i }).first()).toBeVisible();
 
   // inverse: Clear in → both state and UI back to baseline
   await page.locator(".minibtn", { hasText: "Clear in" }).click();
   await until(async () => !(await apiState()).anim_tags.some(
     (t: any) => t.anims.some((a: any) => a.name === "fade_in")));
-  await expect(page.locator(".lane-row").first().locator(".lc.fade.grouped")).toHaveCount(0);
+  await expect(page.locator(".lane-row").first().locator(".lc.anim .achip", { hasText: /fade in/i })).toHaveCount(0);
 });
 
 // ── AP-2 — add_animation via SIDE-CHANNEL (MCP) → live UI; undo reverts ───────

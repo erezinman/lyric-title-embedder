@@ -413,7 +413,10 @@ svg.lucide { display: block; }
 .lane-row.del .lc { color: var(--text-3); text-decoration: line-through; font-style: italic; }
 
 /* start/end sub-lane: structural time (neutral) + cyan OUTWARD spill caret/delta/bleed-tick */
-.lc.t-cell { font-family: var(--font-mono); font-size: 11px; color: var(--text-2); display: flex; align-items: center; gap: 4px; position: relative; }
+.lc.t-cell { font-family: var(--font-mono); font-size: 11px; color: var(--text-2); display: flex; align-items: center; gap: 4px; }
+/* only spilled cells are positioned (for the ::before bleed-tick) — keeps non-spill
+   cells out of the paint layer so they never overlay inspector popovers. */
+.lc.t-cell.spill { position: relative; }
 .lc.t-cell .t-val { color: var(--text-2); }
 .lc.t-cell.spill .t-val { color: var(--text-1); }
 .lc.t-cell .caret { color: var(--cyan); font-weight: 700; font-size: 13px; line-height: 1; }
