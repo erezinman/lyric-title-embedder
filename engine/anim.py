@@ -406,12 +406,48 @@ def _expand(segs):
     return out
 
 
-def emit_anim_tags(word_anims, ev_start):
+def _mirror_move_seg(seg, play_w):
+    """Mirror a move segment's x endpoints around play_w and swap them so the
+    motion DIRECTION flips for RTL. Spatial-only; y untouched."""
+    frm, to = list(seg["from"]), list(seg["to"])
+    frm[0] = play_w - frm[0]
+    to[0] = play_w - to[0]
+    return {**seg, "from": frm, "to": to}
+
+
+def _mirror_clip_seg(seg, play_w):
+    """Mirror a clip_rect segment's x1/x2 around play_w and swap them so x1<x2
+    is preserved. Spatial-only; y untouched."""
+    to = list(seg["to"])
+    nx1, nx2 = play_w - to[0], play_w - to[2]
+    to[0], to[2] = min(nx1, nx2), max(nx1, nx2)
+    return {**seg, "to": to}
+
+
+def _mirror_anim(a, play_w):
+    """Return a copy of a spatial animation with its x-coordinates mirrored for
+    RTL. Non-spatial channels are returned unchanged."""
+    ch = a["channel"]
+    if ch == "move":
+        return {**a, "segments": [_mirror_move_seg(s, play_w) for s in a["segments"]]}
+    if ch == "clip_rect":
+        return {**a, "segments": [_mirror_clip_seg(s, play_w) for s in a["segments"]]}
+    return a
+
+
+def emit_anim_tags(word_anims, ev_start, play_w=1920, direction="ltr"):
     """Compile a cue's resolved animation list to its .ass override-tag string.
 
     Per channel, segments emit chained \\t in chronological order; across
     animations the narrowest scope is emitted LAST (spike #1). ev_start is the
-    rendered event start in seconds."""
+    rendered event start in seconds.
+
+    When direction == "rtl", SPATIAL channels are mirrored around play_w before
+    emission — `move` x-endpoints flip (mirror + swap so the motion direction
+    reverses) and `clip_rect` x1/x2 mirror+swap. Non-spatial channels
+    (alpha/scale/rot/color/blur/spacing/...) are untouched."""
+    if direction == "rtl":
+        word_anims = [_mirror_anim(a, play_w) for a in word_anims]
     anims = sorted(word_anims, key=lambda a: _SRC_ORDER.get(a.get("src"), 1))
     alpha_anims = [a for a in anims if a["channel"] == "alpha"]
 
