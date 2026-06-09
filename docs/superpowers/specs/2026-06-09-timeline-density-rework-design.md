@@ -128,6 +128,22 @@ gradient table (color/alpha/size(+triangle clip)/type/move/glow).
   (`startAnimDrag`, `MIN_ANIM_MS=50`, dispatch payloads), snap guides, source-linking, the px↔seconds
   mapping (`pxPerSec` measured from a stable full-width row element, not "first lane").
 
+### 3.5 Zoom (H + V) — part of the integrated prototype
+
+Both sliders ship in `Timeline-View-Toggle.html`; the infra overlaps the density work, so they're in scope.
+
+- **H-zoom** — `pps() = BASE_PPS(68) * hz`, `hz ∈ [0.6, 3]` step `0.05`, default `1.0`. Reuses the existing
+  `pxPerSecOverride` plumbing. When `pps()*dur` exceeds the viewport, the **horizontal scroller** activates
+  (the one net-new surface vs. density alone). Anchor on zoom: hold the playhead's x fixed —
+  `preX = t*pps() - scrollLeft; <re-layout>; scrollLeft = t*pps() - preX` (this is exactly
+  `snap.ts:zoomAnchorScroll`, currently unused — wire it).
+- **V-zoom** — row height `= round(max(BLOCK_H+10, 50*vz))`, `vz ∈ [0.8, 2]` step `0.05`, default `1.0`.
+  Uses the vertical scroller already required by density/Lanes; reuses the same `captureV/restoreV` vertical
+  anchor as the FLIP pin.
+- Two range inputs in the timeline toolbar beside the density control. Both persist (`kss.tlHz`, `kss.tlVz`).
+- Out of scope only: nothing — zoom is in. (Block height stays `BLOCK_H` content; V-zoom scales the *row*
+  it sits in, not the bars.)
+
 ### 3.4 Editor wiring — `web/src/components/Editor.tsx`
 
 - Own `density` state + persistence (mirror `magnet`, `Editor.tsx:82-91`); pass to WordTrack.
@@ -148,6 +164,8 @@ gradient table (color/alpha/size(+triangle clip)/type/move/glow).
 | Compact anti-touch pad | +0.04s | | overlap epsilon | 1e-6 |
 | overlay z-index | 25 | | cyan marker | `1px color-mix(cyan 28%)`, no bottom border, radius `8 8 0 0` |
 | glyph chip | 15px wide, 9px tall | | disc pill | `top:4px right:6px h:16px`, accent/cyan on open |
+| `BASE_PPS` | 68 px/s | | H-zoom `hz` | [0.6, 3] step .05, default 1 |
+| row height | `max(BLOCK_H+10, 50*vz)` | | V-zoom `vz` | [0.8, 2] step .05, default 1 |
 
 Channel→color/label/glyph and the per-type bar-fill gradients: port the prototype's `typeColor`/`TYPES`/
 `typeGlyph`/`stripBg` tables verbatim (already largely present in `animStrips.ts`).
@@ -163,8 +181,9 @@ Channel→color/label/glyph and the per-type bar-fill gradients: port the protot
 3. **Card block + rows + scroller** in WordTrack (still Lanes-equivalent default → Coherent): render rows
    from the packer, the 55px card, the sticky ruler + scroller. Update WordTrack unit/audit/snap tests and
    the e2e `dock.spec` G-14b "shared row" expectation (now density-dependent).
-4. **Density toggle + FLIP + pinning**: the segmented control, Editor state + persistence, FLIP transition,
-   selected-cue scroll pin. New tests for mode switching + persistence.
+4. **Density toggle + FLIP + pinning + zoom**: the segmented control + H/V zoom sliders, Editor state +
+   persistence, the horizontal+vertical scroller, FLIP transition, the shared `captureV/restoreV` vertical
+   pin and the `zoomAnchorScroll` horizontal anchor. New tests for mode switching, zoom anchoring, persistence.
 5. **Expand-to-overlay accordion**: the `＋N` disc, floating overlay, cyan marker, click-away/Esc, accordion.
    Replace the `expandedCues` contract; update AT-05/AT-06 + add overlay tests + an e2e.
 
@@ -191,9 +210,10 @@ Channel→color/label/glyph and the per-type bar-fill gradients: port the protot
 - **Block becomes a 55px card in all density modes.** This materially increases timeline height and adds a
   vertical scroller — it is the integrated prototype's design. (If you want the thin 26px bar retained for
   some mode, say so — that changes §3.3 substantially.)
-- **H/V zoom sliders from the prototype are OUT of scope** — not a zip-15 decision; keep the existing
-  `pxPerSecOverride` as-is. Revisit separately.
-- **Density persists** per-session in localStorage (default Coherent), like magnet/pane sizes.
+- **H/V zoom sliders ARE in scope** (§3.5) — they're in the integrated prototype and reuse the
+  scroller/anchor infra the density work already needs; the only net-new surface is the horizontal scroller.
+- **Density + zoom persist** per-session in localStorage (`kss.tlDensity` default Coherent, `kss.tlHz`/`kss.tlVz`
+  default 1), like magnet/pane sizes.
 - **Lanes self-overlapping group** (true simultaneous words in one group): render on one row (blocks may
   visually overlap, as today) — not auto-split. (Flagged open in the packing study; this is the simplest
   consistent choice.)
