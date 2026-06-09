@@ -122,6 +122,22 @@ test("G-14 — delete then restore round-trip (state del flag + strikethrough)",
   await expect(page.locator(".lane-row").nth(0)).not.toHaveClass(/del/);
 });
 
+// Regression: cues in one lane must be absolutely positioned by time on a SINGLE
+// row. A stray `position:relative` once dropped them into normal flow → they
+// stacked vertically and the lane's overflow:hidden clipped all but the first.
+test("G-14b — cues share a row (absolute, time-positioned), not vertically stacked", async ({ page }) => {
+  await openAudit(page);
+  await page.locator(".dock-tab", { hasText: "Timeline" }).click();
+  await page.locator(".wt .block").first().waitFor();
+
+  // first two Verse-1 cues: alpha, bravo
+  const a = (await page.locator(".wt .block").nth(0).boundingBox())!;
+  const b = (await page.locator(".wt .block").nth(1).boundingBox())!;
+  // same row (tops within a couple px), and laid out left→right by time
+  expect(Math.abs(a.y - b.y)).toBeLessThan(3);
+  expect(b.x).toBeGreaterThan(a.x + a.width / 2);
+});
+
 test("G-15 — WordTrack drag (unlocked) shifts word times; drag-back ~ restores", async ({ page }) => {
   await openAudit(page);
   // switch to Timeline tab

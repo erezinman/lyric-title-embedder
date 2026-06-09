@@ -598,7 +598,10 @@ export function WordTrack({
                     key={w.wid}
                     className={cls}
                     style={{
-                      position: "relative", left: `${left}%`, width: `${width}%`, background: colorForIndex(w.gi),
+                      // absolute (not relative) so each cue is placed by time within
+                      // .wt-area; relative drops them into normal flow → they stack
+                      // vertically and get clipped by the lane's overflow:hidden.
+                      position: "absolute", left: `${left}%`, width: `${width}%`, background: colorForIndex(w.gi),
                       ...(layout?.exp ? { height: `${layout.cueHeight}px` } : {}),
                     }}
                     onPointerDown={unlocked ? (ev) => handleBlockPointerDown(ev, w) : undefined}
