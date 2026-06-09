@@ -41,6 +41,7 @@ export interface Animation {
   step?: number | null; step_unit?: AnimUnit | null;
   segments: AnimSegment[];
   stagger?: Record<string, unknown> | null;
+  custom?: boolean;
   enabled: boolean;
 }
 export interface AnimTag { ids: number[]; anims: Animation[]; suppress: string[]; }
