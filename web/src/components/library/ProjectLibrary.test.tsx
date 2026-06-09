@@ -17,4 +17,17 @@ describe("ProjectLibrary", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: /new project/i })).toBeInTheDocument());
     expect(onOpen).not.toHaveBeenCalled();
   });
+
+  it("renders card metadata: name, caption preview, duration pill, edited-time", async () => {
+    const now = Date.now() / 1000;
+    vi.spyOn(client.projects, "list").mockResolvedValue([
+      { name: "Bleating Obsession", modified: now - 7200, duration_s: 162, caption: ["Caught in a", "bleating"] },
+    ]);
+    render(<ProjectLibrary onOpen={vi.fn()} />);
+    expect(await screen.findByText("Bleating Obsession")).toBeInTheDocument();
+    expect(screen.getByText("Caught in a")).toBeInTheDocument();
+    expect(screen.getByText("bleating")).toBeInTheDocument();
+    expect(screen.getByText("2:42")).toBeInTheDocument();        // 162s → m:ss
+    expect(screen.getByText("edited 2h ago")).toBeInTheDocument();
+  });
 });

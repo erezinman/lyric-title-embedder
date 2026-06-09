@@ -204,6 +204,34 @@ def list_projects(projects_dir):
     return sorted(n for n in os.listdir(projects_dir)
                   if os.path.isfile(os.path.join(projects_dir, n, "project.json")))
 
+
+def project_meta(projects_dir, name):
+    """Lightweight listing metadata for one project, for the library cards:
+    name + edited-time (project.json mtime) + duration (last line end) +
+    caption (up to two preview lines). Never raises — any missing or
+    unparseable piece comes back as None so the listing stays robust."""
+    name = _safe(name)
+    folder = os.path.join(projects_dir, name)
+    meta = {"name": name, "modified": None, "duration_s": None, "caption": None}
+    try:
+        meta["modified"] = os.path.getmtime(os.path.join(folder, "project.json"))
+    except OSError:
+        pass
+    try:
+        with open(os.path.join(folder, "lyrics.json"), encoding="utf-8") as fh:
+            doc = json.load(fh)
+        lines = doc.get("aligned_lyrics") or []
+        texts = [str(l.get("text", "")).strip() for l in lines]
+        texts = [t for t in texts if t]
+        if texts:
+            meta["caption"] = texts[:2]                       # cap[0] + cap[1]
+        ends = [l["end_s"] for l in lines if isinstance(l.get("end_s"), (int, float))]
+        if ends:
+            meta["duration_s"] = max(ends)
+    except Exception:
+        pass
+    return meta
+
 def _bind_fonts_dir(ctx, folder):
     """Point the context at this project's fonts dir (for burn/frame :fontsdir).
     No-op on contexts without the hook."""

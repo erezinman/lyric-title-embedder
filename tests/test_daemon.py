@@ -101,8 +101,8 @@ def t_library_roundtrip():
     c.post("/api/projects/new", json={"name": "demo", "lyrics_path": "aligned_lyrics.json"})
     c.post("/api/call", json={"tool": "set_group_style", "args": {"gi": 0, "partial": {"font": "Arial"}}})
     c.post("/api/projects/save", json={"name": "demo"})
-    lst = c.get("/api/projects").json()
-    assert "demo" in lst, lst
+    lst = c.get("/api/projects").json()        # now a list of {name, modified, duration_s, caption}
+    assert any(p["name"] == "demo" for p in lst), lst
     c2, ctx2 = _client()
     c2.post("/api/projects/open", json={"name": "demo"})
     st = c2.get("/api/state").json()
@@ -166,7 +166,7 @@ def t_new_project_is_immediately_listable():
     c, ctx = _client()
     c.post("/api/projects/new", json={"name": "fresh", "lyrics_path": "aligned_lyrics.json"})
     lst = c.get("/api/projects").json()    # listable WITHOUT an explicit save
-    return ("fresh" in lst, lst)
+    return (any(p["name"] == "fresh" for p in lst), lst)
 
 def t_ws_echo_carries_cid():
     c, ctx = _client()

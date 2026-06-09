@@ -109,7 +109,8 @@ def make_routes(ctx, hub):
     autosaver = Autosaver(ctx, None)         # projects_dir resolved per request below
     ctx.after_change = autosaver.schedule
     async def projects_list(request):
-        return JSONResponse(library.list_projects(request.app.state.projects_dir))
+        d = request.app.state.projects_dir
+        return JSONResponse([library.project_meta(d, n) for n in library.list_projects(d)])
     async def projects_new(request):
         b = await request.json()
         if b.get("lyrics_path") and not _native(request):

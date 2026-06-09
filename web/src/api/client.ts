@@ -130,8 +130,15 @@ export function getFrameUrl(t: number): string {
   return `/api/frame?t=${t}`;
 }
 
+export interface ProjectMeta {
+  name: string;
+  modified: number | null;   // project.json mtime (epoch seconds)
+  duration_s: number | null; // last cue end
+  caption: string[] | null;  // up to two preview lines
+}
+
 export const projects = {
-  list: async (): Promise<string[]> => jsonOrThrow<string[]>(await fetch("/api/projects")),
+  list: async (): Promise<ProjectMeta[]> => jsonOrThrow<ProjectMeta[]>(await fetch("/api/projects")),
   open: async (name: string): Promise<void> => { await postJson("/api/projects/open", { name }); },
   save: async (name: string): Promise<void> => { await postJson("/api/projects/save", { name }); },
   create: async (form: FormData): Promise<{ opened: string }> => {

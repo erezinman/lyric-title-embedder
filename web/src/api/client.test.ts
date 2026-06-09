@@ -25,9 +25,13 @@ describe("call", () => {
 });
 
 describe("projects", () => {
-  it("list GETs /api/projects", async () => {
-    mockFetch(200, ["a", "b"]);
-    expect(await projects.list()).toEqual(["a", "b"]);
+  it("list GETs /api/projects (enriched metadata objects)", async () => {
+    const meta = [
+      { name: "a", modified: 1700000000, duration_s: 65, caption: ["hi", "there"] },
+      { name: "b", modified: null, duration_s: null, caption: null },
+    ];
+    mockFetch(200, meta);
+    expect(await projects.list()).toEqual(meta);
   });
   it("open POSTs name", async () => {
     const f = mockFetch(200, {});

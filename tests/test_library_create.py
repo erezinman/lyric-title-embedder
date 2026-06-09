@@ -147,6 +147,37 @@ def t_srt_timings_roundtrip():
                 and abs(w[2]["start"] - 3.0) < 1e-6), str(w[0])
     finally: shutil.rmtree(d, ignore_errors=True)
 
+def t_project_meta_srt_shape():
+    # project_meta returns lightweight listing metadata: name + edited-time +
+    # duration (max line end) + caption (first lines). SRT cues 1-3s, 3-5s.
+    d = _tmp()
+    try:
+        library.create_project(_ctx(), d, "s1", source="srt", lyrics_bytes=SRT.encode("utf-8"))
+        m = library.project_meta(d, "s1")
+        return (m["name"] == "s1" and isinstance(m["modified"], float) and m["modified"] > 0
+                and abs(m["duration_s"] - 5.0) < 1e-6
+                and m["caption"][0] == "Hello world"), str(m)
+    finally: shutil.rmtree(d, ignore_errors=True)
+
+def t_project_meta_suno_caption_and_duration():
+    d = _tmp()
+    try:
+        library.create_project(_ctx(), d, "p1", source="suno_json", lyrics_path="aligned_lyrics.json")
+        m = library.project_meta(d, "p1")
+        # first aligned_lyrics line text + the track's last line end (~360.6s)
+        return (m["caption"][0] == "*Baa... baa...*" and len(m["caption"]) <= 2
+                and m["duration_s"] is not None and m["duration_s"] > 300), str(m)[:160]
+    finally: shutil.rmtree(d, ignore_errors=True)
+
+def t_project_meta_missing_is_robust():
+    # Never raises on a missing/empty project — all derived fields come back None.
+    d = _tmp()
+    try:
+        m = library.project_meta(d, "ghost")
+        return (m["name"] == "ghost" and m["modified"] is None
+                and m["duration_s"] is None and m["caption"] is None), str(m)
+    finally: shutil.rmtree(d, ignore_errors=True)
+
 _active = {n: f for n, f in list(globals().items()) if n.startswith("t_") and callable(f)}
 for n, f in sorted(_active.items()): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)

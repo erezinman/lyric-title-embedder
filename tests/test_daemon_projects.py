@@ -56,7 +56,7 @@ def t_create_suno_upload():
                    data={"name": "u1", "source": "suno_json"},
                    files={"lyrics_file": ("aligned_lyrics.json", io.BytesIO(blob), "application/json")})
         return (r.status_code == 200 and r.json().get("opened") == "u1"
-                and "u1" in c.get("/api/projects").json()), r.text
+                and any(p["name"] == "u1" for p in c.get("/api/projects").json())), r.text
     finally: shutil.rmtree(d, ignore_errors=True)
 
 def t_create_srt_upload():
@@ -65,7 +65,7 @@ def t_create_srt_upload():
         r = c.post("/api/projects/create",
                    data={"name": "srt1", "source": "srt", "line_break": "per_cue"},
                    files={"lyrics_file": ("x.srt", io.BytesIO(SRT.encode()), "text/plain")})
-        return (r.status_code == 200 and "srt1" in c.get("/api/projects").json()), r.text
+        return (r.status_code == 200 and any(p["name"] == "srt1" for p in c.get("/api/projects").json())), r.text
     finally: shutil.rmtree(d, ignore_errors=True)
 
 def t_create_same_host_path():
@@ -74,7 +74,7 @@ def t_create_same_host_path():
         r = c.post("/api/projects/create",
                    data={"name": "p2", "source": "suno_json",
                          "lyrics_path": os.path.abspath("aligned_lyrics.json")})
-        return (r.status_code == 200 and "p2" in c.get("/api/projects").json()), r.text
+        return (r.status_code == 200 and any(p["name"] == "p2" for p in c.get("/api/projects").json())), r.text
     finally: shutil.rmtree(d, ignore_errors=True)
 
 def t_create_collision_409():
@@ -115,7 +115,7 @@ def t_legacy_new_still_works():
     try:
         r = c.post("/api/projects/new",
                    json={"name": "leg", "lyrics_path": os.path.abspath("aligned_lyrics.json")})
-        return (r.status_code == 200 and "leg" in c.get("/api/projects").json()), r.text
+        return (r.status_code == 200 and any(p["name"] == "leg" for p in c.get("/api/projects").json())), r.text
     finally: shutil.rmtree(d, ignore_errors=True)
 
 _active = {n: f for n, f in list(globals().items()) if n.startswith("t_") and callable(f)}

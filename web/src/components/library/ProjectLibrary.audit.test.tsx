@@ -7,6 +7,11 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ProjectLibrary } from "./ProjectLibrary";
 import * as client from "../../api/client";
 
+// projects.list now returns enriched ProjectMeta objects; these audits only
+// care about the name, so wrap bare names with null-metadata.
+const meta = (...names: string[]) =>
+  names.map((name) => ({ name, modified: null, duration_s: null, caption: null }));
+
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.spyOn(client, "getEnv").mockResolvedValue({ file_access: "native", can_use_server_paths: true, can_burn_video: true });
@@ -17,7 +22,7 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 describe("E-01 — library lists projects from projects.list", () => {
   it("E-01a — renders a card for each name returned by projects.list", async () => {
-    vi.spyOn(client.projects, "list").mockResolvedValue(["alpha", "bravo", "charlie"]);
+    vi.spyOn(client.projects, "list").mockResolvedValue(meta("alpha", "bravo", "charlie"));
     render(<ProjectLibrary onOpen={vi.fn()} />);
     expect(await screen.findByText("alpha")).toBeInTheDocument();
     expect(screen.getByText("bravo")).toBeInTheDocument();
@@ -43,7 +48,7 @@ describe("E-01 — library lists projects from projects.list", () => {
 // ---------------------------------------------------------------------------
 describe("E-02 — clicking a project card calls onOpen(name)", () => {
   it("E-02a — clicking the card for 'alpha' calls onOpen('alpha')", async () => {
-    vi.spyOn(client.projects, "list").mockResolvedValue(["alpha", "bravo"]);
+    vi.spyOn(client.projects, "list").mockResolvedValue(meta("alpha", "bravo"));
     const onOpen = vi.fn();
     render(<ProjectLibrary onOpen={onOpen} />);
     fireEvent.click(await screen.findByText("alpha"));
@@ -52,7 +57,7 @@ describe("E-02 — clicking a project card calls onOpen(name)", () => {
   });
 
   it("E-02b — clicking different cards calls onOpen with their respective names", async () => {
-    vi.spyOn(client.projects, "list").mockResolvedValue(["alpha", "bravo"]);
+    vi.spyOn(client.projects, "list").mockResolvedValue(meta("alpha", "bravo"));
     const onOpen = vi.fn();
     render(<ProjectLibrary onOpen={onOpen} />);
     await screen.findByText("alpha");
@@ -105,7 +110,7 @@ describe("E-03 — both New-project entry points open the modal", () => {
 // ---------------------------------------------------------------------------
 describe("E-04 — modal close returns to library intact", () => {
   it("E-04a — after closing the modal, the library heading is still visible", async () => {
-    vi.spyOn(client.projects, "list").mockResolvedValue(["song-1"]);
+    vi.spyOn(client.projects, "list").mockResolvedValue(meta("song-1"));
     render(<ProjectLibrary onOpen={vi.fn()} />);
     await screen.findByText("song-1");
 
@@ -127,7 +132,7 @@ describe("E-04 — modal close returns to library intact", () => {
   });
 
   it("E-04b — project cards remain clickable after modal close", async () => {
-    vi.spyOn(client.projects, "list").mockResolvedValue(["song-1"]);
+    vi.spyOn(client.projects, "list").mockResolvedValue(meta("song-1"));
     const onOpen = vi.fn();
     render(<ProjectLibrary onOpen={onOpen} />);
     await screen.findByText("song-1");
