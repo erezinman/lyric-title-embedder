@@ -1,0 +1,46 @@
+/* ============================================================================
+   Karaoke Subtitle Studio — fonts.css
+   Self-hosted, EXTENSIBLE font spec (ported from the designer kit).
+
+   Two tiers keep this easy to extend:
+     1. @font-face        — the actual files (vendored variable .ttf, no network)
+     2. --family-* tokens — one raw token per typeface (the "font registry")
+   The semantic ROLE tier (--font-display / --font-ui / --font-mono) lives in
+   colors_and_type.css and points at these raw tokens.
+
+   Files vendored under ./fonts/ (renamed from the kit's `Face[wght].ttf` to a
+   bracket-free `Face-var.ttf` so the url() resolves cleanly through Vite/rollup).
+   Variable fonts: one file covers a whole weight range.
+   ============================================================================ */
+
+/* ---- 1. Faces (vendored variable fonts — single file per family) ---------- */
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("./fonts/SpaceGrotesk-var.ttf") format("truetype-variations");
+  font-weight: 300 700;       /* SpaceGrotesk variable wght axis */
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  src: url("./fonts/HankenGrotesk-var.ttf") format("truetype-variations");
+  font-weight: 100 900;       /* HankenGrotesk variable wght axis */
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./fonts/JetBrainsMono-var.ttf") format("truetype-variations");
+  font-weight: 100 800;       /* JetBrainsMono variable wght axis */
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---- 2. Family registry (raw tokens) -------------------------------------
+   Each token is `"<face>", <fallback stack>`. Roles reference these so a face
+   only ever names its fallbacks in ONE place. Add a line per new face. ------- */
+:root {
+  --family-space-grotesk:  "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --family-hanken-grotesk: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --family-jetbrains-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+}

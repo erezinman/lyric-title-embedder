@@ -6,10 +6,10 @@
    see README.md). Load this file, then use the CSS variables + helper classes.
    ============================================================================ */
 
-/* Fonts are the three open-source Google families below. For offline / production
-   self-hosting, download their woff2 into fonts/ and swap this @import for @font-face.
-   (Binaries could not be vendored from this environment — flagged in README.) */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+/* Fonts: self-hosted variable .ttf (no network). The @font-face faces + the
+   --family-* registry live in fonts.css; the semantic role tokens below point
+   at that registry. Swap a brand face by remapping a role — see fonts.css. */
+@import url('./fonts.css');
 
 :root {
   /* ---- Surfaces (violet-black, darkest → lightest) ---- */
@@ -62,9 +62,9 @@
   --cue-9:  #3A6A7A;  --cue-10: #7A5A3A;
 
   /* ---- Typography families ---- */
-  --font-display: "Space Grotesk", system-ui, sans-serif;   /* brand, headings, captions */
-  --font-ui:      "Hanken Grotesk", system-ui, sans-serif;  /* UI + body */
-  --font-mono:    "JetBrains Mono", ui-monospace, monospace;/* timecodes, values, code, ASS tags */
+  --font-display: var(--family-space-grotesk);   /* brand, headings, captions */
+  --font-ui:      var(--family-hanken-grotesk);  /* UI + body */
+  --font-mono:    var(--family-jetbrains-mono);  /* timecodes, values, code, ASS tags */
 
   /* ---- Type scale (display uses Space Grotesk; body uses Hanken) ---- */
   --fs-display: 44px;  --lh-display: 1.05;  --ls-display: -0.02em;
