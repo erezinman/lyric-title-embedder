@@ -1,7 +1,7 @@
 // AnimSection.test.tsx — the zip-13 rework: in-row custom editor, row-toggle UX,
 // inherited-row redirect, segment-timing, per-tier preview.
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AnimSection } from "./AnimSection";
 import { baseProject, withAnimations, anim } from "../../test-util/fixtures";
@@ -28,11 +28,9 @@ const globalTier = () => document.querySelector(".tier.append.global") as HTMLEl
 const openPicker = async (tier: HTMLElement) =>
   userEvent.click(within(tier).getByRole("button", { name: /Add animation/i }));
 
-beforeEach(() => { /* fresh DOM per test via RTL auto-cleanup */ });
-
 describe("AnimSection — row-toggle UX (zip-12 §D, carried forward)", () => {
   const withPop = () => withAnimations(baseProject(), {
-    tags: [{ id: "t1", ids: [0], anims: [anim({ id: "t_pop", name: "pop", channel: "scale_x", mode: "percue" })], suppress: [] }],
+    tags: [{ ids: [0], anims: [anim({ id: "t_pop", name: "pop", channel: "scale_x", mode: "percue" })], suppress: [] }],
   });
 
   it("clicking the row line toggles the edit panel", async () => {
@@ -55,7 +53,7 @@ describe("AnimSection — row-toggle UX (zip-12 §D, carried forward)", () => {
 
   it("the 'N cues' chip stops propagation (selects cues without toggling)", async () => {
     const p = withAnimations(baseProject(), {
-      tags: [{ id: "t1", ids: [0, 1, 2], anims: [anim({ id: "t_pop", name: "pop", channel: "scale_x" })], suppress: [] }],
+      tags: [{ ids: [0, 1, 2], anims: [anim({ id: "t_pop", name: "pop", channel: "scale_x" })], suppress: [] }],
     });
     const h = renderSection(p);
     const row = within(cueTier()).getByText("pop").closest(".ov-row") as HTMLElement;
@@ -85,7 +83,7 @@ describe("AnimSection — add flow opens the new row", () => {
     await openPicker(cueTier());
     await userEvent.click(within(cueTier()).getByRole("button", { name: /Custom/i }));
     expect(h.onAdd).toHaveBeenCalledTimes(1);
-    const [scope, ref, rec] = h.onAdd.mock.calls[0] as [string, unknown, Animation];
+    const [scope, , rec] = h.onAdd.mock.calls[0] as [string, unknown, Animation];
     expect(scope).toBe("cue");
     expect(rec.custom).toBe(true);
     expect(rec.channel).toBe("primary");
@@ -95,7 +93,7 @@ describe("AnimSection — add flow opens the new row", () => {
 
 describe("AnimSection — custom row editor", () => {
   const withCustom = (ch = "primary", to: string | number = "#FF3DA6") =>
-    withAnimations(baseProject(), { tags: [{ id: "t1", ids: [0], anims: [customAnim("c1", ch, to)], suppress: [] }] });
+    withAnimations(baseProject(), { tags: [{ ids: [0], anims: [customAnim("c1", ch, to)], suppress: [] }] });
 
   it("a custom row shows the 'custom' tag and, when opened, the CustomEditor", async () => {
     renderSection(withCustom());
@@ -119,8 +117,8 @@ describe("AnimSection — custom row editor", () => {
     await userEvent.click(row.querySelector(".ov-line") as HTMLElement);
     await userEvent.click(within(row).getByRole("button", { name: /^Ramp$/i }));
     expect(h.onEditCustom).toHaveBeenCalled();
-    const lastCall = h.onEditCustom.mock.calls.at(-1)!;
-    const [scope, ref, id, cfg] = lastCall as [string, unknown, string, { mode: string }];
+    const calls = h.onEditCustom.mock.calls;
+    const [scope, , id, cfg] = calls[calls.length - 1] as [string, unknown, string, { mode: string }];
     expect(scope).toBe("cue");
     expect(id).toBe("c1");
     expect(cfg.mode).toBe("ramp");
@@ -130,7 +128,7 @@ describe("AnimSection — custom row editor", () => {
 describe("AnimSection — preset SegmentTiming", () => {
   it("nudging the From offset writes segments via onSetProps", async () => {
     const p = withAnimations(baseProject(), {
-      tags: [{ id: "t1", ids: [0], anims: [anim({ id: "t_flash", name: "color_flash", channel: "primary", mode: "percue" })], suppress: [] }],
+      tags: [{ ids: [0], anims: [anim({ id: "t_flash", name: "color_flash", channel: "primary", mode: "percue" })], suppress: [] }],
     });
     const h = renderSection(p);
     const row = within(cueTier()).getByText("color_flash").closest(".ov-row") as HTMLElement;
@@ -142,7 +140,8 @@ describe("AnimSection — preset SegmentTiming", () => {
     const plus = within(fromRow).getAllByText("+")[0];
     await userEvent.click(plus);
     expect(h.onSetProps).toHaveBeenCalled();
-    const partial = h.onSetProps.mock.calls.at(-1)![3] as Record<string, unknown>;
+    const spCalls = h.onSetProps.mock.calls;
+    const partial = spCalls[spCalls.length - 1][3] as Record<string, unknown>;
     expect(partial).toHaveProperty("segments");
   });
 });
@@ -165,7 +164,7 @@ describe("AnimSection — inherited-row redirect", () => {
 describe("AnimSection — per-tier preview", () => {
   it("renders a strip per resolved animation; clicking it focuses the owning row", async () => {
     const p = withAnimations(baseProject(), {
-      tags: [{ id: "t1", ids: [0], anims: [anim({ id: "t_pop", name: "pop", channel: "scale_x" })], suppress: [] }],
+      tags: [{ ids: [0], anims: [anim({ id: "t_pop", name: "pop", channel: "scale_x" })], suppress: [] }],
     });
     renderSection(p);
     const preview = cueTier().querySelector(".anim-preview") as HTMLElement;

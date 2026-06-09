@@ -4,6 +4,7 @@
 // carries accumulate.
 
 import { Icon } from "../icons/Icon";
+import { EditableNum } from "../controls/EditableNum";
 import type { LayoutGroup } from "../../types";
 
 export interface EventStripProps {
@@ -25,7 +26,11 @@ export function EventStrip({ g, onSet }: EventStripProps) {
         Linger
         <span className="pv-step sm">
           <span className="pm" onClick={() => onSet({ linger: Math.max(0, (g.linger ?? 0) - 0.1) })}>−</span>
-          <span className="v">{(g.linger ?? 0).toFixed(1)}s</span>
+          <EditableNum
+            display={(g.linger ?? 0).toFixed(1) + "s"} value={+(g.linger ?? 0).toFixed(1)} step={0.1}
+            parse={(s) => { const n = parseFloat(s); return isNaN(n) || n < 0 ? null : +n.toFixed(2); }}
+            onCommit={(n) => onSet({ linger: n })}
+          />
           <span className="pm" onClick={() => onSet({ linger: (g.linger ?? 0) + 0.1 })}>+</span>
         </span>
       </span>

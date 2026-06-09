@@ -7,7 +7,9 @@ import { useEffect, useRef, useState } from "react";
 
 export interface EditableNumProps {
   display: string;
-  value: number;
+  /** Seed for the input (shown via String(value)). Usually a number; pass a string
+   *  when the field edits a non-decimal form (e.g. a 2-digit hex alpha byte). */
+  value: number | string;
   parse?: (s: string) => number | null;
   onCommit: (n: number) => void;
   step?: number;

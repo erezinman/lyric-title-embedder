@@ -36,6 +36,18 @@ describe("C-51 — linger stepper", () => {
     expect(onSet).toHaveBeenCalledWith({ linger: expect.closeTo(0.1, 5) });
   });
 
+  it("C-51c — typing a linger value commits it (click-to-type)", async () => {
+    const onSet = vi.fn();
+    const g = makeGroup({ linger: 0.4 });
+    render(<EventStrip g={g} onSet={onSet} />);
+    const lingerSection = screen.getByText("Linger").closest(".es-grp") as HTMLElement;
+    await userEvent.click(within(lingerSection).getByText("0.4s"));
+    const input = lingerSection.querySelector("input.num-in") as HTMLInputElement;
+    await userEvent.clear(input);
+    await userEvent.type(input, "1.2{Enter}");
+    expect(onSet).toHaveBeenCalledWith({ linger: 1.2 });
+  });
+
   it("C-51b — '−' on linger=null(0) calls onSet({ linger: 0 }) (min 0 clamp)", async () => {
     const onSet = vi.fn();
     const g = makeGroup({ linger: null });

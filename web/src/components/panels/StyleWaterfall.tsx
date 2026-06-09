@@ -8,6 +8,7 @@ import { STYLE_KEYS, CUE_STYLE_KEYS } from "../../types";
 import type { Project, Token } from "../../types";
 import { ColorPicker } from "../pickers/ColorPicker";
 import { FontPicker } from "../pickers/FontPicker";
+import { EditableNum } from "../controls/EditableNum";
 
 // Typography (bold/italic/underline) is driven by the FontPicker's B/I/U
 // toggles, not by standalone rows — filtered out of every tier's row list and
@@ -173,11 +174,26 @@ function PropRow({ pkey, isGlobal, inheritFrom, overridden, onSet, onClear, ctx,
         </span>
       );
     }
-    // step — render as stepper
+    // step — render as a stepper with a click-to-type value cell
     return (
       <span className="pv-step">
         <span className="pm" onClick={() => onSet(pkey, clampStep(pkey, val, -1))}>−</span>
-        <span className="v">{meta.fmt(val)}</span>
+        <EditableNum
+          display={meta.fmt(val)}
+          value={meta.hex ? String(val) : (val as number)}
+          step={meta.hex ? undefined : (meta.step || 1)}
+          parse={meta.hex
+            ? (s) => { const n = parseInt(String(s).replace(/^0x/i, ""), 16); return isNaN(n) ? null : Math.max(0, Math.min(255, n)); }
+            : (s) => {
+                const n = parseFloat(s);
+                if (isNaN(n)) return null;
+                let x = n;
+                if (meta.min != null) x = Math.max(meta.min, x);
+                if (meta.max != null) x = Math.min(meta.max, x);
+                return x;
+              }}
+          onCommit={(n) => onSet(pkey, meta.hex ? Math.round(n).toString(16).padStart(2, "0").toUpperCase() : n)}
+        />
         <span className="pm" onClick={() => onSet(pkey, clampStep(pkey, val, +1))}>+</span>
       </span>
     );
