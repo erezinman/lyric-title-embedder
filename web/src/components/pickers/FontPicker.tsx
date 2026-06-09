@@ -6,6 +6,7 @@
 // so an uploaded face actually burns at render time — not just FontFace preview.
 
 import React, { useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { fonts as fontsApi } from "../../api/client";
 
 // Curated caption-friendly faces. The Google ones are loaded by pickers.css;
@@ -303,13 +304,17 @@ export function FontField(props: FontPickerProps) {
         <span className="ksp-field-val" style={valStyle}>{props.value}</span>
         <span className="ksp-caret">{kspFIcon("chev", 14)}</span>
       </button>
-      {open && pos && (
+      {open && pos && createPortal(
+        // Portal the fixed popover to <body> so it is immune to ancestor
+        // opacity/filter/transform/overflow — e.g. the inherited-row dim
+        // (`.prow.inh { opacity }`) used to flatten it (the transparency bug).
         <>
           <span className="ksp-backdrop" onClick={() => setOpen(false)} />
           <span className={"ksp-pop fixed" + (pos.up ? " up" : "")} style={{ top: pos.top, left: pos.left }}>
             <FontPanel {...props} flat />
           </span>
-        </>
+        </>,
+        document.body,
       )}
     </span>
   );

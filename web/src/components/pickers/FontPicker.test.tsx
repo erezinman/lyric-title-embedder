@@ -159,12 +159,14 @@ describe("FontPicker — custom-font upload", () => {
 
 describe("FontPicker — field mode", () => {
   it("renders a trigger and opens/closes a popover", async () => {
-    const { container } = render(<FontPicker mode="field" value="Anton" onChange={vi.fn()} />);
+    // The trigger stays in the row; the popover is portaled to <body>, so it is
+    // queried via baseElement (document.body), not the render container.
+    const { container, baseElement } = render(<FontPicker mode="field" value="Anton" onChange={vi.fn()} />);
     const trigger = container.querySelector(".ksp-field") as HTMLElement;
-    expect(container.querySelector(".ksp-pop")).toBeNull();
+    expect(baseElement.querySelector(".ksp-pop")).toBeNull();
     await userEvent.click(trigger);
-    expect(container.querySelector(".ksp-pop")).not.toBeNull();
-    fireEvent.click(container.querySelector(".ksp-backdrop") as HTMLElement);
-    expect(container.querySelector(".ksp-pop")).toBeNull();
+    expect(baseElement.querySelector(".ksp-pop")).not.toBeNull();
+    fireEvent.click(baseElement.querySelector(".ksp-backdrop") as HTMLElement);
+    expect(baseElement.querySelector(".ksp-pop")).toBeNull();
   });
 });

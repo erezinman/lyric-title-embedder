@@ -114,14 +114,33 @@ describe("ColorPicker — role-aware preview", () => {
 
 describe("ColorPicker — field popover", () => {
   it("field mode renders a trigger button and opens/closes the popover", async () => {
-    const { container } = render(<ColorPicker mode="field" value="#FF3DA6" onChange={vi.fn()} />);
+    // The trigger stays in the row; the popover is portaled to <body>, so it is
+    // queried via baseElement (document.body), not the render container.
+    const { container, baseElement } = render(<ColorPicker mode="field" value="#FF3DA6" onChange={vi.fn()} />);
     const trigger = container.querySelector(".ksp-field") as HTMLElement;
     expect(trigger).toBeTruthy();
-    expect(container.querySelector(".ksp-pop")).toBeNull();
+    expect(baseElement.querySelector(".ksp-pop")).toBeNull();
     await userEvent.click(trigger);
-    expect(container.querySelector(".ksp-pop")).not.toBeNull();
+    expect(baseElement.querySelector(".ksp-pop")).not.toBeNull();
     // backdrop closes
-    fireEvent.click(container.querySelector(".ksp-backdrop") as HTMLElement);
-    expect(container.querySelector(".ksp-pop")).toBeNull();
+    fireEvent.click(baseElement.querySelector(".ksp-backdrop") as HTMLElement);
+    expect(baseElement.querySelector(".ksp-pop")).toBeNull();
+  });
+
+  it("portals the popover to <body>, escaping an opacity-dimmed ancestor (transparency-bug fix)", async () => {
+    // Reproduces the inherited-row dim: `.prow.inh { opacity }` flattens its whole
+    // subtree, which used to dim the fixed popover. Portaling to <body> immunizes it.
+    const { container } = render(
+      <div className="prow inh" style={{ opacity: 0.62 }}>
+        <ColorPicker mode="field" value="#FF3DA6" onChange={vi.fn()} />
+      </div>,
+    );
+    await userEvent.click(container.querySelector(".ksp-field") as HTMLElement);
+    const pop = document.body.querySelector(".ksp-pop") as HTMLElement;
+    expect(pop).not.toBeNull();
+    // the popover is NOT inside the dimmed row…
+    expect(container.contains(pop)).toBe(false);
+    // …it is a direct child of <body>'s portal subtree
+    expect(pop.closest(".prow.inh")).toBeNull();
   });
 });

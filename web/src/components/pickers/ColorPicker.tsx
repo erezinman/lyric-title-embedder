@@ -7,6 +7,7 @@
 // picked custom colors — all with a live caption preview. Pairs with pickers.css.
 
 import React, { useRef, useCallback, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 /* ---- color math ---------------------------------------------------------- */
 export function kspHexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -322,13 +323,17 @@ export function ColorField(props: ColorPickerProps) {
         <span className="ksp-field-val mono">{String(props.value).toUpperCase()}</span>
         <span className="ksp-caret">{kspIcon("chev", 14)}</span>
       </button>
-      {open && pos && (
+      {open && pos && createPortal(
+        // Portal the fixed popover to <body> so it is immune to ancestor
+        // opacity/filter/transform/overflow — e.g. the inherited-row dim
+        // (`.prow.inh { opacity }`) used to flatten it (the transparency bug).
         <>
           <span className="ksp-backdrop" onClick={() => setOpen(false)} />
           <span className={"ksp-pop fixed" + (pos.up ? " up" : "")} style={{ top: pos.top, left: pos.left }}>
             <ColorPanel {...props} flat />
           </span>
-        </>
+        </>,
+        document.body,
       )}
     </span>
   );
