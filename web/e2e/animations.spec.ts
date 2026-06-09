@@ -151,6 +151,10 @@ test("AP-5 â€” drag a focused strip handle by +Npx retimes offsets; drag back â‰
   await until(async () => ((await apiState()).globals.animations ?? []).some((a: any) => a.id === "g_drag"));
 
   await openTimeline(page);
+  // Phase 4: at H-zoom 1 (68px/s) a 180ms strip is a sub-18px glyph chip and tiny
+  // neighbouring glyphs overlap the hit target. Zoom H to max so it expands into a
+  // wide, isolated real bar with clear handles (the prototype's "zoom in" workflow).
+  await page.locator('.tl-zoom input[aria-label="Horizontal zoom"]').fill("3");
   const strip = page.locator('.astrip[data-aid="g_drag"]').first();
   await strip.waitFor();
   // 2-click focus: 1st selects the cue, 2nd focuses the anim (handles appear)

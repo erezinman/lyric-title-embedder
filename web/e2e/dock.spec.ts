@@ -149,6 +149,42 @@ test("G-14b — Coherent packs non-overlapping cues onto a shared row", async ({
   expect(hotel.x).toBeGreaterThan(alpha.x + alpha.width / 2);
 });
 
+// Phase 4: the density toggle (.seg) reflows rows. Lanes (one row per group) yields
+// MORE .wt-row than Coherent (groups share rows). The selected cue stays pinned at
+// its viewport y across the toggle.
+test("G-14c — Lanes yields more rows than Coherent; selected cue stays pinned", async ({ page }) => {
+  await openAudit(page);
+  await page.locator(".dock-tab", { hasText: "Timeline" }).click();
+  await page.locator(".wt .wt-block").first().waitFor();
+
+  const seg = page.locator(".tl-toolrow .seg");
+  await expect(seg.locator("button.on")).toHaveAttribute("data-mode", "coherent");
+
+  // select the first cue so it can be pinned, then record its viewport y in Coherent
+  const sel = page.locator(".wt .wt-block.sel").first();
+  if (!(await sel.count())) {
+    await page.locator(".wt .wt-block").first().click();
+  }
+  const selBlock = page.locator(".wt .wt-block.sel").first();
+  await selBlock.waitFor();
+  const yBefore = (await selBlock.boundingBox())!.y;
+  const coherentRows = await page.locator(".wt .wt-row").count();
+
+  // switch to Lanes
+  await seg.locator('button[data-mode="lanes"]').click();
+  await expect(seg.locator("button.on")).toHaveAttribute("data-mode", "lanes");
+  await page.locator(".wt.lanes .wt-gutter").first().waitFor();
+  // let the FLIP transition settle
+  await page.waitForTimeout(550);
+
+  const lanesRows = await page.locator(".wt .wt-row").count();
+  expect(lanesRows).toBeGreaterThan(coherentRows);
+
+  // the selected cue's viewport y is preserved within a small tolerance
+  const yAfter = (await page.locator(".wt .wt-block.sel").first().boundingBox())!.y;
+  expect(Math.abs(yAfter - yBefore)).toBeLessThan(24);
+});
+
 test("G-15 — WordTrack drag (unlocked) shifts word times; drag-back ~ restores", async ({ page }) => {
   await openAudit(page);
   // switch to Timeline tab

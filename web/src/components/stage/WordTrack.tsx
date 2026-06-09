@@ -1,11 +1,11 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useLayoutEffect } from "react";
 import { colorForIndex } from "../../model/palette";
 import { computeMove, computeResize, dragMode } from "../../model/edit";
 import type { TimeUpdate } from "../../model/edit";
 import type { Project, Token, ResolvedAnim } from "../../types";
 import { layoutBars, type Bar, BLOCK_H } from "../../model/animStrips";
 import { packTimeline, type Density } from "../../model/trackPack";
-import { collectTargets, snap, type NearLine, type SnapTarget } from "../../model/snap";
+import { collectTargets, snap, zoomAnchorScroll, type NearLine, type SnapTarget } from "../../model/snap";
 
 export interface TrackWord {
   wid: number;
@@ -67,6 +67,8 @@ interface WordTrackProps {
   onAnimRetime?: (wid: number, aid: string, edge: "t0" | "t1", deltaMs: number) => void;
   /** override the seconds→px scale (horizontal zoom); default = areaPx/dur. */
   pxPerSecOverride?: number;
+  /** row height in px (vertical zoom); falls back to the CSS default. */
+  rowH?: number;
   /** magnet snapping on? (default true). Alt held during a drag inverts it. */
   magnet?: boolean;
 }
@@ -120,6 +122,7 @@ export function WordTrack({
   onCollapseOverflow,
   onAnimRetime,
   pxPerSecOverride,
+  rowH,
   magnet = true,
 }: WordTrackProps) {
   const progress = dur ? time / dur : 0;
@@ -143,6 +146,11 @@ export function WordTrack({
     if (el) { const w = el.getBoundingClientRect().width; if (w > 0) setAreaPx(w); }
   });
   const pxPerSec = pxPerSecOverride ?? (dur ? areaPx / dur : 100);
+  // horizontal content width: at zoom 1 (or no override) this is ≥ the viewport
+  // and the area fills it (% layout unchanged); above 1 it grows past the viewport
+  // and the horizontal scroller activates. `minWidth` keeps the fill-the-viewport
+  // floor so the drag math (dx / measured area width × dur) stays exact.
+  const contentMinW = pxPerSecOverride != null && dur ? Math.round(pxPerSecOverride * dur) : 0;
 
   // Keep latest props in refs so stable callbacks can always see current values
   const projectRef = useRef(project);
@@ -160,6 +168,138 @@ export function WordTrack({
   timeRef.current = time;
   const magnetRef = useRef(magnet);
   magnetRef.current = magnet;
+
+  // ── density FLIP + selected-cue pin + zoom anchoring (Phase 4) ──
+  // The scroller is the vertical (and, when H-zoomed, horizontal) scroll viewport.
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  // previous [data-flip] rects, captured every render so a density change can
+  // FLIP from the OLD layout to the NEW one (the old rects are already gone from
+  // the DOM by the time the post-commit layout effect runs).
+  const flipRectsRef = useRef<Map<string, DOMRect>>(new Map());
+  // capture-before-layout state for the selected-cue vertical pin.
+  const prevDensityRef = useRef(density);
+  const prevPxPerSecRef = useRef(pxPerSec);
+  const prevRowHRef = useRef(rowH);
+  // y of the selected block within the scroller, captured pre-commit (render-phase
+  // snapshot of the still-old DOM) so the post-commit effect can restore it.
+  const pinTopRef = useRef<number | null>(null);
+  // h-zoom anchor: the playhead's on-screen x captured pre-commit.
+  const hAnchorRef = useRef<number | null>(null);
+
+  const reduceMotion = useCallback(
+    () => typeof window !== "undefined" && typeof window.matchMedia === "function"
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    [],
+  );
+
+  // Render-phase capture: snapshot the CURRENT (about-to-be-replaced) layout the
+  // first time we observe a density/zoom change, BEFORE React commits the new DOM.
+  const selIdRef = useRef(selId);
+  selIdRef.current = selId;
+  if (
+    prevDensityRef.current !== density ||
+    prevPxPerSecRef.current !== pxPerSec ||
+    prevRowHRef.current !== rowH
+  ) {
+    const sc = scrollerRef.current;
+    if (sc) {
+      // FLIP old rects (only meaningful for a density change).
+      if (prevDensityRef.current !== density) {
+        const m = new Map<string, DOMRect>();
+        sc.querySelectorAll<HTMLElement>("[data-flip]").forEach((el) => {
+          const key = el.dataset.flip!;
+          m.set(key, el.getBoundingClientRect());
+        });
+        flipRectsRef.current = m;
+      }
+      // selected-cue vertical pin: its top relative to the scroller (still old DOM).
+      const scTop = sc.getBoundingClientRect().top;
+      const selEl = selIdRef.current != null
+        ? sc.querySelector<HTMLElement>(`.wt-block[data-wid="${selIdRef.current}"]`)
+        : null;
+      pinTopRef.current = selEl ? selEl.getBoundingClientRect().top - scTop : null;
+      // h-zoom anchor: keep the playhead's screen-x fixed.
+      if (prevPxPerSecRef.current !== pxPerSec) {
+        hAnchorRef.current = time * prevPxPerSecRef.current - sc.scrollLeft;
+      } else {
+        hAnchorRef.current = null;
+      }
+    }
+  }
+
+  useLayoutEffect(() => {
+    const sc = scrollerRef.current;
+    const densityChanged = prevDensityRef.current !== density;
+    const pxChanged = prevPxPerSecRef.current !== pxPerSec;
+    const rowHChanged = prevRowHRef.current !== rowH;
+    if (!sc || (!densityChanged && !pxChanged && !rowHChanged)) {
+      prevDensityRef.current = density;
+      prevPxPerSecRef.current = pxPerSec;
+      prevRowHRef.current = rowH;
+      return;
+    }
+
+    // 1) horizontal zoom anchor — keep the playhead's screen-x fixed
+    //    (snap.ts:zoomAnchorScroll). hAnchorRef holds preX = time*oldPps - scrollLeft,
+    //    so the new scrollLeft = time*newPps - preX.
+    if (pxChanged && hAnchorRef.current != null) {
+      sc.scrollLeft = zoomAnchorScroll(
+        prevPxPerSecRef.current, pxPerSec, time,
+        time * prevPxPerSecRef.current - hAnchorRef.current, // reconstruct old scrollLeft
+        sc.clientWidth,
+      );
+      hAnchorRef.current = null;
+    }
+
+    // 2) vertical pin — keep the selected cue at the same viewport y.
+    if (pinTopRef.current != null && selIdRef.current != null) {
+      const scTop = sc.getBoundingClientRect().top;
+      const selEl = sc.querySelector<HTMLElement>(`.wt-block[data-wid="${selIdRef.current}"]`);
+      if (selEl) {
+        const newTop = selEl.getBoundingClientRect().top - scTop;
+        sc.scrollTop += newTop - pinTopRef.current;
+      }
+    }
+    pinTopRef.current = null;
+
+    // 3) FLIP the blocks + ruler + playhead — density change only, never mid-drag,
+    //    skipped under prefers-reduced-motion. Animate TRANSFORM only.
+    if (densityChanged && !dragRef.current?.active && !reduceMotion()) {
+      const before = flipRectsRef.current;
+      const els = Array.from(sc.querySelectorAll<HTMLElement>("[data-flip]"));
+      const animated: HTMLElement[] = [];
+      for (const el of els) {
+        const o = before.get(el.dataset.flip!);
+        if (!o) continue;
+        const r = el.getBoundingClientRect();
+        const dx = o.left - r.left;
+        const dy = o.top - r.top;
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
+        el.style.transition = "none";
+        el.style.transform = `translate(${dx}px, ${dy}px)`;
+        animated.push(el);
+      }
+      if (animated.length) {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          for (const el of animated) {
+            el.style.transition = "transform .38s var(--ease-out)";
+            el.style.transform = "translate(0, 0)";
+          }
+        }));
+        const t = setTimeout(() => {
+          for (const el of animated) { el.style.transition = ""; el.style.transform = ""; }
+        }, 460);
+        prevDensityRef.current = density;
+        prevPxPerSecRef.current = pxPerSec;
+        prevRowHRef.current = rowH;
+        return () => clearTimeout(t);
+      }
+    }
+
+    prevDensityRef.current = density;
+    prevPxPerSecRef.current = pxPerSec;
+    prevRowHRef.current = rowH;
+  });
 
   /** event boundary spans (min start / max end of each event's words) in seconds. */
   const eventSpans = useCallback((): { s: number; e: number }[] => {
@@ -609,6 +749,7 @@ export function WordTrack({
         key={w.wid}
         className={cls}
         data-wid={w.wid}
+        data-flip={"c" + w.wid}
         style={{
           position: "absolute", left: `${left}%`, width: `${width}%`,
           height: `${BLOCK_H}px`, background: colorForIndex(w.gi),
@@ -694,8 +835,12 @@ export function WordTrack({
   };
 
   return (
-    <div className={"wt" + (unlocked ? " unlocked" : "") + (hasSel ? " has-sel" : "") + (isLanes ? " lanes" : "")}>
-      <div className="wt-scroller">
+    <div
+      className={"wt" + (unlocked ? " unlocked" : "") + (hasSel ? " has-sel" : "") + (isLanes ? " lanes" : "")}
+      style={rowH ? ({ ["--row-h" as string]: `${rowH}px` } as React.CSSProperties) : undefined}
+    >
+      <div className="wt-scroller" ref={scrollerRef}>
+        <div className="wt-content" style={contentMinW ? { minWidth: `${contentMinW}px` } : undefined}>
         {pack.rows.map((row, r) => {
           const gi = rowGroup(row);
           return (
@@ -719,6 +864,7 @@ export function WordTrack({
         })}
         <div
           className="wt-playhead"
+          data-flip="ph"
           style={{ left: `calc(var(--tl-gutter) + ${progress} * (100% - var(--tl-gutter)))` }}
         />
         {snapViz && (
@@ -749,6 +895,7 @@ export function WordTrack({
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

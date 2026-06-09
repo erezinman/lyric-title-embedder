@@ -66,6 +66,45 @@ describe("Editor shell", () => {
     vi.useRealTimers();
   });
 
+  it("density toggle: clicking a .seg stop sets density, persists kss.tlDensity, and re-mount reflects it", async () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => { store.set(k, String(v)); },
+      removeItem: (k: string) => { store.delete(k); },
+    });
+    const { container, unmount } = render(<Editor projectName="song1" onHome={() => {}} />);
+    await waitFor(() => expect(FakeWS.last).toBeTruthy());
+    act(() => FakeWS.last!.emit({ type: "state", state: projectWithEvent("Verse 1") }));
+    await waitFor(() => screen.getByText("Verse 1"));
+
+    const { fireEvent } = await import("@testing-library/react");
+    // open the Timeline dock tab where the density .seg lives (first dock-tab)
+    const timelineTab = (c: HTMLElement) =>
+      Array.from(c.querySelectorAll(".dock-tab")).find((b) => b.textContent?.includes("Timeline")) as HTMLElement;
+    fireEvent.click(timelineTab(container));
+    // default is Coherent
+    const seg = () => container.querySelector(".tl-toolrow .seg") as HTMLElement;
+    await waitFor(() => expect(seg()).toBeTruthy());
+    expect(seg().querySelector("button.on")?.getAttribute("data-mode")).toBe("coherent");
+
+    // click Lanes → persists + active stop moves
+    fireEvent.click(seg().querySelector('button[data-mode="lanes"]') as HTMLElement);
+    expect(store.get("kss.tlDensity")).toBe("lanes");
+    expect(seg().querySelector("button.on")?.getAttribute("data-mode")).toBe("lanes");
+
+    // re-mount: the persisted density is restored
+    unmount();
+    const r2 = render(<Editor projectName="song1" onHome={() => {}} />);
+    await waitFor(() => expect(FakeWS.last).toBeTruthy());
+    act(() => FakeWS.last!.emit({ type: "state", state: projectWithEvent("Verse 1") }));
+    await waitFor(() => screen.getByText("Verse 1"));
+    fireEvent.click(timelineTab(r2.container));
+    await waitFor(() =>
+      expect(r2.container.querySelector(".tl-toolrow .seg button.on")?.getAttribute("data-mode")).toBe("lanes"));
+    vi.unstubAllGlobals();
+  });
+
   it("has resizable panes: dragging the rail splitter changes the rail width and persists it", async () => {
     const store = new Map<string, string>();
     vi.stubGlobal("localStorage", {

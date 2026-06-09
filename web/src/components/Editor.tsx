@@ -17,6 +17,8 @@ import type { CapWord } from "./stage/PreviewStage";
 import { Waveform } from "./stage/Waveform";
 import { WordTrack } from "./stage/WordTrack";
 import type { TrackWord, AnimFocus } from "./stage/WordTrack";
+import type { Density } from "../model/trackPack";
+import { BLOCK_H } from "../model/animStrips";
 import { StyleWaterfall } from "./panels/StyleWaterfall";
 import { AnimSection } from "./panels/AnimSection";
 import type { AnimScope } from "./panels/AnimSection";
@@ -39,6 +41,9 @@ interface SelState {
  *  waveform/transport span matches the footage (Feature A acceptance criterion:
  *  "the waveform/transport length updates to match"). FLAG: this only extends, never
  *  truncates below the lyrics span; revisit if a shorter video should clamp the ruler. */
+/** Base seconds→px scale at H-zoom 1 (prototype BASE_PPS). */
+const BASE_PPS = 68;
+
 function projectDur(p: Project): number {
   const lyricsDur = Math.max(8, ...p.words.map((w) => w.end)) + 1.5;
   const vid = p.video?.duration_s ?? null;
@@ -89,6 +94,33 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
       return next;
     });
   }, []);
+  // timeline density toggle + H/V zoom (persisted, mirrors the magnet pattern).
+  // density: Compact · Coherent (default) · Lanes; hz/vz: H/V zoom factors.
+  const [density, setDensityState] = useState<Density>(() => {
+    try { const v = localStorage.getItem("kss.tlDensity"); return v === "compact" || v === "lanes" ? v : "coherent"; }
+    catch { return "coherent"; }
+  });
+  const setDensity = useCallback((d: Density) => {
+    setDensityState(d);
+    try { localStorage.setItem("kss.tlDensity", d); } catch { /* private mode */ }
+  }, []);
+  const [hz, setHzState] = useState(() => {
+    try { const n = parseFloat(localStorage.getItem("kss.tlHz") || ""); return isFinite(n) && n > 0 ? n : 1; }
+    catch { return 1; }
+  });
+  const setHz = useCallback((n: number) => {
+    setHzState(n);
+    try { localStorage.setItem("kss.tlHz", String(n)); } catch { /* private mode */ }
+  }, []);
+  const [vz, setVzState] = useState(() => {
+    try { const n = parseFloat(localStorage.getItem("kss.tlVz") || ""); return isFinite(n) && n > 0 ? n : 1; }
+    catch { return 1; }
+  });
+  const setVz = useCallback((n: number) => {
+    setVzState(n);
+    try { localStorage.setItem("kss.tlVz", String(n)); } catch { /* private mode */ }
+  }, []);
+
   const [altHeld, setAltHeld] = useState(false);
   useEffect(() => {
     const down = (e: KeyboardEvent) => { if (e.key === "Alt" || e.altKey) setAltHeld(true); };
@@ -1140,6 +1172,36 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                   <span className="st-state">{altHeld ? (magnet ? "off" : "on") : magnet ? "on" : "off"}</span>
                 </button>
                 <span className="tl-hint">Drag edges to snap · hold <b>Alt</b> to free</span>
+                <div className="seg" role="group" aria-label="Timeline density">
+                  {([
+                    ["compact", "☷", "Compact"],
+                    ["coherent", "☲", "Coherent"],
+                    ["lanes", "☰", "Lanes"],
+                  ] as const).map(([mode, glyph, label]) => (
+                    <button
+                      key={mode}
+                      data-mode={mode}
+                      className={density === mode ? "on" : ""}
+                      onClick={() => setDensity(mode)}
+                      aria-pressed={density === mode}
+                      title={`${label} density`}
+                    >
+                      <span className="ic">{glyph}</span>{label}
+                    </button>
+                  ))}
+                </div>
+                <span className="tl-zoom" title="Horizontal zoom">
+                  <span className="zl">H</span>
+                  <input type="range" min={0.6} max={3} step={0.05} value={hz}
+                    onChange={(e) => setHz(parseFloat(e.target.value))}
+                    aria-label="Horizontal zoom" title="Horizontal zoom" />
+                </span>
+                <span className="tl-zoom" title="Vertical zoom">
+                  <span className="zl">V</span>
+                  <input type="range" min={0.8} max={2} step={0.05} value={vz}
+                    onChange={(e) => setVz(parseFloat(e.target.value))}
+                    aria-label="Vertical zoom" title="Vertical zoom" />
+                </span>
               </div>
               <Waveform
                 dur={dur}
@@ -1152,7 +1214,9 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
               <WordTrack
                 words={trackWords}
                 events={P.layout.map((g, gi) => ({ gi, label: g.label }))}
-                density="coherent"
+                density={density}
+                pxPerSecOverride={BASE_PPS * hz}
+                rowH={Math.round(Math.max(BLOCK_H + 10, 50 * vz))}
                 dur={dur}
                 time={time}
                 liveId={liveId}

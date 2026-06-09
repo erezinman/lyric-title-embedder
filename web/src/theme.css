@@ -282,6 +282,22 @@ svg.lucide { display: block; }
 /* magnet toolbar row (ported from kit theme.css §1) */
 .tl-toolrow { display: flex; align-items: center; gap: 12px; padding: 2px 2px 6px; }
 .tl-hint { font-size: 11px; color: var(--text-3); }
+/* density segmented control (Compact · Coherent · Lanes) — ported from the
+   Timeline-View-Toggle prototype (.seg). Active stop = accent fill. */
+.tl-toolrow .seg { display: inline-flex; background: var(--surface-3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 3px; gap: 2px; }
+.tl-toolrow .seg button { font: inherit; font-size: 12px; color: var(--text-2); background: transparent;
+  border: 0; border-radius: var(--radius-xs); padding: 5px 11px; cursor: pointer; display: inline-flex;
+  align-items: center; gap: 6px; transition: var(--dur) var(--ease-out); }
+.tl-toolrow .seg button .ic { font-size: 13px; line-height: 1; }
+.tl-toolrow .seg button:hover:not(.on) { color: var(--text-1); }
+.tl-toolrow .seg button.on { background: var(--accent); color: var(--text-on-accent); font-weight: 600;
+  box-shadow: 0 2px 10px var(--glow-accent); }
+/* H / V zoom sliders */
+.tl-zoom { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-3);
+  font-family: var(--font-mono); }
+.tl-zoom .zl { color: var(--text-2); font-weight: 600; }
+.tl-zoom input[type=range] { accent-color: var(--cyan); width: 80px; }
 .tl-hint b { color: var(--cyan); font-family: var(--font-mono); font-size: 10.5px; }
 .snap-toggle { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 6px 0 11px; border-radius: var(--radius-pill);
   font-family: var(--font-ui); font-size: 11.5px; color: var(--text-2); background: var(--surface-3); border: 1px solid var(--border); cursor: pointer; transition: var(--dur) var(--ease-out); }
@@ -317,6 +333,10 @@ svg.lucide { display: block; }
 .wt { --row-h: 65px; position: relative; }
 .wt:not(.lanes) { --tl-gutter: 0px; }
 .wt-scroller { position: relative; max-height: 320px; overflow: auto; padding-right: 2px; }
+/* H-zoom: when content (dur×pxPerSec) exceeds the viewport, this wrapper grows past
+   it and the scroller's horizontal axis activates. The playhead/guides anchor here so
+   100% == content width. minWidth (inline) keeps the fill-the-viewport floor. */
+.wt-content { position: relative; min-width: 100%; }
 .wt-scroller::-webkit-scrollbar { width: 11px; height: 11px; }
 .wt-scroller::-webkit-scrollbar-thumb { background: var(--surface-4); border-radius: 99px; border: 3px solid var(--bg); }
 .wt-row { display: flex; position: relative; height: var(--row-h); }

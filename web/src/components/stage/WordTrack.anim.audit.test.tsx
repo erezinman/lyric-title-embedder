@@ -161,9 +161,9 @@ const STACK = withResolved(baseProject(), {
   0: [resolved({ id: "g_fade", name: "fade_in", channel: "alpha", src: "tag" }, 0.5, 0.9)],
 });
 // Editor dur = max(8, ...word ends) + 1.5; baseProject last end = 1.2+8 = 9.2 → dur 10.7.
-// wt-area is mocked 1000px wide, so pxPerSec = 1000/dur. ms = round(px / pxPerSec * 1000).
-const DUR = 10.7;
-const PXPS = 1000 / DUR;
+// Phase 4: the Editor drives WordTrack with pxPerSecOverride = BASE_PPS(68) * hz, so
+// the strip-handle drag maps px↔ms at the SAME 68px/s the bars are drawn with (zoom 1).
+const PXPS = 68;
 const pxToMs = (px: number) => Math.round((px / PXPS) * 1000);
 
 async function bootTimeline() {
@@ -252,16 +252,18 @@ describe("AT-11 drag-back nets baseline (no clamp)", () => {
     const rh = () => document.querySelector(".astrip[data-aid='g_fade'] .h-r") as HTMLElement;
     // Alt-held so this asserts the raw px→ms contract (a nearby snap candidate
     // would otherwise pull the edge); strip snapping is covered separately.
+    // ±20px (≈294ms at 68px/s): a clean symmetric drag-back that, on the 0.4s-wide
+    // anim, stays clear of the 50ms min-width clamp in both directions.
     fireEvent.pointerDown(rh(), { clientX: 90 });
-    fireEvent.pointerMove(window, { clientX: 120, altKey: true });
-    fireEvent.pointerUp(window, { clientX: 120, altKey: true }); // +30px
-    fireEvent.pointerDown(rh(), { clientX: 120 });
+    fireEvent.pointerMove(window, { clientX: 110, altKey: true });
+    fireEvent.pointerUp(window, { clientX: 110, altKey: true }); // +20px
+    fireEvent.pointerDown(rh(), { clientX: 110 });
     fireEvent.pointerMove(window, { clientX: 90, altKey: true });
-    fireEvent.pointerUp(window, { clientX: 90, altKey: true }); // -30px
+    fireEvent.pointerUp(window, { clientX: 90, altKey: true }); // -20px
     const calls = dispatchesOf("set_animation_props");
     expect(calls.length).toBe(2);
-    expect((calls[0].args.partial as any).t1.offset).toBe(pxToMs(30));
-    expect((calls[1].args.partial as any).t1.offset).toBe(-pxToMs(30));
+    expect((calls[0].args.partial as any).t1.offset).toBe(pxToMs(20));
+    expect((calls[1].args.partial as any).t1.offset).toBe(-pxToMs(20));
   });
 });
 
