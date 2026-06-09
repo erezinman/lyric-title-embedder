@@ -8,9 +8,9 @@ ASS techniques, the code architecture, and conventions/gotchas**.
 
 A toolkit to turn **word-level-timed lyrics** into **karaoke-style subtitles** with per-word
 **animations** (fades are one special case — also sweeps/pops/wipes/slides), precise placement,
-and grouping — as `.ass` (libass) or `.srt`. Primary deliverable is now the **React/Vite web
-app** served by the engine **daemon** (real libass-in-wasm live preview); the CustomTkinter GUI
-(`karaoke_subtitle_gui.py`) is frozen/legacy (no animation UI); batch scripts exist for headless
+and grouping — as `.ass` (libass) or `.srt`. The deliverable is the **React/Vite web app**
+served by the engine **daemon** (real libass-in-wasm live preview), runnable in the browser or
+wrapped in the **Electron desktop shell** (`desktop/`); batch scripts exist for headless
 generation.
 
 ## Background & data provenance (important)
@@ -54,19 +54,18 @@ Suno API  ──►  aligned_lyrics.json  ──►  reconstruct_lines + merge_s
                                                                                       │
                                                                           render-groups  ──►  engine/ass.py  ──►  .ass
                                                                                       │
-                                                                          tkinter preview / libass render / ffmpeg burn
+                                                                          libass-in-wasm preview / libass render / ffmpeg burn
 ```
 
 ## Code architecture
 
-Flat modules (no package for the view layer; `package-mode = false` in poetry). Run scripts
-directly.
+Flat Python modules (`package-mode = false` in poetry). Run scripts directly.
 
 ### engine/ — UI-free portable core
 
-`engine/` is the **UI-free, v3-portable core** per `design-system/HANDOFF_v3.md`. A future
-Tauri/React v3 is a view-only rewrite that reuses the engine unchanged (sidecar or IPC). It has no
-tkinter dependency and can be imported in headless environments.
+`engine/` is the **UI-free, v3-portable core** per `design-system/HANDOFF_v3.md`. The daemon and
+the headless MCP/batch tooling reuse the engine unchanged. It has no UI-toolkit dependency and can
+be imported in headless environments.
 
 - **`engine/model.py`** — project shape, `make_project`, `STYLE_KEYS` (all style props),
   `CUE_STYLE_KEYS` (same minus `border_style` — constraint C1), `resolve_style`, `BUILTIN`
@@ -95,10 +94,10 @@ tkinter dependency and can be imported in headless environments.
   contiguous merge, drops inner `\N`), `layout_merge`, `layout_ungroup`, `layout_split_event`,
   `set_group_style`, `set_cue_style`. Animation set: **`anim_add` / `anim_remove` /
   `anim_restore` / `anim_set_props`** over the three scopes. (Legacy `make_tag`/`clear_tag`/
-  `set_group_fade` linger in the file for the frozen Tk app but are not wired into the
-  daemon/MCP tool surface.)
+  `set_group_fade` linger in the file as dead code but are not wired into the daemon/MCP tool
+  surface.)
 - **`engine/ffmpeg.py`** — `burn_cmd`, `frame_cmd`, `probe_duration`, and a headless
-  `run(cmd, progress_cb)` that parses `-progress` and calls `progress_cb(frac)` — no tkinter.
+  `run(cmd, progress_cb)` that parses `-progress` and calls `progress_cb(frac)` — UI-free.
 - **`engine/anim.py`** — the **animation system** (fades are now a special case). `validate`/
   `resolve_animations` (the scope waterfall global → group → tag, narrowest-wins on overlapping
   channel), `anchor_seconds` (8 anchors `{cue,line,span,event}×{start,end}`, ms/frac offsets),
@@ -121,7 +120,7 @@ tkinter dependency and can be imported in headless environments.
 `controller.Session` holds `project` + undo/redo stacks (deep-copy snapshots). Every mutation
 goes through `do(name, *args)`: snapshot → call `engine.mutations.<name>` → fire `on_change()`.
 No-op / rejected edits don't add a snapshot. `undo()` / `redo()` restore the deep copy and fire
-`on_change()`. No tkinter.
+`on_change()`. UI-free.
 
 ### mcp_server/ — optional MCP interface
 
@@ -132,10 +131,8 @@ See `docs/superpowers/specs/2026-06-02-engine-mcp-server-design.md` for the full
 
 - **`HeadlessContext`** — owns its own `controller.Session` and a plain `dict` for globals.
   All operations run synchronously in the caller's thread. Used by the stdio transport (headless;
-  no Tk dependency at all).
-- **`UIContext`** — wraps a live `AppV2` instance, shares `app._session`, reads/writes tk-vars,
-  and marshals every operation onto the Tk main loop via a queue + main-loop poll. Used by the
-  `--mcp` GUI mode. Undo/redo is a **shared single timeline** between the GUI user and the AI.
+  no UI dependency at all). The daemon's `DaemonContext` subclasses it (see below) so live web +
+  MCP edits share one `Session` and a single undo/redo timeline.
 
 `mcp_server/tools.py` — all tool implementations (both contexts share the same tool layer).
 `mcp_server/server.py` — registers tools on a `FastMCP` server; serves stdio or loopback HTTP/SSE.
@@ -153,7 +150,7 @@ See `docs/superpowers/specs/2026-06-03-engine-daemon-design.md` for the full des
 (WebSocket) over **one shared `Session`** on a single uvicorn/Starlette process.
 
 - **`DaemonContext(HeadlessContext)`** (`daemon/context.py`) — synchronous `HeadlessContext`
-  subclass (no Tk). Owns its own `Session` + dict globals. Wires `Session.on_change` to call
+  subclass (UI-free). Owns its own `Session` + dict globals. Wires `Session.on_change` to call
   `Hub.schedule(get_state())` so every mutation broadcasts the full state to all `/ws` clients.
 - **`Hub`** (`daemon/hub.py`) — thread-safe WebSocket client registry. `schedule(msg)` is
   callable from the synchronous `on_change` path; it hops to the asyncio event loop via
@@ -184,28 +181,18 @@ starlette / uvicorn / the `mcp` SDK. `engine/`, `controller.py`, `mcp_server/too
 `mcp_server/context.py` remain SDK-free. `DaemonContext` reuses `EngineContext` +
 `mcp_server/tools.py` verbatim — no tool logic is duplicated.
 
-The daemon runs **alongside** the old CTk app (separate process, separate `Session`) — the CTk
-app is untouched. Needs `poetry install --with mcp` (adds `mcp` SDK + `uvicorn` + `websockets`).
+Needs `poetry install --with mcp` (adds `mcp` SDK + `uvicorn` + `websockets`). When given
+`--web-dist` (or an auto-detected `web/dist`), the daemon also serves the built React SPA, so one
+process backs both the API and the UI; the Electron desktop shell (`desktop/`) spawns and
+supervises it.
 
-### View layer (CTk + tk)
+### Shared UI-free helpers
 
-- **`core.py`** — UI-free shared helpers (used by engine and view): `ass_time`, `esc`,
+- **`core.py`** — UI-free shared helpers (used by the engine and daemon): `ass_time`, `esc`,
   `rgb_to_ass` (8-digit BGR for Style lines), `reconstruct_lines`, `merge_subwords`,
   `token_text/token_span`, `is_dashes`, `full_text_at`, `total_duration`,
   `list_font_families`, constants (`HERE`, `FFMPEG/FFPROBE/HAS_FFMPEG`, `FC_LIST/FC_MATCH`,
   `LIBASS_INK_AT_100`, `ALIGN_LABELS`, `ANCHOR`, `PREVIEW_W`, `HANDLE`).
-- **`app_base.py`** — `class App(ctk.CTk)`: merged single-window layout (toolbar + Style/Inspector
-  left rail + center preview + bottom cue dock), draggable placement box, per-cue tkinter preview
-  (word-by-word font/size/color), libass exact-render, ffmpeg burn via worker-thread + main-thread
-  `after()`-poll driven through `engine.ffmpeg.run`, project save/load, per-font sizing
-  `_font_px_factor`. Model-agnostic via hooks (`_make_project`, `_project_to_render`,
-  `_build_ass`, `_load_cues`, etc.).
-- **`karaoke_subtitle_gui.py`** (THE app) — `class AppV2(base.App)` wires a `controller.Session`
-  and provides the model hooks; `CueDock` implements the 3-lane bottom dock (LAYOUT · FADE-IN ·
-  FADE-OUT) with adjustable height and a Detach toggle.
-- **`old/karaoke_subtitle_gui.py`** — archived v1: `class App(app_base.App)` with v1 model hooks +
-  `CueEditor` (Treeview). Imports only `core.py` and its own UI — not `engine/` — so it stays
-  runnable and isolated. `nothing imports old/`.
 
 ### project dict (the source of truth) — animation model
 ```python
@@ -261,25 +248,23 @@ drawing or calling `build_ass`. `get_project` additionally carries the three ani
 - **Per-group / per-cue style:** one `[V4+ Styles]` per distinct group `border_style` value; all
   other properties inline as running-delta tags per word. Inline color is 6-digit BGR + trailing
   `&` (e.g. `\1c&H0000FF&`), unlike the 8-digit `&H00RRGGBB` form in Style lines.
-- **Preview font sizing:** libass renders ~`0.78 × Fontsize` of ink height regardless of font;
-  FreeType's ink/pixel ratio varies per font. So the tkinter preview uses pixel size
-  `0.78 × Fontsize / FreeType_ink_ratio`, measured per font via Pillow + `fc-match`
-  (`LIBASS_INK_AT_100 = 78`, fallback factor 0.82). Tk font sizes are **negative** = pixels.
-  The per-cue preview resolves each word's effective font/size independently.
+- **Font ink sizing:** libass renders ~`0.78 × Fontsize` of ink height regardless of font;
+  FreeType's ink/pixel ratio varies per font. The per-font factor is measured via Pillow +
+  `fc-match` (`LIBASS_INK_AT_100 = 78`, fallback factor 0.82) for any preview that needs to match
+  libass pixel-for-pixel.
 - **Burn:** `ffmpeg -i video -vf "ass='file.ass'" -c:a copy out.mp4`; preview frames use
   `-ss t -copyts` so libass renders the event active at the true timestamp.
 
 ## System dependencies (not pip)
-`ffmpeg`+libass (`--enable-libass`), `ffprobe`, fontconfig (`fc-list`/`fc-match`), tkinter
-(`python3-tk`). Pillow is the only managed pip dep (optional; graceful fallback).
+`ffmpeg`+libass (`--enable-libass`), `ffprobe`, fontconfig (`fc-list`/`fc-match`); Node.js for the
+web editor + Electron shell. Pillow is the only managed pip dep (optional; graceful fallback).
 
 ## Testing
 - **Python suites** (`tests/test_*.py`, pytest-style `test_*` + legacy stdlib `t_*` harness,
   `.venv/bin/python tests/<f>.py`): engine (model/mutations/build-io/srt/merge-span/unmerge/
   remove-break/group-align/globals-undo), **anim** (model/anchors/resolve/timing/compile/
   migration/tools/undo/daemon), daemon (api/projects/autosave), connect, tools, library,
-  suno_fetch — **81 pytest + 20 legacy scripts**. Engine code is TDD-first; Tk suites are
-  batched at the end of a work session (see memory note).
+  suno_fetch — **81 pytest + 20 legacy scripts**. Engine code is TDD-first.
 - **Web** (`npm --prefix web run test`): **722 vitest/jsdom tests / 58 files** incl. the
   interaction-audit suites (`web/src/**/*.audit.test.tsx`, incl. the `*.anim.audit.*` battery)
   — every control's action/revert/double/gating + an exhaustive WS-push→UI external-sync
@@ -289,19 +274,12 @@ drawing or calling `build_ass`. `get_project` additionally carries the three ani
   seeded project) + vite + chromium; asserts the daemon's `/api/state` AND rendered UI/geometry
   with revert symmetry; per-test reset restores a pristine snapshot (autosave-aware). Includes
   a **14-spec jassub pixel tier** (`e2e/jassub.spec.ts`) asserting the real libass-in-wasm render.
-- **Tk** (frozen/legacy; **`./run-tk-tests.sh`** — xvfb + self-withdraw): **118** headless
-  checks driving the editor via synthesized events; asserts state/render correctness. Tk gets
-  no animation UI.
 - Audit decision log: `docs/superpowers/testing/2026-06-05-adjudication-log.md`.
 - **docs/FEATURES.md** is the authoritative feature/behavior inventory — keep it current.
 
 ## Conventions & gotchas
-- **Tk threading:** never touch widgets / call `after()` from a worker thread. The burn uses a
-  shared state dict + a main-thread `_poll_burn`. Keep this pattern.
-- **`tk.Text` colors per *row*, not per cell** — that's why the editor uses three side-by-side Text
-  panes (one per lane), and pads fade cells to full width so group colors render as solid bars.
-- **Structural edits invalidate selection indices** — `CueDock._validate_selection()` clears
-  stale `sel_word`/`sel_group` on reload; call paths must go through `reload()`.
+- **Structural edits invalidate selection indices** — selection state keyed on word/group indices
+  must be revalidated after a reload, since structural edits can shift them.
 - **Canonical word indices are stable** (words are immutable); tags/tokens reference them, which is
   what makes project files reload-safe. Keyed by `nwords`.
 - **Inline color vs Style-line color:** `core.rgb_to_ass` produces the 8-digit `&H00RRGGBB` form
@@ -310,22 +288,8 @@ drawing or calling `build_ass`. `get_project` additionally carries the three ani
 - Default file paths resolve relative to the script dir (`HERE`); run batch scripts from the repo
   root so `aligned_lyrics.json` is found.
 - `engine/` mutations mutate the passed project dict in place; **`controller.Session.do()`
-  deep-copies first** — never call mutation functions directly from the view without going through
-  the controller, or undo/redo will be corrupted.
-
-## UI toolkit (customtkinter)
-- The **main window chrome is customtkinter** (`App(ctk.CTk)`): `CTkScrollableFrame` (left rail),
-  `CTkButton`/`CTkEntry`/`CTkOptionMenu`/`CTkComboBox`/`CTkCheckBox`/`CTkSlider`/`CTkProgressBar`/
-  `CTkTextbox`, `CTkTabview` (Style | Inspector tabs). API differences are wrapped in
-  `ctk_labelframe()` and `ctk_spin()` helpers. `tk.Canvas` (preview), `tk.Text` (dock lanes),
-  `tk.Listbox` (font picker) stay — no ctk equivalent.
-- **Theme** (`Light/Dark/System`) drives both `ctk.set_appearance_mode(...)` and the dock's
-  `tk.Text` pane colors; chosen in the toolbar, saved in the project file.
-- ctk gotchas hit during migration: progress bar uses `.set(0..1)` not `["value"]`; `CTkProgressBar`/
-  `CTkSlider` need `.bind("<ButtonRelease-1>")` for release; readonly combobox → `CTkOptionMenu`,
-  editable → `CTkComboBox` (both take `command=`, not `<<ComboboxSelected>>`); color swatches are
-  `CTkButton(fg_color=...)` updated via `.configure(fg_color=...)`; labels use `text_color`, not
-  `foreground`; there is no Spinbox (use `ctk_spin`) or LabelFrame (use `ctk_labelframe`).
+  deep-copies first** — never call mutation functions directly without going through the
+  controller, or undo/redo will be corrupted.
 
 ## Roadmap / open ideas
 - **Style waterfall (global < group < cue): SHIPPED.** Per-group: font, size, bold, colors, box
