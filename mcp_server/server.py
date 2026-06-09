@@ -77,6 +77,10 @@ def build_server(ctx, name="karaoke-subtitle-studio"):
     def add_animation(scope: str, ref=None, anim: Optional[dict] = None) -> dict:
         return tools.add_animation(ctx, scope, ref, anim)
     @mcp.tool()
+    def edit_custom_animation(scope: str, ref=None, anim_id: Optional[str] = None,
+                              anims: Optional[list] = None) -> dict:
+        return tools.edit_custom_animation(ctx, scope, ref, anim_id, anims)
+    @mcp.tool()
     def remove_animation(scope: str, ref=None, anim_id: Optional[str] = None) -> dict:
         return tools.remove_animation(ctx, scope, ref, anim_id)
     @mcp.tool()

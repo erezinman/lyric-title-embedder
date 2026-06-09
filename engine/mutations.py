@@ -366,13 +366,14 @@ def anim_set_props(project, scope, ref, anim_id, partial):
     path: a {"t0": {"offset": ms}} / {"t1": {"offset": ms}} partial writes the offset
     onto every segment's matching endpoint (against its existing anchor)."""
     lst = _anim_list(project, scope, ref)
-    allowed = ("mode", "step", "step_unit", "segments", "enabled", "name")
-    for a in lst:
-        if a["id"] != anim_id:
-            continue
+    target = next((a for a in lst if a["id"] == anim_id), None)
+    if target is None:
+        return
+
+    def apply_to(a, seg_only):
         merged = copy.deepcopy(a)
         for k, v in partial.items():
-            if k in allowed:
+            if k == "segments" or (not seg_only and k in ("mode", "step", "step_unit", "enabled", "name")):
                 merged[k] = v
         for ep in ("t0", "t1"):                  # drag-retime: offset delta vs anchor
             if ep in partial and isinstance(partial[ep], dict):
@@ -388,4 +389,40 @@ def anim_set_props(project, scope, ref, anim_id, partial):
         _anim.validate_animation(project, scope, ref, merged)
         a.clear()
         a.update(merged)
+
+    apply_to(target, seg_only=False)
+    # segments/t0/t1 writes propagate to own records sharing the target's group_id;
+    # mode/step/step_unit/enabled/name stay target-only.
+    gid = target.get("group_id")
+    has_seg = "segments" in partial or "t0" in partial or "t1" in partial
+    if gid and has_seg:
+        for a in lst:
+            if a["id"] != anim_id and a.get("group_id") == gid:
+                apply_to(a, seg_only=True)
+
+
+def anim_edit_custom(project, scope, ref, anim_id, anims):
+    """Replace an own animation (and its group_id siblings) at scope/ref with the
+    provided record set, in place at the lead's slot. The client rebuilds the
+    records (preserving the lead id); the engine validates + splices. No-op if
+    anim_id isn't an own record here."""
+    lst = _anim_list(project, scope, ref)
+    lead = next((a for a in lst if a["id"] == anim_id), None)
+    if lead is None:
         return
+    gid = lead.get("group_id")
+    replaced = {a["id"] for a in lst
+                if a["id"] == anim_id or (gid and a.get("group_id") == gid)}
+    for rec in (anims or []):
+        _anim.validate_animation(project, scope, ref, rec)
+    out, inserted = [], False
+    for a in lst:
+        if a["id"] in replaced:
+            if not inserted:
+                out.extend(copy.deepcopy(r) for r in (anims or []))
+                inserted = True
+        else:
+            out.append(a)
+    if not inserted:
+        out.extend(copy.deepcopy(r) for r in (anims or []))
+    lst[:] = out

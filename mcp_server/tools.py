@@ -290,6 +290,11 @@ def set_animation_props(ctx, scope, ref=None, anim_id=None, partial=None):
     _do(ctx, "anim_set_props", scope, ref, anim_id, partial or {})
     return ctx.run(lambda: _anim_view(ctx, scope, ref))
 
+def edit_custom_animation(ctx, scope, ref=None, anim_id=None, anims=None):
+    scope = _norm_scope(scope)
+    _do(ctx, "anim_edit_custom", scope, ref, anim_id, anims or [])
+    return ctx.run(lambda: _anim_view(ctx, scope, ref))
+
 
 def undo(ctx): ctx.run(lambda: ctx.session.undo()); return get_state(ctx)
 

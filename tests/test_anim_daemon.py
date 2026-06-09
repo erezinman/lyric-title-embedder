@@ -140,6 +140,27 @@ def t_AD_SP_03_invalid_partial_422():
     return (r.status_code == 422 and "error" in r.json()), f"status={r.status_code}"
 
 
+# ── edit_custom_animation over /api/call ──────────────────────────────────────
+
+def t_AD_EC_01_edit_custom_replaces_in_place_via_api():
+    lead = fx._anim(id="cust1", name="fill", channel="primary",
+                    segments=[fx._seg(fx._time("cue_end", -30), fx._time("cue_end", -30), None, "#FF3DA6")])
+    lead["custom"] = True
+    c, _ = _client(fx.with_animations(fx.synth_project(),
+                                      {"tags": [{"ids": [0], "anims": [lead], "suppress": []}]}))
+    newrec = fx._anim(id="cust1", name="fill", channel="blur",
+                      segments=[fx._seg(fx._time("cue_end", -30), fx._time("cue_end", -30), None, 6)])
+    newrec["custom"] = True
+    r = _call(c, "edit_custom_animation", scope="cue", ref=[0], anim_id="cust1", anims=[newrec])
+    assert r.status_code == 200, r.text
+    view = [a for a in r.json()["result"].get("animations", []) if a["id"] == "cust1"]
+    st = c.get("/api/state").json()
+    tag = next(t for t in st["anim_tags"] if set(t["ids"]) == {0})
+    sa = [a for a in tag["anims"] if a["id"] == "cust1"]
+    return (len(view) == 1 and view[0]["channel"] == "blur"
+            and len(sa) == 1 and sa[0]["channel"] == "blur"), f"view={r.json()} state={tag['anims']}"
+
+
 # ── 3E — resolved lists in /api/state and /api/render ─────────────────────────
 
 def t_AD_GET_01_state_carries_resolved():
