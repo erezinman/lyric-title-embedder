@@ -148,7 +148,7 @@ svg.lucide { display: block; }
 .stage .live-badge .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); animation: pulse 1.4s var(--ease-in-out) infinite; }
 @keyframes pulse { 50% { opacity: .35; } }
 .cap { position: absolute; left: 0; right: 0; bottom: 13%; padding: 0 5%;
-  font-family: var(--font-display); font-weight: 700; font-size: clamp(11px, 4.2cqw, 36px); letter-spacing: -.01em; line-height: 1.16;
+  font-family: var(--font-display); font-weight: 700; font-size: clamp(15px, 3.3cqw, 64px); letter-spacing: -.01em; line-height: 1.16;
   display: flex; flex-direction: column; align-items: center; gap: .04em; }
 .cap > div { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 0 .3em; }
 .cap .w { color: #fff; text-shadow: 0 2px 0 #000, 0 0 2px #000, 0 3px 20px rgba(0,0,0,.7); transition: opacity .18s, color .18s, transform .18s; cursor: pointer; }
@@ -694,7 +694,12 @@ select.select { appearance: none; background: var(--surface-3); color: var(--tex
 .export-pop { position: absolute; top: 52px; right: 16px; z-index: 40; width: 312px;
   background: var(--surface-2); border: 1px solid var(--border);
   border-radius: var(--radius-lg); box-shadow: 0 16px 48px rgba(0,0,0,.45);
-  overflow: hidden; }
+  overflow: hidden; animation: popIn .14s var(--ease-out); }
+/* safe to fade — this is an absolutely-positioned dialog, NOT a portaled fixed picker popover */
+@keyframes popIn { from { opacity: 0; transform: scale(.98) translateY(-4px); } to { opacity: 1; transform: none; } }
+.export-pop .exp-x { width: 24px; height: 24px; border-radius: 6px; border: 0; background: transparent;
+  color: var(--text-3); display: grid; place-items: center; cursor: pointer; }
+.export-pop .exp-x:hover { background: var(--surface-4); color: var(--text-1); }
 .export-pop .exp-h { display: flex; align-items: center; justify-content: space-between;
   padding: 11px 13px; border-bottom: 1px solid var(--border);
   font-family: var(--font-display); font-weight: 600; font-size: 13px; color: var(--text-1); }

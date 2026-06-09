@@ -143,7 +143,9 @@ export function ExportMenu({
 
   return (
     <div className="export-pop" role="dialog" onClick={(e) => e.stopPropagation()}>
-      <div className="exp-h">Export</div>
+      <div className="exp-h">Export
+        <button className="exp-x" title="Close" aria-label="Close" onClick={onClose}><Icon name="close" size={15} /></button>
+      </div>
 
       {/* Pre-flight lint panel */}
       <div className="lint-panel" data-testid="lint-panel">
