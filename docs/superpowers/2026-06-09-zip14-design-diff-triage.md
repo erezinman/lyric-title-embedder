@@ -5,6 +5,18 @@ Maps **every** difference between the designer's most-current snapshot
 `desktop-app-bundle`: 8 JSX modules + `theme.css` + `colors_and_type.css`/`fonts.css`/`pickers.css`
 + `index.html`) and `web/src/**`, then splits the work into two tracks.
 
+> **STATUS — Track A ported (2026-06-09), branch `feat/designer-sync`.** Commits:
+> A1 picker anti-flash (`370d0b6`) · A2/A4 safe CSS batch (`1f54c12`) · A2 cap-size +
+> export popover (`025bda7`) · A4 self-hosted variable fonts (`46ba00c`) · A3 dock-hint /
+> favicon / Break-Join (`df77fb5`) · A2 library cards backend+frontend (`2dbd663`).
+> Verified: web vitest 878, tsc clean, Python daemon scripts green, **e2e 71 passed**.
+> Decisions during the port: gradient caption fill **discarded** (engine has no gradient
+> support); `.block.sel` **already present** (relocated, not a regression); library cards
+> **drop preset/kind** (no model concept) — derive caption/duration/edited-time only;
+> Select/Combo atoms **skipped** (YAGNI, no consumer); the pane **drag-line kept as our
+> `.splitter`** (keyboard/ARIA upgrade) rather than reverting to the kit's 8px tinted strip.
+> **Track B remains open** (needs designer review).
+
 ## How to read this
 
 zip14 is a **static mock the designer reverse-derived from our app** (CDN React/Babel, `window`
