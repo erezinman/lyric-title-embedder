@@ -3,7 +3,8 @@ import { colorForIndex } from "../../model/palette";
 import { computeMove, computeResize, dragMode } from "../../model/edit";
 import type { TimeUpdate } from "../../model/edit";
 import type { Project, Token, ResolvedAnim } from "../../types";
-import { layoutStrips, stripStyle, typeColor, typeGlyph, type StripLayout } from "../../model/animStrips";
+import { layoutBars, type Bar, BLOCK_H } from "../../model/animStrips";
+import { packTimeline, type Density } from "../../model/trackPack";
 import { collectTargets, snap, type NearLine, type SnapTarget } from "../../model/snap";
 
 export interface TrackWord {
@@ -35,6 +36,8 @@ export interface TrackEvent {
 interface WordTrackProps {
   words: TrackWord[];
   events: TrackEvent[];
+  /** row-packing density: "lanes" (one row/group + gutter) | "coherent" | "compact". */
+  density?: Density;
   dur: number;
   time: number;
   liveId: number | null;
@@ -98,6 +101,7 @@ interface DragState {
 export function WordTrack({
   words,
   events,
+  density = "coherent",
   dur,
   time,
   liveId,
@@ -119,7 +123,9 @@ export function WordTrack({
   magnet = true,
 }: WordTrackProps) {
   const progress = dur ? time / dur : 0;
-  const lanes = (events ?? []).filter((ev) => words.some((w) => w.gi === ev.gi));
+  // Phase 5 reworks these into a single `expandedCue` accordion contract; accepted
+  // but unused for now (the ＋N disc is a non-interactive placeholder this phase).
+  void expandedCues; void onExpandOverflow; void onCollapseOverflow;
 
   // preview: map from wid -> { start, end } during live drag
   const [preview, setPreview] = useState<Map<number, { start: number; end: number }>>(new Map());
@@ -446,10 +452,10 @@ export function WordTrack({
   useEffect(() => removeAnimListeners, [removeAnimListeners]);
 
   const startAnimDrag = useCallback(
-    (e: React.PointerEvent, w: TrackWord, strip: StripLayout, edge: "t0" | "t1", pxPerSec: number) => {
+    (e: React.PointerEvent, w: TrackWord, aid: string, edge: "t0" | "t1", pxPerSec: number) => {
       e.preventDefault();
       e.stopPropagation();
-      const an = w.anims?.find((a) => a.id === strip.aid);
+      const an = w.anims?.find((a) => a.id === aid);
       if (!an) return;
       const starts = an.segments.map((s) => s.start_s);
       const ends = an.segments.map((s) => s.end_s);
@@ -463,13 +469,13 @@ export function WordTrack({
         { sec: w.e, kind: "block" },
       ];
       for (const other of w.anims ?? []) {
-        if (other.id === strip.aid) continue;
+        if (other.id === aid) continue;
         for (const seg of other.segments) {
           stripTargets.push({ sec: seg.start_s, kind: "anim" }, { sec: seg.end_s, kind: "anim" });
         }
       }
       animDragRef.current = {
-        wid: w.wid, aid: strip.aid, edge, startX: e.clientX, pxPerSec,
+        wid: w.wid, aid, edge, startX: e.clientX, pxPerSec,
         s: Math.min(...starts), e: Math.max(...ends), cancelled: false,
         targets: stripTargets,
       };
@@ -531,18 +537,12 @@ export function WordTrack({
 
   // 1st click selects the cue; 2nd click (cue already selected) focuses the anim.
   const handleStripClick = useCallback(
-    (e: React.MouseEvent, w: TrackWord, strip: StripLayout) => {
+    (e: React.MouseEvent, w: TrackWord, aid: string) => {
       e.stopPropagation();
-      if (strip.kind === "overflow") {
-        if (selId === w.wid) onExpandOverflow?.(w.wid);
-        else onSelectStrip?.(w.wid);
-        return;
-      }
-      if (strip.kind === "collapse") { onCollapseOverflow?.(w.wid); return; }
-      if (selId === w.wid) onFocusStrip?.(w.wid, strip.aid);
+      if (selId === w.wid) onFocusStrip?.(w.wid, aid);
       else onSelectStrip?.(w.wid);
     },
-    [selId, onSelectStrip, onFocusStrip, onExpandOverflow, onCollapseOverflow]
+    [selId, onSelectStrip, onFocusStrip]
   );
 
   // Active source-link id: a group/global-sourced anim that's hovered or focused
@@ -555,168 +555,211 @@ export function WordTrack({
   })();
   const linkSid = hoverSid || focusedSrc || "";
   /** is this strip part of the active source-link set? */
-  const isLinked = (aid: string, src: StripLayout["src"]): boolean =>
+  const isLinked = (aid: string, src: ResolvedAnim["src"]): boolean =>
     !!linkSid && aid === linkSid && (src === "group" || src === "global");
   /** the group/global source id for a strip (for hover-link), else "". */
-  const stripSid = (aid: string, src: StripLayout["src"]): string =>
+  const stripSid = (aid: string, src: ResolvedAnim["src"]): string =>
     src === "group" || src === "global" ? aid : "";
 
   const hasSel = selId != null || (selectedWords?.size ?? 0) > 0;
 
-  return (
-    <div className={"wt" + (unlocked ? " unlocked" : "") + (hasSel ? " has-sel" : "")}>
-      {lanes.map((ev) => (
-        <div className="wt-lane" key={ev.gi}>
-          <div className="wt-label" title={ev.label}>
-            <span className="wt-dot" style={{ background: colorForIndex(ev.gi) }} />
-            <span className="wt-name">{ev.label}</span>
-          </div>
-          <div className="wt-area" ref={lanes[0]?.gi === ev.gi ? areaElRef : undefined}>
-            {words
-              .filter((w) => w.gi === ev.gi)
-              .map((w) => {
-                // Use preview times if available
-                const pv = preview.get(w.wid);
-                const s = pv ? pv.start : w.s;
-                const e = pv ? pv.end : w.e;
-                const left = (s / dur) * 100;
-                const width = Math.max(0.4, ((e - s) / dur) * 100);
-                const isMulti = selectedWords?.has(w.wid) ?? false;
-                // ── animation strips for this cue (cluster AT) ──
-                const anims = w.anims ?? [];
-                const expanded = expandedCues?.has(w.wid) ?? false;
-                const layout = anims.length > 0 ? layoutStrips(anims, s, pxPerSec, expanded) : null;
-                const muted = !(w.wid === selId || isMulti);
-                const cls =
-                  "block" +
-                  (w.wid === liveId ? " live" : "") +
-                  (w.wid === selId || isMulti ? " sel" : "") +
-                  (w.del ? " del" : "") +
-                  (layout?.exp ? " exp" : "");
-                return (
-                  <div
-                    key={w.wid}
-                    className={cls}
-                    style={{
-                      // absolute (not relative) so each cue is placed by time within
-                      // .wt-area; relative drops them into normal flow → they stack
-                      // vertically and get clipped by the lane's overflow:hidden.
-                      position: "absolute", left: `${left}%`, width: `${width}%`, background: colorForIndex(w.gi),
-                      ...(layout?.exp ? { height: `${layout.cueHeight}px` } : {}),
-                    }}
-                    onPointerDown={unlocked ? (ev) => handleBlockPointerDown(ev, w) : undefined}
-                    onPointerUp={unlocked ? (ev) => handleBlockPointerUp(ev, w) : undefined}
-                    onClick={
-                      unlocked
-                        ? undefined
-                        : (ev) => onSelect(w.gi, w.li, w.ti, w.wid, { ctrl: ev.ctrlKey || ev.metaKey, shift: ev.shiftKey })
-                    }
-                    onDoubleClick={() => onOpen?.(w.gi, w.li, w.ti, w.wid)}
-                    title={`${w.text} · ${s.toFixed(2)}–${e.toFixed(2)}s`}
-                  >
-                    {unlocked && (
-                      <span
-                        className="wt-handle l"
-                        onPointerDown={(ev) => {
-                          ev.stopPropagation();
-                          handleBlockPointerDown(ev as unknown as React.PointerEvent<HTMLElement>, w, "start");
-                        }}
-                      />
-                    )}
-                    {w.subs && w.subs.length > 1
-                      ? w.subs.map((sub, i) => {
-                          // position each word inside the merged block by its real
-                          // time, relative to the block span; a divider tick (left
-                          // border) separates every word after the first. (kit port)
-                          const denom = (e - s) || 1;
-                          return (
-                            <span
-                              key={i}
-                              className="blk-seg"
-                              style={{
-                                left: `${((sub.s - s) / denom) * 100}%`,
-                                width: `${((sub.e - sub.s) / denom) * 100}%`,
-                                borderLeft: i > 0 ? "1px dashed rgba(255,255,255,.5)" : "none",
-                              }}
-                              title={`${sub.text} · ${sub.s.toFixed(2)}–${sub.e.toFixed(2)}s`}
-                            >
-                              {sub.text}
-                            </span>
-                          );
-                        })
-                      : <span className="bt">{w.text}</span>}
-                    {unlocked && (
-                      <span
-                        className="wt-handle r"
-                        onPointerDown={(ev) => {
-                          ev.stopPropagation();
-                          handleBlockPointerDown(ev as unknown as React.PointerEvent<HTMLElement>, w, "end");
-                        }}
-                      />
-                    )}
-                    {layout && (
-                      <span className={"cue-anims" + (muted ? " muted" : "")}>
-                        {layout.strips.map((strip, k) => (
-                          <AnimStripEl
-                            key={strip.kind === "bar" || strip.kind === "glyph" ? strip.aid : `${strip.kind}-${k}`}
-                            strip={strip}
-                            focused={animFocus?.wid === w.wid && animFocus?.aid === strip.aid}
-                            linked={isLinked(strip.aid, strip.src)}
-                            onClick={(ev) => handleStripClick(ev, w, strip)}
-                            onHandleDown={(ev, edge) => startAnimDrag(ev, w, strip, edge, pxPerSec)}
-                            onHoverSid={(sid) => setHoverSid(sid)}
-                            sid={stripSid(strip.aid, strip.src)}
-                          />
-                        ))}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-      ))}
+  // Preview-aware time bounds for a word (live drag overrides s/e).
+  const boundsOf = (w: TrackWord): { s: number; e: number } => {
+    const pv = preview.get(w.wid);
+    return { s: pv ? pv.start : w.s, e: pv ? pv.end : w.e };
+  };
+
+  // ── group-coherent row packing (Phase 3) ──
+  // Items carry preview-aware spans so a live drag re-packs honestly (the row
+  // assignment is recomputed each render — drag math is unaffected, it reads the
+  // stable areaPx). Lanes mode keeps the labelled per-group gutter.
+  const isLanes = density === "lanes";
+  const items = words.map((w) => {
+    const { s, e } = boundsOf(w);
+    return { key: String(w.wid), gi: w.gi, s, e };
+  });
+  const pack = packTimeline(items, density);
+  const byWid = new Map(words.map((w) => [w.wid, w]));
+
+  // one group per row (lanes): the row's representative group for the gutter label.
+  const rowGroup = (row: { key: string; gi: number }[]): number | null =>
+    row.length ? row[0].gi : null;
+  const labelFor = (gi: number): string =>
+    events.find((ev) => ev.gi === gi)?.label ?? "";
+
+  /** Render a single cue as a constant-height card. `firstArea` flags the row
+   *  whose `.wt-area` carries the pxPerSec measure ref (stable full width). */
+  const renderBlock = (w: TrackWord) => {
+    const { s, e } = boundsOf(w);
+    const left = (s / dur) * 100;
+    const width = Math.max(0.4, ((e - s) / dur) * 100);
+    const isMulti = selectedWords?.has(w.wid) ?? false;
+    const anims = w.anims ?? [];
+    const { bars, overflowCount } = anims.length > 0
+      ? layoutBars(anims, s, pxPerSec, { groupColor: colorForIndex(w.gi) })
+      : { bars: [] as Bar[], overflowCount: 0 };
+    const muted = !(w.wid === selId || isMulti);
+    const cls =
+      "wt-block block" +
+      (w.wid === liveId ? " live" : "") +
+      (w.wid === selId || isMulti ? " sel" : "") +
+      (w.del ? " del" : "");
+    return (
       <div
-        className="wt-playhead"
-        style={{ left: `calc(var(--tl-gutter) + ${progress} * (100% - var(--tl-gutter)))` }}
-      />
-      {snapViz && (
-        <div className="wt-guides" aria-hidden="true">
-          {snapViz.near.map((n) => {
-            if (snapViz.hit && Math.abs(n.sec - snapViz.hit.sec) < 1e-3) return null;
-            const f = dur ? n.sec / dur : 0;
-            return (
-              <div
-                key={`near-${n.sec.toFixed(4)}`}
-                className="snap-guide near"
-                style={{
-                  left: `calc(var(--tl-gutter) + ${f} * (100% - var(--tl-gutter)))`,
-                  opacity: (0.15 + n.opacity * 0.45).toFixed(3),
-                }}
-              />
-            );
-          })}
-          {snapViz.hit && (
-            <div
-              className={"snap-guide" + (snapViz.hit.kind === "playhead" ? " k-playhead" : "")}
-              style={{
-                left: `calc(var(--tl-gutter) + ${(dur ? snapViz.hit.sec / dur : 0)} * (100% - var(--tl-gutter)))`,
-              }}
-            >
-              <span className="sg-tag">{snapViz.hit.sec.toFixed(2)}s</span>
+        key={w.wid}
+        className={cls}
+        data-wid={w.wid}
+        style={{
+          position: "absolute", left: `${left}%`, width: `${width}%`,
+          height: `${BLOCK_H}px`, background: colorForIndex(w.gi),
+        }}
+        onPointerDown={unlocked ? (ev) => handleBlockPointerDown(ev, w) : undefined}
+        onPointerUp={unlocked ? (ev) => handleBlockPointerUp(ev, w) : undefined}
+        onClick={
+          unlocked
+            ? undefined
+            : (ev) => onSelect(w.gi, w.li, w.ti, w.wid, { ctrl: ev.ctrlKey || ev.metaKey, shift: ev.shiftKey })
+        }
+        onDoubleClick={() => onOpen?.(w.gi, w.li, w.ti, w.wid)}
+        title={`${w.text} · ${s.toFixed(2)}–${e.toFixed(2)}s`}
+      >
+        {unlocked && (
+          <span
+            className="wt-handle l"
+            onPointerDown={(ev) => {
+              ev.stopPropagation();
+              handleBlockPointerDown(ev as unknown as React.PointerEvent<HTMLElement>, w, "start");
+            }}
+          />
+        )}
+        <span className="blk-title">
+          {w.subs && w.subs.length > 1
+            ? w.subs.map((sub, i) => {
+                // each word positioned by its real time inside the title band;
+                // a dashed divider precedes every word after the first (kit port).
+                const denom = (e - s) || 1;
+                return (
+                  <span
+                    key={i}
+                    className="blk-seg"
+                    style={{
+                      left: `${((sub.s - s) / denom) * 100}%`,
+                      width: `${((sub.e - sub.s) / denom) * 100}%`,
+                      borderLeft: i > 0 ? "1px dashed rgba(255,255,255,.5)" : "none",
+                    }}
+                    title={`${sub.text} · ${sub.s.toFixed(2)}–${sub.e.toFixed(2)}s`}
+                  >
+                    {sub.text}
+                  </span>
+                );
+              })
+            : <span className="bt">{w.text}</span>}
+        </span>
+        {unlocked && (
+          <span
+            className="wt-handle r"
+            onPointerDown={(ev) => {
+              ev.stopPropagation();
+              handleBlockPointerDown(ev as unknown as React.PointerEvent<HTMLElement>, w, "end");
+            }}
+          />
+        )}
+        {bars.length > 0 && (
+          <span className={"cue-anims" + (muted ? " muted" : "")}>
+            {bars.map((bar, k) => {
+              const aid = (w.anims![k]).id;
+              return (
+                <AnimStripEl
+                  key={aid}
+                  bar={bar}
+                  aid={aid}
+                  focused={animFocus?.wid === w.wid && animFocus?.aid === aid}
+                  linked={isLinked(aid, bar.src)}
+                  onClick={(ev) => handleStripClick(ev, w, aid)}
+                  onHandleDown={(ev, edge) => startAnimDrag(ev, w, aid, edge, pxPerSec)}
+                  onHoverSid={(sid) => setHoverSid(sid)}
+                  sid={stripSid(aid, bar.src)}
+                />
+              );
+            })}
+          </span>
+        )}
+        {overflowCount > 0 && (
+          // Phase 3: non-interactive ＋N placeholder. The expand-to-overlay
+          // accordion that replaces it lands in Phase 5.
+          <span className="disc" aria-hidden="true">＋{overflowCount}</span>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className={"wt" + (unlocked ? " unlocked" : "") + (hasSel ? " has-sel" : "") + (isLanes ? " lanes" : "")}>
+      <div className="wt-scroller">
+        {pack.rows.map((row, r) => {
+          const gi = rowGroup(row);
+          return (
+            <div className="wt-row" key={r}>
+              {isLanes && gi != null && (
+                <div className="wt-gutter">
+                  <span className="glabel" title={labelFor(gi)}>
+                    <span className="gdot" style={{ background: colorForIndex(gi) }} />
+                    <span className="gname">{labelFor(gi)}</span>
+                  </span>
+                </div>
+              )}
+              <div className="wt-area" ref={r === 0 ? areaElRef : undefined}>
+                {row.map((it) => {
+                  const w = byWid.get(Number(it.key));
+                  return w ? renderBlock(w) : null;
+                })}
+              </div>
             </div>
-          )}
-        </div>
-      )}
+          );
+        })}
+        <div
+          className="wt-playhead"
+          style={{ left: `calc(var(--tl-gutter) + ${progress} * (100% - var(--tl-gutter)))` }}
+        />
+        {snapViz && (
+          <div className="wt-guides" aria-hidden="true">
+            {snapViz.near.map((n) => {
+              if (snapViz.hit && Math.abs(n.sec - snapViz.hit.sec) < 1e-3) return null;
+              const f = dur ? n.sec / dur : 0;
+              return (
+                <div
+                  key={`near-${n.sec.toFixed(4)}`}
+                  className="snap-guide near"
+                  style={{
+                    left: `calc(var(--tl-gutter) + ${f} * (100% - var(--tl-gutter)))`,
+                    opacity: (0.15 + n.opacity * 0.45).toFixed(3),
+                  }}
+                />
+              );
+            })}
+            {snapViz.hit && (
+              <div
+                className={"snap-guide" + (snapViz.hit.kind === "playhead" ? " k-playhead" : "")}
+                style={{
+                  left: `calc(var(--tl-gutter) + ${(dur ? snapViz.hit.sec / dur : 0)} * (100% - var(--tl-gutter)))`,
+                }}
+              >
+                <span className="sg-tag">{snapViz.hit.sec.toFixed(2)}s</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// ── one animation strip (bar / glyph / overflow / collapse) ──────────────────
+// ── one animation strip (constant-height bar or glyph chip) ──────────────────
 function AnimStripEl({
-  strip, focused, linked, sid, onClick, onHandleDown, onHoverSid,
+  bar, aid, focused, linked, sid, onClick, onHandleDown, onHoverSid,
 }: {
-  strip: StripLayout;
+  bar: Bar;
+  aid: string;
   focused: boolean;
   linked: boolean;
   sid: string;
@@ -724,42 +767,20 @@ function AnimStripEl({
   onHandleDown: (e: React.PointerEvent, edge: "t0" | "t1") => void;
   onHoverSid: (sid: string) => void;
 }) {
-  const common = `${strip.left}px`;
   // hover a group/global strip → light up its source-link set; leave → clear.
   const hover = { onMouseEnter: () => onHoverSid(sid), onMouseLeave: () => onHoverSid("") };
-  if (strip.kind === "collapse") {
-    return (
-      <button className="astrip collapse" data-aid="collapse" onClick={onClick} title="Collapse stack">
-        <span className="ov-n">✕</span>
-      </button>
-    );
-  }
-  if (strip.kind === "overflow") {
+  if (bar.kind === "glyph") {
     return (
       <button
-        className="astrip overflow"
-        data-aid="over"
-        onClick={onClick}
-        style={{ left: common, width: `${strip.width}px`, top: `${strip.top}%`, height: `${strip.height}%`,
-                 background: `linear-gradient(90deg, ${strip.stripes})` }}
-        title={`${strip.count} more animations`}
-      >
-        <span className="ov-n">+{strip.count}</span>
-      </button>
-    );
-  }
-  if (strip.kind === "glyph") {
-    return (
-      <button
-        className={"astrip glyph t-" + strip.vt + (focused ? " foc" : "") + (linked ? " linked" : "")}
-        data-aid={strip.aid}
+        className={"astrip glyph t-" + bar.vt + (focused ? " foc" : "") + (linked ? " linked" : "")}
+        data-aid={aid}
         data-sid={sid}
         onClick={onClick}
         {...hover}
-        style={{ left: common, top: `${strip.top}%`, height: `${strip.height}%` }}
+        style={{ left: `${bar.leftPx}px`, top: `${bar.topPx}px`, height: `${bar.heightPx + 3}px` }}
         title="too short — zoom in to expand"
       >
-        <i className="g-ic">{typeGlyph(strip.vt)}</i>
+        <i className="g-ic">{bar.glyph}</i>
         {focused && (
           <>
             <i className="h h-l" onPointerDown={(e) => onHandleDown(e, "t0")} />
@@ -772,15 +793,17 @@ function AnimStripEl({
   // real bar
   return (
     <button
-      className={"astrip t-" + strip.vt + (focused ? " foc" : "") + (strip.warning ? " warn" : "") + (linked ? " linked" : "")}
-      data-aid={strip.aid}
+      className={"astrip t-" + bar.vt + (focused ? " foc" : "") + (bar.warning ? " warn" : "") + (linked ? " linked" : "")}
+      data-aid={aid}
       data-sid={sid}
       onClick={onClick}
       {...hover}
-      style={{ left: common, width: `${strip.width}px`, top: `${strip.top}%`, height: `${strip.height}%`,
-               ...stripStyle(strip.vt, typeColor(strip.vt)) }}
+      style={{
+        left: `${bar.leftPx}px`, width: `${bar.widthPx}px`, top: `${bar.topPx}px`, height: `${bar.heightPx}px`,
+        background: bar.fill, ...(bar.clip ? { clipPath: bar.clip } : {}),
+      }}
     >
-      {strip.vt === "move" && <i className="arrow">→</i>}
+      {bar.vt === "move" && <i className="arrow">→</i>}
       {focused && (
         <>
           <i className="h h-l" onPointerDown={(e) => onHandleDown(e, "t0")} />

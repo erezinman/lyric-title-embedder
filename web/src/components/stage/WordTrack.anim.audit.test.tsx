@@ -101,74 +101,37 @@ describe("AT-03 cap=3: ≤3 anims → that many real bars", () => {
   });
 });
 
-describe("AT-04 >3 → '+N' overflow chip", () => {
-  it("renders 2 real bars + a +2 overflow chip spanning the hidden union", () => {
+describe("AT-04 >3 → constant-height cap + ＋N overflow placeholder", () => {
+  it("renders exactly 3 real bars + a non-interactive ＋N disc (no sliver strip)", () => {
+    // Phase 3: bars are capped at MAX_VISIBLE=3 and the rest surface as a count;
+    // the old slot-divided +N sliver strip is gone (overlay arrives in Phase 5).
     const { container } = renderStrips([
       resolved({ id: "a", channel: "alpha" }, 1.1, 2.0),
       resolved({ id: "b", channel: "primary" }, 1.1, 2.0),
       resolved({ id: "c", channel: "scale_x" }, 1.5, 2.2),
       resolved({ id: "d", channel: "blur" }, 1.8, 2.9),
     ]);
-    const overflow = container.querySelector(".astrip.overflow") as HTMLElement;
-    expect(overflow).toBeTruthy();
-    expect(overflow.textContent).toContain("+2");
-    // real (non-overflow) bars = 2
-    const real = [...container.querySelectorAll(".astrip")].filter(
-      (s) => !s.classList.contains("overflow"),
-    );
-    expect(real.length).toBe(2);
-    // overflow spans the hidden union: min start 1.5 → left 50px, max end 2.9 → width 140px
-    expect(overflow.style.left).toBe("50px");
-    expect(overflow.style.width).toBe("140px");
-  });
-});
-
-describe("AT-05 inline expand on +N (already-selected cue)", () => {
-  it("expanded cue shows all bars + a collapse chip, block grows", () => {
-    const { container } = renderStrips(
-      [
-        resolved({ id: "a", channel: "alpha" }, 1.1, 2.0),
-        resolved({ id: "b", channel: "primary" }, 1.1, 2.0),
-        resolved({ id: "c", channel: "scale_x" }, 1.5, 2.2),
-        resolved({ id: "d", channel: "blur" }, 1.8, 2.9),
-      ],
-      { expandedCues: new Set([0]) },
-    );
-    const block = container.querySelector(".block") as HTMLElement;
-    expect(block.classList.contains("exp")).toBe(true);
-    // all 4 real bars shown, no overflow chip, plus a collapse chip
-    const real = [...container.querySelectorAll(".astrip")].filter(
-      (s) => !s.classList.contains("overflow") && !s.classList.contains("collapse"),
-    );
-    expect(real.length).toBe(4);
+    // 3 bars shown, no overflow sliver strip
+    expect(container.querySelectorAll(".astrip").length).toBe(3);
     expect(container.querySelector(".astrip.overflow")).toBeNull();
-    expect(container.querySelector(".astrip.collapse")).toBeTruthy();
-    // grows: 54 + (4-3)*13 = 67px
-    expect(block.style.height).toBe("67px");
+    // ＋N placeholder disc carries the hidden count (4 - 3 = 1)
+    const disc = container.querySelector(".wt-block .disc") as HTMLElement;
+    expect(disc).toBeTruthy();
+    expect(disc.textContent).toContain("1");
   });
 });
 
-describe("AT-06 collapse restores height", () => {
-  it("clicking the collapse chip calls onCollapseOverflow", async () => {
-    const user = userEvent.setup();
-    const onCollapseOverflow = vi.fn();
-    const { container } = renderStrips(
-      [
-        resolved({ id: "a", channel: "alpha" }, 1.1, 2.0),
-        resolved({ id: "b", channel: "primary" }, 1.1, 2.0),
-        resolved({ id: "c", channel: "scale_x" }, 1.5, 2.2),
-        resolved({ id: "d", channel: "blur" }, 1.8, 2.9),
-      ],
-      { expandedCues: new Set([0]), onCollapseOverflow },
-    );
-    await user.click(container.querySelector(".astrip.collapse") as HTMLElement);
-    expect(onCollapseOverflow).toHaveBeenCalledWith(0);
-  });
+// AT-05/AT-06 covered the inline-expand-grows-the-block model, which is REMOVED
+// in this rework — the block stays a constant 55px card and expansion becomes a
+// floating overlay accordion (spec §4). Re-expressed against the overlay model
+// in Phase 5.
+describe("AT-05 / AT-06 inline expand", () => {
+  it.todo("moved to Phase 5 expand-to-overlay accordion (block height stays BLOCK_H)");
 });
 
-describe("AT-07 MIN_PX=26 glyph chip vs zoom", () => {
-  it("a sub-26px bar renders .glyph; zoom past threshold promotes to a real bar", () => {
-    // 30ms anim → at pxPerSec=100 (dur=10) width=3px < 26 → glyph chip.
+describe("AT-07 TINY_PX=18 glyph chip vs zoom", () => {
+  it("a sub-18px bar renders .glyph; zoom past threshold promotes to a real bar", () => {
+    // 30ms anim → at pxPerSec=100 (dur=10) width=3px < 18 → glyph chip.
     const tiny = [resolved({ id: "x", channel: "scale_x" }, 1.0, 1.03)];
     const { container, rerender } = renderStrips(tiny);
     expect(container.querySelector(".astrip.glyph")).toBeTruthy();

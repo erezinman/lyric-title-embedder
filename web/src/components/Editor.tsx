@@ -1152,6 +1152,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
               <WordTrack
                 words={trackWords}
                 events={P.layout.map((g, gi) => ({ gi, label: g.label }))}
+                density="coherent"
                 dur={dur}
                 time={time}
                 liveId={liveId}

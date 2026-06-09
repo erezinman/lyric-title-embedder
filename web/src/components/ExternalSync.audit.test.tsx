@@ -651,15 +651,26 @@ describe("split_event", () => {
 });
 
 describe("ungroup_event", () => {
-  it("F-36 — ungrouping reflects in WordTrack lane count", async () => {
+  it("F-36 — ungrouping reflects in WordTrack group count", async () => {
+    // The timeline now packs cues into rows by time (default Coherent), so group
+    // count is no longer 1:1 with row count. The observable group structure is the
+    // distinct block tint (one color per layout group) — that still tracks group
+    // count under any density. (One-row-per-group is the Lanes density, exercised
+    // in the Phase-4 density tests.)
     const user = userEvent.setup();
     const { container } = await boot();
     await user.click(screen.getByRole("button", { name: /Timeline/i })); // VIS-CLICK
 
-    const laneCount = () => container.querySelectorAll(".wt-lane").length;
-    await waitFor(() => expect(laneCount()).toBe(2));
+    const groupCount = () => {
+      const colors = new Set(
+        [...container.querySelectorAll<HTMLElement>(".wt-block")].map((b) => b.style.background),
+      );
+      colors.delete("");
+      return colors.size;
+    };
+    await waitFor(() => expect(groupCount()).toBe(2));
 
-    // ungroup Verse1 into two single-line groups -> 3 lanes
+    // ungroup Verse1 into two single-line groups -> 3 groups
     emitState(mutate(baseProject(), (d) => {
       const g0 = d.layout[0];
       d.layout = [
@@ -668,10 +679,10 @@ describe("ungroup_event", () => {
         d.layout[1],
       ];
     }));
-    await waitFor(() => expect(laneCount()).toBe(3));
+    await waitFor(() => expect(groupCount()).toBe(3));
 
     emitState(baseProject());
-    await waitFor(() => expect(laneCount()).toBe(2));
+    await waitFor(() => expect(groupCount()).toBe(2));
   });
 });
 
