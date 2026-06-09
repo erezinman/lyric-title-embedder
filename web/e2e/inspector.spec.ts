@@ -87,14 +87,18 @@ test("G-22 — bold toggle twice = state reverted (back to inherited)", async ({
   // "Bold" button. The popover is a fixed-position overlay, so positional clicks
   // land on the wrong layer; fire the click on the element itself via .evaluate
   // (real handler, no hit-testing) — the standard technique for overlay controls.
-  const b = fontRow.locator('button[title="Bold"]');
+  // The picker popover is portaled to <body> (pickers transparency fix), so the
+  // Bold button + backdrop live at page level, not inside the row. Only one popover
+  // is open at a time (we open this row's field below), so a page-scoped query is
+  // unambiguous. The trigger (.ksp-field) still lives in the row.
+  const b = page.locator('button[title="Bold"]');
   const toggleBold = async (pressedBefore: "true" | "false") => {
     await fontRow.locator(".ksp-field").click();
     await b.waitFor({ state: "visible" });
     await expect(b).toHaveAttribute("aria-pressed", pressedBefore);
     await b.evaluate((el: HTMLElement) => el.click());
-    // close this row's popover (click its backdrop element) and wait for unmount
-    await fontRow.locator(".ksp-backdrop").evaluate((el: HTMLElement) => el.click());
+    // close the popover (click its backdrop element) and wait for unmount
+    await page.locator(".ksp-backdrop").evaluate((el: HTMLElement) => el.click());
     await b.waitFor({ state: "detached" });
   };
   // inherited bold is true → first toggle flips off to explicit false
