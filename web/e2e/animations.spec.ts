@@ -245,3 +245,38 @@ test("AP-8 — side-channel add_animation strip appears within the WS window; re
   await apiCall("remove_animation", { scope: "global", ref: null, anim_id: "g_ws" });
   await expect(page.locator('.astrip[data-aid="g_ws"]')).toHaveCount(0);
 });
+
+// ── AP-9 — >3 anims → ＋N disc opens the expand-to-overlay accordion; Esc closes ─
+// A distinct-channel anim on each channel resolves cleanly alongside the migrated
+// appearance anim, so cue 0 carries >MAX_VISIBLE(3) bars → a ＋N overflow disc.
+const CUE_ANIM = (id: string, channel: string) => ({
+  id, name: id, channel, mode: "percue", group_id: null,
+  segments: [{ t0: { anchor: "cue_start", offset: 0, unit: "ms" },
+               t1: { anchor: "cue_start", offset: 200, unit: "ms" }, from: 1, to: 1.1, accel: 1 }],
+  enabled: true,
+});
+test("AP-9 — >3 anims show ＋N; click opens .wt-block.overlay; Esc closes", async ({ page }) => {
+  await openAudit(page);
+  await openTimeline(page);
+  // pile distinct-channel anims onto cue 0 (tag scope) so it resolves >3 bars
+  await apiCall("add_animation", { scope: "cue", ref: [0], anim: CUE_ANIM("ov_a", "scale_x") });
+  await apiCall("add_animation", { scope: "cue", ref: [0], anim: CUE_ANIM("ov_b", "scale_y") });
+  await apiCall("add_animation", { scope: "cue", ref: [0], anim: CUE_ANIM("ov_c", "blur") });
+  await apiCall("add_animation", { scope: "cue", ref: [0], anim: CUE_ANIM("ov_d", "primary") });
+  await until(async () => ((await apiState()).layout[0].lines[0].toks[0].anims_resolved ?? []).length > 3);
+
+  // a ＋N overflow disc surfaces on the cue 0 block (capped at 3 visible bars)
+  const disc = page.locator('.wt-block[data-wid="0"] .disc').first();
+  await expect(disc).toBeVisible({ timeout: 5000 });
+  await expect(disc).toContainText("＋");
+  // no overlay yet
+  await expect(page.locator(".wt-block.overlay")).toHaveCount(0);
+
+  // click ＋N → floating overlay with ALL bars appears
+  await disc.click();
+  await expect(page.locator('.wt-block.overlay[data-overlay="0"]')).toBeVisible();
+
+  // Esc closes it
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".wt-block.overlay")).toHaveCount(0);
+});

@@ -3,7 +3,7 @@ import { colorForIndex } from "../../model/palette";
 import { computeMove, computeResize, dragMode } from "../../model/edit";
 import type { TimeUpdate } from "../../model/edit";
 import type { Project, Token, ResolvedAnim } from "../../types";
-import { layoutBars, type Bar, BLOCK_H } from "../../model/animStrips";
+import { layoutBars, type Bar, BLOCK_H, fullBlockH } from "../../model/animStrips";
 import { packTimeline, type Density } from "../../model/trackPack";
 import { collectTargets, snap, zoomAnchorScroll, type NearLine, type SnapTarget } from "../../model/snap";
 
@@ -53,16 +53,15 @@ interface WordTrackProps {
   // ── animation strips (cluster AT) ──
   /** focused animation (2-click), shared with the Inspector. */
   animFocus?: AnimFocus | null;
-  /** cue word ids whose +N overflow stack is expanded inline. */
-  expandedCues?: Set<number>;
+  /** the single cue word id whose +N overflow is expanded as a floating overlay
+   *  (accordion: at most one open at a time), or null. */
+  expandedCue?: number | null;
   /** 1st click on a strip/cue → select the cue. */
   onSelectStrip?: (wid: number) => void;
   /** 2nd click on a strip (cue already selected) → focus that animation. */
   onFocusStrip?: (wid: number, aid: string) => void;
-  /** click +N on the selected cue → expand inline. */
-  onExpandOverflow?: (wid: number) => void;
-  /** click the ✕ collapse chip → collapse. */
-  onCollapseOverflow?: (wid: number) => void;
+  /** click +N (or －) on a cue → toggle its overflow overlay (accordion). */
+  onToggleOverflow?: (wid: number) => void;
   /** drag a focused strip's handle → retime (edge t0|t1, signed delta ms). */
   onAnimRetime?: (wid: number, aid: string, edge: "t0" | "t1", deltaMs: number) => void;
   /** override the seconds→px scale (horizontal zoom); default = areaPx/dur. */
@@ -115,20 +114,16 @@ export function WordTrack({
   unlocked = false,
   onRetime,
   animFocus = null,
-  expandedCues,
+  expandedCue = null,
   onSelectStrip,
   onFocusStrip,
-  onExpandOverflow,
-  onCollapseOverflow,
+  onToggleOverflow,
   onAnimRetime,
   pxPerSecOverride,
   rowH,
   magnet = true,
 }: WordTrackProps) {
   const progress = dur ? time / dur : 0;
-  // Phase 5 reworks these into a single `expandedCue` accordion contract; accepted
-  // but unused for now (the ＋N disc is a non-interactive placeholder this phase).
-  void expandedCues; void onExpandOverflow; void onCollapseOverflow;
 
   // preview: map from wid -> { start, end } during live drag
   const [preview, setPreview] = useState<Map<number, { start: number; end: number }>>(new Map());
@@ -826,10 +821,78 @@ export function WordTrack({
           </span>
         )}
         {overflowCount > 0 && (
-          // Phase 3: non-interactive ＋N placeholder. The expand-to-overlay
-          // accordion that replaces it lands in Phase 5.
-          <span className="disc" aria-hidden="true">＋{overflowCount}</span>
+          // Interactive ＋N disc → toggles the expand-to-overlay accordion. Shows
+          // － when this cue's overlay is open. stopPropagation so the click never
+          // selects/drags the block beneath it.
+          <button
+            type="button"
+            className={"disc" + (expandedCue === w.wid ? " open" : "")}
+            aria-expanded={expandedCue === w.wid}
+            aria-label={expandedCue === w.wid ? "Collapse animations" : `Show ${overflowCount} more animations`}
+            onPointerDown={(ev) => ev.stopPropagation()}
+            onClick={(ev) => { ev.stopPropagation(); onToggleOverflow?.(w.wid); }}
+          >
+            {expandedCue === w.wid ? "－" : `＋${overflowCount}`}
+            <span className="chev" aria-hidden="true">⌄</span>
+          </button>
         )}
+      </div>
+    );
+  };
+
+  /** Floating full-height overlay copy of an expanded cue: SAME left/width as the
+   *  block, height = fullBlockH(fullCount), every bar at its real position, plus a
+   *  cyan top-edge marker framing the original block region (--baseh = BLOCK_H).
+   *  Rendered as a sibling in the same .wt-area coord space; z-index lifts it above
+   *  neighbours and its extra height floats over the rows below (the row height is
+   *  never touched). */
+  const renderOverlay = (w: TrackWord) => {
+    const { s, e } = boundsOf(w);
+    const left = (s / dur) * 100;
+    const width = Math.max(0.4, ((e - s) / dur) * 100);
+    const anims = w.anims ?? [];
+    const { bars, fullCount } = layoutBars(anims, s, pxPerSec, { all: true, groupColor: colorForIndex(w.gi) });
+    return (
+      <div
+        key={`ov-${w.wid}`}
+        className="wt-block block overlay"
+        data-wid={w.wid}
+        data-overlay={w.wid}
+        style={{
+          position: "absolute", left: `${left}%`, width: `${width}%`,
+          height: `${fullBlockH(fullCount)}px`, background: colorForIndex(w.gi),
+          ["--baseh" as string]: `${BLOCK_H}px`,
+        }}
+      >
+        <span className="blk-title"><span className="bt">{w.text}</span></span>
+        <span className="cue-anims">
+          {bars.map((bar, k) => {
+            const aid = (anims[k]).id;
+            return (
+              <AnimStripEl
+                key={aid}
+                bar={bar}
+                aid={aid}
+                focused={animFocus?.wid === w.wid && animFocus?.aid === aid}
+                linked={isLinked(aid, bar.src)}
+                onClick={(ev) => handleStripClick(ev, w, aid)}
+                onHandleDown={(ev, edge) => startAnimDrag(ev, w, aid, edge, pxPerSec)}
+                onHoverSid={(sid) => setHoverSid(sid)}
+                sid={stripSid(aid, bar.src)}
+              />
+            );
+          })}
+        </span>
+        <button
+          type="button"
+          className="disc open"
+          aria-expanded={true}
+          aria-label="Collapse animations"
+          onPointerDown={(ev) => ev.stopPropagation()}
+          onClick={(ev) => { ev.stopPropagation(); onToggleOverflow?.(w.wid); }}
+        >
+          －<span className="chev" aria-hidden="true">⌄</span>
+        </button>
       </div>
     );
   };
@@ -858,6 +921,11 @@ export function WordTrack({
                   const w = byWid.get(Number(it.key));
                   return w ? renderBlock(w) : null;
                 })}
+                {/* accordion overlay: the expanded cue's floating full-height copy,
+                    rendered LAST in its own row's area so it stacks above siblings. */}
+                {expandedCue != null && row.some((it) => Number(it.key) === expandedCue)
+                  ? (() => { const w = byWid.get(expandedCue); return w ? renderOverlay(w) : null; })()
+                  : null}
               </div>
             </div>
           );

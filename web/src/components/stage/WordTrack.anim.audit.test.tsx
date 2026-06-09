@@ -12,10 +12,12 @@
  * state + set_animation_props wiring is exercised end-to-end.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { useState, useEffect } from "react";
 import { render, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WordTrack } from "./WordTrack";
 import type { TrackWord } from "./WordTrack";
+import { BLOCK_H, fullBlockH } from "../../model/animStrips";
 import { Editor } from "../Editor";
 import { setupFakeWS, FakeWS } from "../../test-util/fakews";
 import { mockApi, emitState, dispatchesOf, clearDispatches } from "../../test-util/dispatch";
@@ -121,12 +123,128 @@ describe("AT-04 >3 → constant-height cap + ＋N overflow placeholder", () => {
   });
 });
 
-// AT-05/AT-06 covered the inline-expand-grows-the-block model, which is REMOVED
-// in this rework — the block stays a constant 55px card and expansion becomes a
-// floating overlay accordion (spec §4). Re-expressed against the overlay model
-// in Phase 5.
-describe("AT-05 / AT-06 inline expand", () => {
-  it.todo("moved to Phase 5 expand-to-overlay accordion (block height stays BLOCK_H)");
+// AT-05/AT-06 re-expressed against the expand-to-overlay accordion (spec §4):
+// the ＋N disc lifts a floating full-height overlay showing ALL bars while the
+// underlying block height stays BLOCK_H; click－/Esc/click-away close it; opening
+// a different cue's disc closes the first (one open at a time).
+
+/** A controlled WordTrack with an accordion `expandedCue` driven by onToggleOverflow. */
+function AccordionHarness({ words }: { words: TrackWord[] }) {
+  const [expandedCue, setExpandedCue] = useState<number | null>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpandedCue(null); };
+    const onClick = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && t.closest(".wt-scroller")) return;
+      setExpandedCue(null);
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("click", onClick);
+    return () => { window.removeEventListener("keydown", onKey); document.removeEventListener("click", onClick); };
+  }, []);
+  return (
+    <WordTrack
+      words={words}
+      events={events}
+      dur={10}
+      time={0}
+      liveId={null}
+      selId={0}
+      selectedWords={new Set([0])}
+      onSelect={() => {}}
+      expandedCue={expandedCue}
+      onToggleOverflow={(wid) => setExpandedCue((prev) => (prev === wid ? null : wid))}
+    />
+  );
+}
+
+const OVERFLOW_ANIMS = [
+  resolved({ id: "a", channel: "alpha" }, 1.1, 2.0),
+  resolved({ id: "b", channel: "primary" }, 1.1, 2.0),
+  resolved({ id: "c", channel: "scale_x" }, 1.5, 2.2),
+  resolved({ id: "d", channel: "blur" }, 1.8, 2.9),
+];
+
+describe("AT-05 ＋N disc opens the overlay with ALL bars; row/block height unchanged", () => {
+  it("clicking ＋N renders a .wt-block.overlay with every bar; the base block stays BLOCK_H", () => {
+    const words: TrackWord[] = [{ wid: 0, text: "a", s: 1, e: 3, gi: 0, li: 0, ti: 0, anims: OVERFLOW_ANIMS }];
+    const { container } = render(<AccordionHarness words={words} />);
+    // closed: capped at 3 bars, no overlay
+    expect(container.querySelector(".wt-block.overlay")).toBeNull();
+    const baseBlock = container.querySelector('.wt-block[data-wid="0"]:not(.overlay)') as HTMLElement;
+    expect(baseBlock.style.height).toBe(`${BLOCK_H}px`);
+
+    fireEvent.click(container.querySelector(".disc")!);
+
+    const overlay = container.querySelector(".wt-block.overlay") as HTMLElement;
+    expect(overlay).toBeTruthy();
+    // ALL bars present in the overlay (4, none capped)
+    expect(overlay.querySelectorAll(".astrip").length).toBe(4);
+    // underlying block height is UNCHANGED
+    const baseAfter = container.querySelector('.wt-block[data-wid="0"]:not(.overlay)') as HTMLElement;
+    expect(baseAfter.style.height).toBe(`${BLOCK_H}px`);
+    // overlay carries the cyan top-edge marker var (--baseh = BLOCK_H) and is taller
+    expect(overlay.style.getPropertyValue("--baseh")).toBe(`${BLOCK_H}px`);
+    expect(parseFloat(overlay.style.height)).toBe(fullBlockH(4));
+  });
+});
+
+describe("AT-06 close: － / Esc / click-away; accordion (one open at a time)", () => {
+  it("clicking － closes the overlay", () => {
+    const words: TrackWord[] = [{ wid: 0, text: "a", s: 1, e: 3, gi: 0, li: 0, ti: 0, anims: OVERFLOW_ANIMS }];
+    const { container } = render(<AccordionHarness words={words} />);
+    fireEvent.click(container.querySelector(".disc")!);
+    expect(container.querySelector(".wt-block.overlay")).toBeTruthy();
+    // the overlay's own disc shows － → clicking it closes
+    fireEvent.click(container.querySelector(".wt-block.overlay .disc")!);
+    expect(container.querySelector(".wt-block.overlay")).toBeNull();
+  });
+
+  it("Esc closes the overlay", () => {
+    const words: TrackWord[] = [{ wid: 0, text: "a", s: 1, e: 3, gi: 0, li: 0, ti: 0, anims: OVERFLOW_ANIMS }];
+    const { container } = render(<AccordionHarness words={words} />);
+    fireEvent.click(container.querySelector(".disc")!);
+    expect(container.querySelector(".wt-block.overlay")).toBeTruthy();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(container.querySelector(".wt-block.overlay")).toBeNull();
+  });
+
+  it("a click outside the scroller closes the overlay (click-away)", () => {
+    const words: TrackWord[] = [{ wid: 0, text: "a", s: 1, e: 3, gi: 0, li: 0, ti: 0, anims: OVERFLOW_ANIMS }];
+    const { container } = render(<AccordionHarness words={words} />);
+    fireEvent.click(container.querySelector(".disc")!);
+    expect(container.querySelector(".wt-block.overlay")).toBeTruthy();
+    fireEvent.click(document.body);
+    expect(container.querySelector(".wt-block.overlay")).toBeNull();
+  });
+
+  it("opening a different cue's disc closes the first (one open at a time)", () => {
+    const words: TrackWord[] = [
+      { wid: 0, text: "a", s: 1, e: 3, gi: 0, li: 0, ti: 0, anims: OVERFLOW_ANIMS },
+      { wid: 1, text: "b", s: 5, e: 7, gi: 0, li: 0, ti: 1, anims: OVERFLOW_ANIMS },
+    ];
+    const { container } = render(<AccordionHarness words={words} />);
+    const discs = container.querySelectorAll(".disc");
+    fireEvent.click(discs[0]);
+    expect(container.querySelectorAll(".wt-block.overlay").length).toBe(1);
+    expect(container.querySelector('.wt-block.overlay[data-overlay="0"]')).toBeTruthy();
+    // open the SECOND cue → the first overlay closes, only one overlay remains
+    fireEvent.click(container.querySelectorAll(".wt-block:not(.overlay) .disc")[1]);
+    expect(container.querySelectorAll(".wt-block.overlay").length).toBe(1);
+    expect(container.querySelector('.wt-block.overlay[data-overlay="1"]')).toBeTruthy();
+    expect(container.querySelector('.wt-block.overlay[data-overlay="0"]')).toBeNull();
+  });
+});
+
+describe("AT-05b overlay marker + fullCount bars", () => {
+  it("the overlay carries the cyan top-edge marker (--baseh) and exactly fullCount bars", () => {
+    const words: TrackWord[] = [{ wid: 0, text: "a", s: 1, e: 3, gi: 0, li: 0, ti: 0, anims: OVERFLOW_ANIMS }];
+    const { container } = render(<AccordionHarness words={words} />);
+    fireEvent.click(container.querySelector(".disc")!);
+    const overlay = container.querySelector(".wt-block.overlay") as HTMLElement;
+    expect(overlay.style.getPropertyValue("--baseh")).toBe(`${BLOCK_H}px`);
+    expect(overlay.querySelectorAll(".astrip").length).toBe(OVERFLOW_ANIMS.length);
+  });
 });
 
 describe("AT-07 TINY_PX=18 glyph chip vs zoom", () => {

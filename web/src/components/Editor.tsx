@@ -134,8 +134,9 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
 
   // ── animation focus (2-click on a strip) — shared by track + Inspector ──
   const [animFocus, setAnimFocus] = useState<AnimFocus | null>(null);
-  // cue word ids whose +N overflow stack is expanded inline on the track
-  const [expandedCues, setExpandedCues] = useState<Set<number>>(new Set());
+  // the single cue word id whose +N overflow is expanded as a floating overlay
+  // (accordion: at most one open at a time), or null.
+  const [expandedCue, setExpandedCue] = useState<number | null>(null);
 
   // AI state
   const [aiTier] = useState<"global" | "group" | "cue" | null>(null);
@@ -421,15 +422,31 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
       if (e.key === "Escape") {
         const target = e.target as HTMLElement;
         if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") return;
-        // Esc first clears animation focus back to cue selection (HANDOFF §3);
-        // a second Esc (no focus) clears the selection.
+        // Esc first closes an open overflow overlay (accordion), then clears
+        // animation focus back to cue selection (HANDOFF §3); a final Esc (no
+        // overlay, no focus) clears the selection.
+        if (expandedCue != null) { setExpandedCue(null); return; }
         if (animFocus) { setAnimFocus(null); return; }
         clearSelection();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [clearSelection, animFocus]);
+  }, [clearSelection, animFocus, expandedCue]);
+
+  // ---- click-away closes the overflow overlay (accordion) ----
+  // A click anywhere outside the timeline scroller dismisses the floating overlay.
+  // Clicks inside .wt-scroller (incl. the disc toggle) are handled by the toggle.
+  useEffect(() => {
+    if (expandedCue == null) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && t.closest(".wt-scroller")) return;
+      setExpandedCue(null);
+    };
+    document.addEventListener("click", onDown);
+    return () => document.removeEventListener("click", onDown);
+  }, [expandedCue]);
 
   // ---- Keyboard nudge (arrow keys) for timing — gated on timingsUnlocked ----
   useEffect(() => {
@@ -756,7 +773,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   // 1st click on a strip/cue selects the cue (clears any anim focus).
   function selectStrip(wid: number) {
     setAnimFocus(null);
-    setExpandedCues(new Set());
+    setExpandedCue(null);
     selectWordByWid(wid);
   }
   // 2nd click on a strip focuses the animation (Inspector drills into its row).
@@ -764,11 +781,10 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     setAnimFocus({ wid, aid });
     setRailTab("inspector");
   }
-  function expandOverflow(wid: number) {
-    setExpandedCues((prev) => new Set(prev).add(wid));
-  }
-  function collapseOverflow(wid: number) {
-    setExpandedCues((prev) => { const n = new Set(prev); n.delete(wid); return n; });
+  // accordion: toggle this cue's overflow overlay (open it, or close it if it's
+  // already the open one). At most one cue's overlay is open at a time.
+  function toggleOverflow(wid: number) {
+    setExpandedCue((prev) => (prev === wid ? null : wid));
   }
   // Derive {scope, ref} for an anim mutation from its resolved src + the cue.
   function animScopeRef(wid: number, aid: string): { scope: AnimScope; ref: number | number[] | null } | null {
@@ -1229,11 +1245,10 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                 magnet={magnet}
                 onRetime={(updates) => dispatch("set_word_times", { updates })}
                 animFocus={animFocus}
-                expandedCues={expandedCues}
+                expandedCue={expandedCue}
                 onSelectStrip={selectStrip}
                 onFocusStrip={focusStrip}
-                onExpandOverflow={expandOverflow}
-                onCollapseOverflow={collapseOverflow}
+                onToggleOverflow={toggleOverflow}
                 onAnimRetime={animRetime}
               />
             </div>

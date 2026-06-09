@@ -369,11 +369,27 @@ svg.lucide { display: block; }
 /* recede the non-selected blocks while a selection exists; the live block stays lit */
 .wt.has-sel .wt-area .wt-block:not(.sel):not(.live) { opacity: .4; filter: saturate(.7); }
 .wt-area .wt-block.del { opacity: .4; } .wt-area .wt-block.del .blk-title { text-decoration: line-through; }
-/* non-interactive ＋N overflow placeholder (Phase 5 turns this into the disc/overlay) */
+/* interactive ＋N / － overflow disc — toggles the expand-to-overlay accordion */
 .wt-area .wt-block .disc { position: absolute; top: 4px; right: 6px; height: 16px; min-width: 16px; padding: 0 5px;
   border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface-4); color: var(--text-1);
-  font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; display: inline-flex; align-items: center;
-  line-height: 1; z-index: 8; pointer-events: none; }
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 3px;
+  line-height: 1; z-index: 8; cursor: pointer; pointer-events: auto;
+  transition: background .12s, border-color .12s, color .12s; }
+.wt-area .wt-block .disc:hover { background: var(--surface-3); border-color: var(--cyan); color: var(--cyan); }
+.wt-area .wt-block .disc .chev { display: inline-block; transition: transform var(--dur) var(--ease-out); font-size: 8px; }
+.wt-area .wt-block .disc.open { background: color-mix(in srgb, var(--cyan) 14%, var(--surface-4));
+  border-color: color-mix(in srgb, var(--cyan) 45%, transparent); color: var(--cyan); }
+.wt-area .wt-block .disc.open .chev { transform: rotate(180deg); }
+
+/* floating full-height overlay copy of an expanded cue (Strips-Refined Option A).
+   z-index lifts it above neighbours; the ::after frames the original block region
+   (height var(--baseh) = BLOCK_H) with a cyan top edge, open at the bottom where
+   the overflow bars continue. The row/scroller height never changes. */
+.wt-area .wt-block.overlay { z-index: 25; box-shadow: 0 14px 34px rgba(0,0,0,.55);
+  border-color: color-mix(in srgb, var(--cyan) 40%, transparent); }
+.wt-area .wt-block.overlay::after { content: ""; position: absolute; left: 0; right: 0; top: 0;
+  height: var(--baseh); border-radius: 8px 8px 0 0;
+  border: 1px solid color-mix(in srgb, var(--cyan) 28%, transparent); border-bottom: none; pointer-events: none; }
 
 /* ── animation strips (ported from tl-anim.css) ── */
 .cue-anims { position: absolute; inset: 0; pointer-events: none; }
