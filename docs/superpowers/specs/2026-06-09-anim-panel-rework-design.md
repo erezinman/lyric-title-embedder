@@ -10,6 +10,23 @@ This supersedes the zip-12 §D "CustomBuilder popover" approach entirely.
 
 ---
 
+## Predecessor — zip 12 disposition (what this build also covers)
+
+This effort closes out the still-open parts of zip 12 (`export/product-sync/SYNC.md`) together with zip 13. Status of each zip-12 item:
+
+| zip-12 § | Item | Status in this build |
+|---|---|---|
+| A | Dock cue-lanes redesign | **Shipped** on `feat/dock-redesign` — reference only, no work. |
+| B | Selection & navigation (distinct timeline sel, Esc/empty-space deselect, dbl-click flip+reveal) | **Shipped** on `feat/dock-redesign` — reference only. |
+| C | Collapsible style-waterfall tiers | **Shipped** on `feat/dock-redesign` — reference only. |
+| D | **Animation authoring + row UX** | **Folded in here.** The row UX (clickable `.ov-line` toggles the edit panel with a rotating chevron; ✕-remove and the "N cues" chip `stopPropagation`; row hover; `＋ Add animation` reveals the preset grid with a `＋ Custom` tile; adding ANY animation opens that row expanded; add-row present on **all tiers incl. global**) is carried forward by zip 13's `anims.jsx` and is in scope below. The `AnimChannel` widening is already committed on this branch. **Superseded:** the zip-12 `CustomBuilder` popover + bespoke swatch authoring — replaced by zip 13's in-row `CustomEditor` (do NOT build it). |
+| E | Picker popover transparency fix | **Done & committed** on this branch (`fix(pickers): portal popover to <body>`) — reference only. The zip-13 custom color Value reuses that fixed `ColorPicker`. |
+| F | True italic/bold/underline mid-cue (event split) | **Out of scope** (designer-marked "spec, not done"; backend `render.py`/`ass.py`). |
+
+Net new work = the zip-12 §D row-UX (subsumed by zip-13's `AnimSection` rewrite) **plus** all of zip 13 below.
+
+---
+
 ## Goals
 
 Rework the Inspector animation panel so that:
@@ -62,6 +79,7 @@ Engine + both mutation changes are **test-first** per the house rule.
 
 - **Shared open state** lifted to `AnimSection`: `open = { scope, id, nonce }` with a `setOpen` that bumps `nonce` each call. A `useEffect([open])` scrolls the focused `.anim-ov.editing` row into view (walk to nearest scrollable ancestor; `getBoundingClientRect` math — **never `scrollIntoView`**, per house rule) and re-triggers an `.ov-flash` pulse keyed by `nonce`.
 - **`＋ Custom`** immediately adds `DEFAULT_CUSTOM` (= `{ch:"primary", anchor:"cue_end", offset:-30, mode:"snap", dur:200, ease:"out", value:"#FF3DA6"}`) and opens its details. Authoring lives in a controlled **`CustomEditor`** inside `.ov-edit` (Property / When / Value / Transition). **Color Value uses the product's shared `ColorPicker` (`mode="field"`)** — not bespoke swatches — matching the style waterfall, and benefiting from the §E portal fix.
+- **Row UX (zip-12 §D, carried forward):** the whole `.ov-line` toggles the row's edit panel via the shared `open` state, with a rotating chevron (`.ov-chev`); the ✕-remove and the "N cues" chip `stopPropagation` so they don't toggle/deselect; rows have a hover state. `＋ Add animation ▾` reveals the preset grid (8 presets + the `＋ Custom` tile); adding ANY animation (preset or custom) opens that new row expanded (`setOpen` to the new lead id). The add-row is present on **all tiers including global**.
 - **Own rows** show: mini-preview, Enabled toggle, `TimingModePicker`, then either the `CustomEditor` (custom) or `SegmentTiming` (preset). The row icon is `sliders` for customs (`sparkles` otherwise) + a `custom` tag.
 - **Inherited rows** become a clickable **redirect** with a `»` (double `chevRight`) affordance → `setOpen({scope: row.src, id: row.id})`. ✕ still removes (tombstone-here); ↺ restores tombstones.
 - **`AnimPreview`** (per tier): collapsible "bogus cue" (`NOMINAL_CUE = 1.0s`) with resolved animations (own + inherited, tombstones excluded) as type-coded strips (`apStripStyle` keyed by channel); own = solid, inherited = dashed + corner marker, disabled = dimmed; capped at `AP_MAX = 3` with a `+N` chip that expands inline; click a strip → focus via the shared `open`.
@@ -80,7 +98,7 @@ Engine + both mutation changes are **test-first** per the house rule.
 
 - **Engine (TDD):** `anim_edit_custom` — replaces lead in place preserving id+slot; carries timing; handles single→paired (adds sibling) and paired→single (drops sibling); validates; no-op on inherited/missing. `anim_set_props` sibling-sync — a `segments`/`t0`/`t1` write to a `group_id` lead updates all siblings; non-segment props stay per-record. Round-trip `custom:true` through save/load + `get_project`.
 - **Model (vitest):** `buildCustom`/`customCfgOf` round-trip; `isCustomAnim` (incl. legacy `mode:"custom"`); `anchorSec` (cue_start/end, ms vs frac).
-- **Components (vitest/jsdom):** `EditableNum` (commit/cancel/nudge, stopPropagation); `CustomEditor` cfg→onChange; `SegmentTiming` writes segments; inherited-row redirect calls `setOpen(src,id)`; `＋Custom` adds default + opens; `AnimPreview` strip click focuses; StyleWaterfall editable steppers + box-alpha hex.
+- **Components (vitest/jsdom):** row-UX (zip-12 §D — `.ov-line` click toggles edit; ✕/cues-chip `stopPropagation`; adding opens the new row expanded; global tier has an add-row); `EditableNum` (commit/cancel/nudge, stopPropagation); `CustomEditor` cfg→onChange; `SegmentTiming` writes segments; inherited-row redirect calls `setOpen(src,id)`; `＋Custom` adds default + opens; `AnimPreview` strip click focuses; StyleWaterfall editable steppers + box-alpha hex.
 - **e2e (native daemon):** add a custom at cue scope → edit its Property (flip to Scale) → assert two `scale_*` records share `group_id` and the lead id is preserved; inherited redirect opens the owning tier.
 
 ---
