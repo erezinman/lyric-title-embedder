@@ -15,7 +15,15 @@ Maps **every** difference between the designer's most-current snapshot
 > **drop preset/kind** (no model concept) — derive caption/duration/edited-time only;
 > Select/Combo atoms **skipped** (YAGNI, no consumer); the pane **drag-line kept as our
 > `.splitter`** (keyboard/ARIA upgrade) rather than reverting to the kit's 8px tinted strip.
-> **Track B remains open** (needs designer review).
+>
+> **UPDATE (zip 15, `fe077fd`):** designer rediff'd the branch — Track A high-priority items
+> all confirmed matching. Applied the 5-item cosmetic patch (`.bbox.dragging` glow, `.substep`
+> spacing/label, sub-pixel nudges) — keeping red tombstone + skipping unused `.ks-gradient-text`.
+> zip 15 also **decided the timeline cluster of Track B** — see **B0** (density toggle / packing /
+> constant-height bars / expand-to-overlay; waveform + lane-ticks need no change). The decision
+> package is archived under `docs/superpowers/zip15-decisions/`. The §1–4 timeline rework is its
+> own spec→plan→build; the rest of Track B (align-in-waterfall, EventStrip placement, RTL,
+> VideoControl, etc.) is still open.
 
 ## How to read this
 
@@ -86,12 +94,29 @@ Where zip14 is the source of truth and the right outcome is "make ours match." S
 
 ## TRACK B — needs designer review (product decision or un-reviewed surface)
 
+### B0. DECIDED in zip 15 (`Karaoke-DS-Update`, 2026-06-09) — the timeline cluster
+The designer resolved the timeline/strips/waveform questions with interactive prototypes
+(`/tmp/zip15/Karaoke-DS-Update/resources/*.html`, archived in the zip). Status:
+
+| # | Decision | Build impact |
+|---|---|---|
+| 1 | **Timeline = 3-stop density toggle** (Compact · **Coherent** default · Lanes), one axis most-compact→most-separated. Animated FLIP between stops; **selected cue stays pinned**. | **BUILD** — replaces our Lanes-only model. New density state + control + FLIP. |
+| 2 | **Group-coherent packing** (over collision-only): each group stays on one row; only non-overlapping groups share a row. Matters only where cues overlap (echo/harmony). | **BUILD** — new packing module feeding the lanes. |
+| 3 | **Constant-height animation bars** (no longer divide a band by count → slivers). Width still encodes duration. | **BUILD** — `animStrips.ts` + WordTrack strip rendering. |
+| 4 | **Overflow = expand-to-overlay (Option A)**: past `MAX_VISIBLE=3`, a `＋N`/`－` disclosure lifts a floating full-height **accordion** overlay (one open; click-away/Esc closes); **lane height never changes**; cyan top-edge marker (open bottom). Replaces our `+N` gradient sliver. | **BUILD** — replaces current overflow in WordTrack/animStrips. |
+| 5 | **Keep the refined `tl-anim` strips** (pip/underglow alternative explored, **not** adopted). | Validates direction; = §3+§4. |
+| 6 | **No cue-visibility ticks on the lane** — block edges (event window) are the only timeline truth; appear/disappear/linger lives in focus/inspector. | **NO CHANGE** — we already don't draw them. |
+| 7 | **Waveform = honest adaptive tick ruler** (not invented amplitude bars) until real audio decoding lands. | **NO CHANGE** — validates our current ruler. |
+
+→ This is a substantial timeline rework (§1–4); §5–7 need no/▪ minimal code. Best handled as its own
+spec → plan → implement effort, not a CSS sync. The `Timeline-View-Toggle.html` is the integrated reference.
+
 ### B1. Port-ahead surfaces with NO kit reference (designer never saw these)
 The mock can't contain them, so there's no authoritative visual. Confirm the treatment is signed off.
 | Surface | Why it needs review |
 |---|---|
-| **Timeline vertical lane grouping** | Kit timeline is ONE flat label-less time-track (confirmed: `gi` only picks palette color). We render one labelled `.wt-lane` per event with a gutter. This is a fundamental rendering-model choice the kit does not depict — is the lane model the intended design, or should the timeline be flat like the kit? **The single biggest divergence.** |
-| **Animation strips on timeline blocks** | Stacked strip bars / glyph chips / `+N` overflow / inline-expand / focus-retime. No kit treatment at all. |
+| ~~Timeline vertical lane grouping~~ | **DECIDED (zip 15 §1–2)** → 3-stop density toggle + group-coherent packing. See **B0**. |
+| ~~Animation strips on timeline blocks~~ | **DECIDED (zip 15 §3–5)** → constant-height bars + expand-to-overlay; keep refined strips. See **B0**. |
 | **Cue Lanes panel** | Entire LAYOUT+ANIMATION grid; kit references it only by name in tooltips. |
 | **CreateProjectModal** | Full create flow (`.modal/.cpm/.fld/.seg-btn`); no kit reference. |
 | **VideoControl** | 4-state upload/swap/clear; kit Video is a static read-only path row. |
@@ -111,7 +136,7 @@ The mock can't contain them, so there's no authoritative visual. Confirm the tre
 | **Magnet chip "alt" state** | Kit chip reads literally **"alt"** while Alt is held; we instead flip on↔off. Which reads better? |
 | **GROUP anim-tier gating (`gi != null`)** | Kit hides the GROUP `AnimTier` when no group is in context; we render it unconditionally → indexes an invalid `gi`. **This one is arguably a straight bug** (add the guard) — but listed here because it touches selection-model intent. Likely promote to Track A. |
 | **Tier chrome (shaded header band + tier selection rings)** | Kit `.tier3`/`.t3-h` has a filled header band and clickable tier selection (`.tier3.sel`); we flattened the header and removed tier selection. Restore the band? Re-enable tier-click selection? |
-| **Waveform: bars vs honest tick ruler** | Kit draws a (placeholder) bar waveform + fixed 6-mark ruler; we deliberately dropped bars for an adaptive tick ruler ("no real audio to draw"). Keep honest ruler, or render placeholder bars to match the kit look until real audio lands? |
+| ~~Waveform: bars vs honest tick ruler~~ | **DECIDED (zip 15 §7)** → keep the honest adaptive tick ruler; no invented amplitude bars until real audio decoding lands. **No change.** |
 | **ADJ-12 equality-clear on B/I/U toggles** | We clear the override when a toggle equals the inherited value; kit always writes explicit. Confirm the round-trip-to-inherited semantics are wanted. |
 | **Merged-cue badge / GROUP preview text** | Kit badge = full merged `tokText`, GROUP preview = cue text; we show first-word-only / group label. |
 

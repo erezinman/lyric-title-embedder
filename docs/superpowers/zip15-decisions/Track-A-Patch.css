@@ -1,0 +1,55 @@
+/* ============================================================================
+   Track A — remaining cosmetic alignment to the kit
+   Target:   web/src/theme.css  (+ colors_and_type.css for #5)  on feat/designer-sync
+   Baseline: feat/designer-sync @ 9fae50c
+   Severity: ALL LOW. The high-priority A1/A2/A4 items are already fixed on the
+             branch — see Track-A-Rediff.md. These are drift / judgment calls only.
+   Values below are the kit's authoritative ones.
+   ============================================================================ */
+
+/* 1 — Tombstone color: kit = warn/amber italic; port drifted to danger/red mono chip.
+   Apply ONLY if amber is the intended treatment — red may be a deliberate choice
+   (it arguably reads better for "deleted"). Decide, don't auto-apply. */
+.ov-row.tomb { border-style: dashed; }                 /* port: 1px dashed danger-mix */
+.ov-row.tomb .ov-ic { color: var(--warn); }            /* port: var(--danger) */
+.tomb-lbl {
+  color: var(--warn); font-size: 10px; font-style: italic;
+  background: none; border-radius: 0; font-family: inherit;
+  letter-spacing: normal; padding: 0; text-transform: none;
+}
+
+/* 2 — .bbox.dragging: restore the kit's accent ring + glow (port dropped it). */
+.bbox.dragging {
+  border-style: solid;
+  box-shadow: 0 0 0 1px var(--accent), 0 0 22px var(--glow-accent);
+}
+
+/* 3 — .substep: kit spacing + the elbow / L-connector the port removed. */
+.substep { gap: 8px; margin-top: 8px; padding: 7px 9px; }   /* port: gap 9 / margin 0 10 10 / pad 8 9 */
+.substep::before {
+  content: ""; position: absolute; left: -1px; top: -7px; width: 11px; height: 14px;
+  border-left: 1.5px solid var(--border-strong);
+  border-bottom: 1.5px solid var(--border-strong);
+  border-bottom-left-radius: 6px;
+}
+.substep .ss-lbl {
+  font-family: var(--font-mono); font-size: 9.5px;
+  letter-spacing: .04em; text-transform: uppercase;
+}                                                            /* port: 10.5px, no mono / no uppercase */
+.substep.na .na-txt { font-size: 10.5px; margin-left: auto; }/* port: 11px, no margin-left */
+
+/* 4 — sub-pixel nudges */
+.snap-guide { top: -3px; bottom: -3px; }                     /* port: 0 / 0 */
+.snap-guide .sg-tag { top: -2px; }                           /* port: 2px */
+.playhead.tl-through:hover {
+  background: color-mix(in srgb, var(--cyan) 75%, transparent);
+}                                                            /* port: 78% */
+.snap-toggle { font-family: var(--font-ui); }                /* port: dropped the family */
+
+/* 5 — .ks-gradient-text utility (kit colors_and_type.css; ABSENT in port).
+   Add to colors_and_type.css only if a surface needs brand-gradient text. */
+.ks-gradient-text {
+  background: var(--grad-brand);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+}

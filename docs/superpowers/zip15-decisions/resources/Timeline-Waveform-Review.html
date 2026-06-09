@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<!-- @dsCard group="UI Kit — Desktop App" name="Timeline & Waveform — decision review" subtitle="Flat vs lanes · bars vs ticks · real multi-event data, kit + port CSS verbatim" viewport="1280x1640" -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Timeline &amp; Waveform — Design Decision Review</title>
+<link rel="icon" href="../assets/logo-mark.svg" />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root{
+  /* tokens — verbatim from colors_and_type.css */
+  --bg:#0C0A14; --surface-1:#15111F; --surface-2:#1A1528; --surface-3:#221B33; --surface-4:#241C36;
+  --border:#2C2440; --border-strong:#3A3052;
+  --text-1:#ECE7F4; --text-2:#A599BC; --text-3:#6E6385; --text-on-accent:#22041A;
+  --accent:#FF3DA6; --accent-press:#E22E92; --accent-soft:#FF6FC0;
+  --violet:#8A5BFF; --violet-soft:#A88BFF; --cyan:#3DE0FF;
+  --success:#4DE0C2; --warn:#FFC24D; --danger:#FF6B6B;
+  --glow-accent:rgba(255,61,166,.32); --glow-violet:rgba(138,91,255,.30); --glow-cyan:rgba(61,224,255,.30);
+  --grad-brand:linear-gradient(120deg,var(--accent),var(--violet));
+  --grad-brand-vert:linear-gradient(180deg,var(--accent),var(--violet));
+  --cue-1:#7A3A5A; --cue-2:#5A4A7A; --cue-3:#3A5A7A; --cue-4:#5A7A3A; --cue-5:#7A6A3A;
+  --cue-6:#3A7A7A; --cue-7:#7A4A4A; --cue-8:#6A3A7A; --cue-9:#3A6A7A; --cue-10:#7A5A3A;
+  --font-display:'Space Grotesk',system-ui,sans-serif;
+  --font-ui:'Hanken Grotesk',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --radius-xs:5px; --radius-sm:7px; --radius-md:9px; --radius-lg:12px; --radius-pill:999px;
+  --shadow-2:0 6px 18px rgba(0,0,0,.45); --shadow-3:0 18px 50px rgba(0,0,0,.50);
+  --ring-accent:0 0 0 1px color-mix(in srgb,var(--accent) 50%,transparent);
+  --ease-out:cubic-bezier(.2,.7,.3,1); --dur:180ms; --dur-fast:120ms;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;}
+body{background:radial-gradient(130% 80% at 50% -8%,#150F24 0%,var(--bg) 60%);color:var(--text-1);
+  font-family:var(--font-ui);font-size:13px;-webkit-font-smoothing:antialiased;}
+.page{max-width:1200px;margin:0 auto;padding:40px 40px 80px;}
+
+/* ---- header ---- */
+.hd{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:8px;}
+.hd h1{font-family:var(--font-display);font-weight:700;font-size:27px;letter-spacing:-.02em;margin:0 0 8px;}
+.hd p{margin:0;color:var(--text-2);font-size:13.5px;line-height:1.55;max-width:640px;}
+.src{flex:0 0 auto;font-family:var(--font-mono);font-size:10.5px;color:var(--text-3);text-align:right;line-height:1.7;}
+.src b{color:var(--cyan);font-weight:600;}
+.src .pill{display:inline-block;border:1px solid var(--border-strong);border-radius:var(--radius-pill);
+  padding:2px 9px;color:var(--text-2);background:var(--surface-2);}
+.legend{display:flex;gap:22px;flex-wrap:wrap;margin:22px 0 6px;padding:12px 16px;background:var(--surface-1);
+  border:1px solid var(--border);border-radius:var(--radius-md);font-size:12px;color:var(--text-2);}
+.legend b{color:var(--text-1);font-weight:600;}
+.legend .k{display:inline-flex;align-items:center;gap:7px;}
+.legend .sw{width:13px;height:13px;border-radius:3px;display:inline-block;}
+
+/* ---- decision block ---- */
+.decision{margin-top:34px;}
+.dh{display:flex;align-items:baseline;gap:12px;margin:0 0 4px;}
+.dh .no{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--accent);
+  border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);border-radius:var(--radius-xs);
+  padding:2px 8px;background:color-mix(in srgb,var(--accent) 10%,transparent);}
+.dh h2{font-family:var(--font-display);font-weight:600;font-size:19px;margin:0;letter-spacing:-.01em;}
+.dsub{color:var(--text-3);font-size:12.5px;margin:0 0 18px;line-height:1.5;}
+
+.opt{background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:16px 18px 18px;margin-bottom:14px;position:relative;}
+.opt.win{border-color:color-mix(in srgb,var(--success) 45%,transparent);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--success) 22%,transparent);}
+.opt-h{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.opt-tag{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  padding:3px 8px;border-radius:var(--radius-xs);}
+.opt-tag.kit{background:color-mix(in srgb,var(--violet) 24%,transparent);color:var(--violet-soft);}
+.opt-tag.port{background:color-mix(in srgb,var(--cyan) 18%,transparent);color:var(--cyan);}
+.opt-h .ttl{font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--text-1);}
+.opt-h .meta{margin-left:auto;font-family:var(--font-mono);font-size:10px;color:var(--text-3);}
+.opt-h .rec{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--success);background:color-mix(in srgb,var(--success) 14%,transparent);
+  border:1px solid color-mix(in srgb,var(--success) 35%,transparent);border-radius:var(--radius-pill);padding:2px 9px;}
+
+/* ============ shared dock surface ============ */
+.dock-surf{background:var(--surface-1);border-radius:var(--radius-md);}
+
+/* ---- KIT: flat waveform (bars) ---- */
+.wave-wrap{display:flex;flex-direction:column;gap:6px;padding-top:4px;}
+.ruler{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:9.5px;color:var(--text-3);padding:0 2px;}
+.wave{position:relative;display:flex;align-items:flex-end;gap:2px;height:50px;padding:0 2px;}
+.bar{flex:1;min-width:2px;background:var(--border-strong);border-radius:2px;}
+.bar.on{background:linear-gradient(180deg,var(--accent),var(--violet));}
+.playhead{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--cyan);box-shadow:0 0 10px var(--cyan);}
+.playhead::before{content:"";position:absolute;top:-3px;left:-4px;width:10px;height:10px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan);}
+
+/* ---- KIT: flat single word-block track ---- */
+.track{position:relative;height:36px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);margin-top:8px;overflow:hidden;}
+.track .playhead{z-index:3;}
+.track .block{position:absolute;top:4px;bottom:4px;border-radius:5px;display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:#fff;overflow:hidden;white-space:nowrap;padding:0 6px;
+  text-shadow:0 1px 2px rgba(0,0,0,.55);}
+.track .block.live{outline:1.5px solid var(--accent);box-shadow:0 0 14px var(--glow-accent);}
+
+/* ---- PORT: honest tick ruler ---- */
+.timeline-col{--tl-gutter:124px;display:flex;flex-direction:column;gap:8px;position:relative;}
+.ruler-row{display:flex;align-items:flex-end;height:22px;}
+.tl-gutter{width:var(--tl-gutter);flex:0 0 auto;}
+.ruler-track{position:relative;flex:1;height:22px;border-bottom:1px solid var(--border);}
+.ruler-track .tk{position:absolute;bottom:0;width:1px;height:6px;background:var(--border-strong);}
+.ruler-track .tk-label{position:absolute;bottom:7px;left:3px;font-family:var(--font-mono);font-size:9px;color:var(--text-3);white-space:nowrap;}
+.playhead.tl-through{background:color-mix(in srgb,var(--cyan) 55%,transparent);box-shadow:0 0 6px color-mix(in srgb,var(--cyan) 35%,transparent);top:0;bottom:0;z-index:6;}
+.playhead.tl-through::before{display:none;}
+.playhead.tl-through .ph-head{position:absolute;top:0;left:50%;transform:translateX(-50%);width:13px;height:9px;background:var(--cyan);border-radius:0 0 4px 4px;box-shadow:0 0 8px var(--cyan);z-index:7;}
+
+/* ---- PORT: per-event lanes ---- */
+.wt{position:relative;display:flex;flex-direction:column;gap:5px;}
+.wt-lane{display:flex;align-items:center;height:30px;}
+.wt-label{width:var(--tl-gutter);flex:0 0 auto;display:flex;align-items:center;gap:7px;padding-right:8px;
+  font-size:11px;color:var(--text-2);white-space:nowrap;overflow:hidden;}
+.wt-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;}
+.wt-name{overflow:hidden;text-overflow:ellipsis;}
+.wt-area{position:relative;flex:1;height:26px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;}
+.wt-area .block{position:absolute;top:3px;bottom:3px;border-radius:4px;display:flex;align-items:center;min-width:3px;overflow:hidden;}
+.wt-area .block .bt{padding:0 5px;font-size:10.5px;line-height:1;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.55);}
+.wt-area .block.live{outline:1.5px solid var(--accent);box-shadow:0 0 12px var(--glow-accent);z-index:2;}
+.wt-area .block.sel{outline:none;box-shadow:0 0 0 1.5px #fff,0 0 0 3px var(--accent),0 0 12px var(--accent);transform:translateY(-2px) scale(1.015);z-index:5;font-weight:600;}
+.wt-playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--cyan);box-shadow:0 0 10px var(--cyan);pointer-events:none;z-index:4;}
+.wt-playhead::before{content:"";position:absolute;top:0;left:-4px;width:10px;height:10px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan);}
+/* anim strips (port) — the reason lanes need vertical room */
+.cue-anims{position:absolute;inset:0;pointer-events:none;}
+.astrip{position:absolute;border:0;padding:0;border-radius:3px;overflow:hidden;}
+.astrip.t-fade{background:linear-gradient(90deg,color-mix(in srgb,var(--cyan) 85%,transparent),transparent);}
+.astrip.t-pop{background:var(--warn);} .astrip.t-sweep{background:var(--accent-soft);}
+
+/* collision marker on the flat track */
+.collide{position:absolute;top:-3px;bottom:-3px;border-radius:5px;z-index:5;
+  background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--danger) 38%,transparent) 0 5px,transparent 5px 10px);
+  border:1px dashed color-mix(in srgb,var(--danger) 75%,transparent);pointer-events:none;}
+.collide-tag{position:absolute;top:-24px;transform:translateX(-50%);font-family:var(--font-mono);font-size:9px;color:var(--danger);
+  background:rgba(12,10,20,.85);border:1px solid color-mix(in srgb,var(--danger) 45%,transparent);border-radius:4px;padding:2px 6px;white-space:nowrap;}
+
+.note{font-size:12px;color:var(--text-3);line-height:1.55;margin-top:14px;display:flex;gap:9px;}
+.note .ic{flex:0 0 auto;color:var(--text-2);font-family:var(--font-mono);}
+.note b{color:var(--text-2);font-weight:600;}
+.note .good{color:var(--success);font-weight:600;} .note .bad{color:var(--danger);font-weight:600;}
+
+/* verdict */
+.verdict{margin-top:16px;background:color-mix(in srgb,var(--success) 7%,var(--surface-1));
+  border:1px solid color-mix(in srgb,var(--success) 32%,transparent);border-radius:var(--radius-md);padding:15px 18px;}
+.verdict .vh{font-family:var(--font-display);font-weight:600;font-size:12.5px;color:var(--success);
+  letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.verdict p{margin:0 0 8px;font-size:13px;color:var(--text-1);line-height:1.6;}
+.verdict p:last-child{margin-bottom:0;}
+.verdict code{font-family:var(--font-mono);font-size:11.5px;color:var(--cyan);background:rgba(61,224,255,.08);padding:1px 5px;border-radius:4px;}
+.verdict .open{color:var(--warn);font-weight:600;}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="hd">
+    <div>
+      <h1>Timeline &amp; Waveform — design decision review</h1>
+      <p>Two open questions from the zip-14 triage, mocked with <b>identical real multi-event data</b>
+      (“Bleating Obsession”, 6 events, one overlapping chorus). Each option is rendered from its own
+      <b>authoritative CSS</b>: the kit treatments from the original <code>.track</code> / <code>.wave</code>
+      rules, the port treatments from <code>.wt-lane</code> / <code>.ruler-row</code> as they ship.</p>
+    </div>
+    <div class="src">
+      verified against<br><b>feat/designer-sync</b><br>
+      <span class="pill">@ 94d717c</span><br>
+      WordTrack.tsx · Waveform.tsx<br>theme.css
+    </div>
+  </header>
+
+  <div class="legend">
+    <span class="k"><b>Events (groups):</b></span>
+    <span class="k"><span class="sw" style="background:var(--cue-1)"></span>Verse 1·L1</span>
+    <span class="k"><span class="sw" style="background:var(--cue-2)"></span>Verse 1·L2</span>
+    <span class="k"><span class="sw" style="background:var(--cue-3)"></span>Chorus·L1</span>
+    <span class="k"><span class="sw" style="background:var(--cue-4)"></span>Chorus·L2 (echo)</span>
+    <span class="k"><span class="sw" style="background:var(--cue-5)"></span>Verse 2</span>
+    <span class="k"><span class="sw" style="background:var(--cue-6)"></span>Outro</span>
+    <span class="k" style="margin-left:auto;color:var(--cyan)">▎playhead @ 9.0s</span>
+  </div>
+
+  <!-- ============ DECISION 1 ============ -->
+  <section class="decision">
+    <div class="dh"><span class="no">B1</span><h2>Timeline structure — flat track vs. per-event lanes</h2></div>
+    <p class="dsub">The triage called this “the single biggest divergence.” Same data, same time scale, both rendered live below.</p>
+
+    <!-- KIT: flat -->
+    <div class="opt">
+      <div class="opt-h">
+        <span class="opt-tag kit">Kit</span>
+        <span class="ttl">One flat track — blocks positioned by time only</span>
+        <span class="meta">.track · 36px · single row</span>
+      </div>
+      <div class="dock-surf">
+        <div class="wave-wrap">
+          <div class="ruler" id="kit-ruler"></div>
+        </div>
+        <div class="track" id="kit-track"></div>
+      </div>
+      <div class="note"><span class="ic">→</span><div>
+        <b>Compact &amp; honest for sequential cues.</b> But blocks share one row, so the overlapping
+        chorus lines <span class="bad">collide and occlude each other</span> (hatched zone) — and there is
+        <span class="bad">no room for per-cue animation strips</span>, the feature the port adds. No event labels.</div>
+      </div>
+    </div>
+
+    <!-- PORT: lanes -->
+    <div class="opt win">
+      <div class="opt-h">
+        <span class="opt-tag port">Port</span>
+        <span class="ttl">One labelled lane per event + anim strips</span>
+        <span class="rec">Recommend — with tweaks</span>
+        <span class="meta">.wt-lane · 30px · 124px gutter</span>
+      </div>
+      <div class="dock-surf">
+        <div class="timeline-col" id="port-tl">
+          <div class="ruler-row"><div class="tl-gutter"></div><div class="ruler-track" id="port-ruler2"></div></div>
+          <div class="wt" id="port-lanes"></div>
+        </div>
+      </div>
+      <div class="note"><span class="ic">→</span><div>
+        <b>Overlap resolves cleanly</b> — the echo line gets its own row. <span class="good">Vertical room
+        for animation strips</span> (cyan = fade, amber = pop) which the flat track can't host, plus scannable
+        event labels. Costs a <b>124px label gutter</b> and grows tall on long songs.</div>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <div class="vh">▍ Verdict</div>
+      <p>Ship the <b>lane model</b> — but understand <i>why</i>. It isn't really about overlap (most songs are
+      sequential); it's that the port's <b>per-cue animation strips need vertical room a 36px flat row can't give</b>.
+      That's a legitimate port-ahead the kit never depicted. Two tweaks I'd ask for before sign-off:</p>
+      <p>1 · <b>Trim the gutter.</b> <code>--tl-gutter: 124px</code> is heavy on a 252px dock — target ~88px with
+      truncation, or make it collapsible.<br>
+      2 · <span class="open">Open question:</span> auto-<b>flatten</b> events that have no animations and don't
+      overlap, to cut vertical scrolling on long lyrics? Or keep one-lane-per-event always for predictability?</p>
+    </div>
+  </section>
+
+  <!-- ============ DECISION 2 ============ -->
+  <section class="decision">
+    <div class="dh"><span class="no">B2</span><h2>Waveform — placeholder bars vs. honest tick ruler</h2></div>
+    <p class="dsub">The engine has no audio source. The question is whether to <i>draw</i> a waveform anyway.</p>
+
+    <!-- KIT bars -->
+    <div class="opt">
+      <div class="opt-h">
+        <span class="opt-tag kit">Kit</span>
+        <span class="ttl">56 placeholder bars + fixed 6-mark ruler</span>
+        <span class="meta">.wave · .bar.on = grad-brand</span>
+      </div>
+      <div class="dock-surf" style="padding:10px 12px;">
+        <div class="wave-wrap">
+          <div class="ruler" id="kit-ruler2"></div>
+          <div class="wave" id="kit-bars"></div>
+        </div>
+      </div>
+      <div class="note"><span class="ic">→</span><div>
+        <b>Looks like a real editor</b> — but the bar heights are <span class="bad">random noise, not audio</span>.
+        It implies amplitude data we don't have. The kit itself tags these “placeholder.”</div>
+      </div>
+    </div>
+
+    <!-- PORT ticks -->
+    <div class="opt win">
+      <div class="opt-h">
+        <span class="opt-tag port">Port</span>
+        <span class="ttl">Honest adaptive tick ruler — no fake bars</span>
+        <span class="rec">Recommend</span>
+        <span class="meta">.ruler-track · tickStep(dur)</span>
+      </div>
+      <div class="dock-surf" style="padding:10px 12px;">
+        <div class="timeline-col">
+          <div class="ruler-row"><div class="tl-gutter"></div><div class="ruler-track" id="port-ruler" style="height:34px;"></div></div>
+        </div>
+      </div>
+      <div class="note"><span class="ic">→</span><div>
+        <b>Truthful.</b> A scrubbable time axis with adaptive ticks (scales with zoom), a draggable playhead with a
+        grab-head, and <span class="good">no invented data</span>. Reads as deliberate, not unfinished.</div>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <div class="vh">▍ Verdict</div>
+      <p>Keep the <b>honest tick ruler</b>. Painting amplitude bars over audio we never decoded is misleading
+      data-viz — and the kit literally labels them a placeholder. The tick ruler is the more confident, more
+      professional read.</p>
+      <p><span class="open">Revisit only when</span> real audio lands (the daemon could decode the attached video's
+      track) — at that point bars become <i>honest</i> and we render them for real.</p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// ── real multi-event data: "Bleating Obsession", 6 events, one overlap ──
+const DUR = 19.5;
+const PLAYHEAD = 9.0;
+// gi → label + cue color var
+const EVENTS = [
+  { gi:0, label:"Verse 1 · L1", c:"var(--cue-1)" },
+  { gi:1, label:"Verse 1 · L2", c:"var(--cue-2)" },
+  { gi:2, label:"Chorus · L1",  c:"var(--cue-3)" },
+  { gi:3, label:"Chorus · L2 · echo", c:"var(--cue-4)" },
+  { gi:4, label:"Verse 2", c:"var(--cue-5)" },
+  { gi:5, label:"Outro",   c:"var(--cue-6)" },
+];
+// word blocks {gi, text, s, e, anims?}
+const WORDS = [
+  {gi:0,text:"Caught",s:0.30,e:0.78}, {gi:0,text:"in",s:0.80,e:0.96}, {gi:0,text:"a",s:0.98,e:1.14},
+  {gi:0,text:"bleating",s:1.20,e:2.10,anims:["fade"]}, {gi:0,text:"obsession",s:2.20,e:3.30,anims:["fade"]},
+  {gi:1,text:"Tangled",s:3.50,e:4.20}, {gi:1,text:"up",s:4.24,e:4.58}, {gi:1,text:"in",s:4.62,e:4.84},
+  {gi:1,text:"wool",s:4.90,e:5.42}, {gi:1,text:"&",s:5.46,e:5.66}, {gi:1,text:"thread",s:5.72,e:6.40},
+  {gi:2,text:"Don't",s:6.70,e:7.16}, {gi:2,text:"let",s:7.20,e:7.46}, {gi:2,text:"go",s:7.50,e:8.10,anims:["pop"]},
+  {gi:2,text:"of",s:8.14,e:8.36}, {gi:2,text:"me",s:8.42,e:9.55,anims:["pop"]},
+  {gi:3,text:"hold",s:8.90,e:9.42}, {gi:3,text:"me",s:9.46,e:9.92}, {gi:3,text:"closer",s:9.98,e:10.84,anims:["sweep"]},
+  {gi:3,text:"now",s:10.90,e:11.62},
+  {gi:4,text:"Counting",s:12.00,e:12.78}, {gi:4,text:"sheep",s:12.82,e:13.46}, {gi:4,text:"till",s:13.50,e:13.74},
+  {gi:4,text:"the",s:13.78,e:14.00}, {gi:4,text:"morning",s:14.05,e:14.94}, {gi:4,text:"light",s:14.99,e:15.92},
+  {gi:5,text:"Fade",s:16.30,e:17.16,anims:["fade"]}, {gi:5,text:"to",s:17.20,e:17.44}, {gi:5,text:"static",s:17.50,e:18.70,anims:["fade"]},
+];
+const SEL = "closer"; // a selected cue to show the port selection treatment
+const colorFor = gi => EVENTS[gi].c;
+const pct = (v) => (v / DUR * 100);
+const isLive = w => PLAYHEAD >= w.s && PLAYHEAD < w.e;
+
+// ── kit fixed 6-mark ruler (dur/5) ──
+function sixMarkRuler(el){
+  el.innerHTML = "";
+  for(let i=0;i<6;i++){ const t=(DUR/5)*i; const s=document.createElement("span"); s.textContent=fmt(t); el.appendChild(s); }
+}
+function fmt(t){ const m=Math.floor(t/60), s=Math.floor(t%60); return m+":"+String(s).padStart(2,"0"); }
+
+// ── kit flat track ──
+function kitTrack(el){
+  el.innerHTML="";
+  WORDS.forEach(w=>{
+    const b=document.createElement("div");
+    b.className="block"+(isLive(w)?" live":"");
+    b.style.left=pct(w.s)+"%"; b.style.width=Math.max(0.8,pct(w.e-w.s))+"%";
+    b.style.background=colorFor(w.gi); b.textContent=w.text; b.title=`${w.text} · ${w.s}–${w.e}s`;
+    el.appendChild(b);
+  });
+  // collision marker over the chorus overlap (gi2 'me' 8.42–9.55 vs gi3 'hold' 8.90–9.42)
+  const oS=8.90, oE=9.55;
+  const c=document.createElement("div"); c.className="collide";
+  c.style.left=pct(oS)+"%"; c.style.width=pct(oE-oS)+"%"; el.appendChild(c);
+  const tag=document.createElement("div"); tag.className="collide-tag";
+  tag.style.left=pct((oS+oE)/2)+"%"; tag.textContent="overlap → occlusion"; el.appendChild(tag);
+  // playhead
+  const ph=document.createElement("div"); ph.className="playhead"; ph.style.left=pct(PLAYHEAD)+"%"; el.appendChild(ph);
+}
+
+// ── kit bars ──
+function kitBars(el){
+  el.innerHTML="";
+  const N=56, seed=[];
+  for(let i=0;i<N;i++){ // deterministic pseudo-wave
+    const v=0.35+0.55*Math.abs(Math.sin(i*0.7)*Math.cos(i*0.23)+0.3*Math.sin(i*1.9));
+    seed.push(Math.min(1,v));
+  }
+  const onUpTo=Math.round(PLAYHEAD/DUR*N);
+  seed.forEach((h,i)=>{ const b=document.createElement("div"); b.className="bar"+(i<onUpTo?" on":"");
+    b.style.height=(14+h*36)+"px"; el.appendChild(b); });
+  const ph=document.createElement("div"); ph.className="playhead"; ph.style.left=pct(PLAYHEAD)+"%"; el.appendChild(ph);
+}
+
+// ── port adaptive tick ruler ──
+function tickStep(dur){ const target=dur/10; const steps=[5,10,15,20,30,60,120,300,600]; return steps.find(s=>s>=target)??600; }
+function portRuler(el, withPH=true){
+  el.innerHTML="";
+  const step=tickStep(DUR);
+  for(let t=0;t<=DUR+0.001;t+=step){
+    const tk=document.createElement("div"); tk.className="tk"; tk.style.left=pct(t)+"%";
+    const lb=document.createElement("span"); lb.className="tk-label"; lb.textContent=fmt(t);
+    tk.appendChild(lb); el.appendChild(tk);
+  }
+  if(withPH){
+    const ph=document.createElement("div"); ph.className="playhead tl-through"; ph.style.left=pct(PLAYHEAD)+"%";
+    const head=document.createElement("i"); head.className="ph-head"; ph.appendChild(head); el.appendChild(ph);
+  }
+}
+
+// ── port lanes ──
+function portLanes(el){
+  el.innerHTML="";
+  EVENTS.forEach(ev=>{
+    const lane=document.createElement("div"); lane.className="wt-lane";
+    const lab=document.createElement("div"); lab.className="wt-label";
+    lab.innerHTML=`<span class="wt-dot" style="background:${ev.c}"></span><span class="wt-name">${ev.label}</span>`;
+    const area=document.createElement("div"); area.className="wt-area";
+    WORDS.filter(w=>w.gi===ev.gi).forEach(w=>{
+      const b=document.createElement("div");
+      const sel = w.text===SEL;
+      b.className="block"+(isLive(w)?" live":"")+(sel?" sel":"");
+      b.style.left=pct(w.s)+"%"; b.style.width=Math.max(0.4,pct(w.e-w.s))+"%"; b.style.background=ev.c;
+      b.innerHTML=`<span class="bt">${w.text}</span>`;
+      if(w.anims){ const ca=document.createElement("span"); ca.className="cue-anims";
+        w.anims.forEach((t,i)=>{ const st=document.createElement("span"); st.className="astrip t-"+t;
+          st.style.left="2px"; st.style.right="2px"; st.style.height="4px";
+          st.style.top=(2+i*6)+"px"; st.style.width="auto"; ca.appendChild(st); });
+        b.appendChild(ca);
+      }
+      area.appendChild(b);
+    });
+    lane.appendChild(lab); lane.appendChild(area); el.appendChild(lane);
+  });
+}
+
+// ── ONE continuous, lower-opacity playhead through ruler + lanes (single head) ──
+function portContinuousPlayhead(){
+  const tl=document.getElementById("port-tl");
+  const ph=document.createElement("div"); ph.className="playhead tl-through";
+  ph.style.left=`calc(var(--tl-gutter) + ${PLAYHEAD/DUR} * (100% - var(--tl-gutter)))`;
+  const head=document.createElement("i"); head.className="ph-head"; ph.appendChild(head);
+  tl.appendChild(ph);
+}
+
+sixMarkRuler(document.getElementById("kit-ruler"));
+sixMarkRuler(document.getElementById("kit-ruler2"));
+kitTrack(document.getElementById("kit-track"));
+kitBars(document.getElementById("kit-bars"));
+portRuler(document.getElementById("port-ruler"));
+portRuler(document.getElementById("port-ruler2"), false);
+portLanes(document.getElementById("port-lanes"));
+portContinuousPlayhead();
+</script>
+
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<rect width="100" height="100" fill="#15111F"/>
+<rect x="18" y="34" width="40" height="7" rx="2" fill="#7A3A5A"/>
+<rect x="18" y="46" width="30" height="7" rx="2" fill="#3A5A7A"/>
+<rect x="40" y="58" width="34" height="7" rx="2" fill="#5A7A3A"/>
+<rect x="50" y="22" width="2" height="56" fill="#3DE0FF"/>
+</svg>
+</template>
+</body>
+</html>

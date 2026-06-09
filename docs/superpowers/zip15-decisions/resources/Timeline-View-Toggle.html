@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<!-- @dsCard group="UI Kit — Desktop App" name="Timeline — Track ↔ Grouped toggle" subtitle="Animated flat-pack ↔ per-event lanes · separate H/V zoom · canonical anim strips · continuous playhead · interactive" viewport="1280x1220" -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Timeline — view toggle</title>
+<link rel="icon" href="../assets/logo-mark.svg" />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+:root{
+  --bg:#0C0A14; --surface-1:#15111F; --surface-2:#1A1528; --surface-3:#221B33; --surface-4:#241C36;
+  --border:#2C2440; --border-strong:#3A3052;
+  --text-1:#ECE7F4; --text-2:#A599BC; --text-3:#6E6385; --text-on-accent:#22041A;
+  --accent:#FF3DA6; --accent-press:#E22E92; --cyan:#3DE0FF; --violet:#8A5BFF; --warn:#FFC24D;
+  --glow-accent:rgba(255,61,166,.32); --glow-cyan:rgba(61,224,255,.30);
+  --p0:#FF3DA6; --p1:#8A5CF6; --p2:#36E2FF; --p3:#37E29A; --p4:#FFC24B;
+  --font-display:'Space Grotesk',system-ui,sans-serif;
+  --font-ui:'Hanken Grotesk',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --radius-xs:5px; --radius-sm:7px; --radius-md:9px; --radius-lg:12px; --radius-pill:999px;
+  --shadow-3:0 18px 50px rgba(0,0,0,.5); --ease-out:cubic-bezier(.2,.7,.3,1); --dur:160ms;
+}
+*{box-sizing:border-box;} html,body{margin:0;}
+body{background:radial-gradient(130% 80% at 50% -8%,#150F24 0%,var(--bg) 60%);color:var(--text-1);
+  font-family:var(--font-ui);font-size:13px;-webkit-font-smoothing:antialiased;}
+.page{max-width:1200px;margin:0 auto;padding:36px 36px 70px;}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;}
+.hd h1{font-family:var(--font-display);font-weight:700;font-size:25px;letter-spacing:-.02em;margin:0 0 8px;}
+.hd p{margin:0;color:var(--text-2);font-size:13px;line-height:1.55;max-width:680px;}
+.hd p b{color:var(--text-1);} .hd code{font-family:var(--font-mono);font-size:11px;color:var(--cyan);}
+.src{flex:0 0 auto;font-family:var(--font-mono);font-size:10px;color:var(--text-3);text-align:right;line-height:1.7;}
+.src b{color:var(--cyan);}
+
+.dock{margin-top:24px;background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-3);overflow:hidden;}
+.dock-top{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);background:var(--surface-2);flex-wrap:wrap;}
+.seg{display:inline-flex;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;gap:2px;}
+.seg button{font:inherit;font-size:12.5px;color:var(--text-2);background:transparent;border:0;border-radius:var(--radius-xs);padding:6px 13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:var(--dur) var(--ease-out);}
+.seg button .ic{font-size:13px;line-height:1;}
+.seg button.on{background:var(--accent);color:var(--text-on-accent);font-weight:600;box-shadow:0 2px 10px var(--glow-accent);}
+.tool{font:inherit;font-size:12px;color:var(--text-2);background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 11px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;}
+.tool:hover{border-color:var(--border-strong);color:var(--text-1);}
+.tool.on{color:var(--cyan);background:color-mix(in srgb,var(--cyan) 11%,var(--surface-3));border-color:color-mix(in srgb,var(--cyan) 40%,transparent);}
+.zoom{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:var(--text-3);font-family:var(--font-mono);}
+.zoom input[type=range]{accent-color:var(--cyan);width:84px;}
+.zoom .zl{color:var(--text-2);font-weight:600;}
+.gcount{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--text-3);}
+.gcount b{color:var(--warn);}
+
+.legend{display:flex;flex-wrap:wrap;gap:15px;padding:9px 16px;border-bottom:1px solid var(--border);background:var(--surface-1);}
+.lg{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:var(--text-2);}
+.lg-sw{width:22px;height:11px;border-radius:3px;display:inline-block;}
+.t-color{background:linear-gradient(90deg,#fff,#FF3DA6);}
+.t-alpha{background:linear-gradient(90deg,#36E2FF00,#36E2FF);}
+.t-size{background:linear-gradient(90deg,#37E29A22,#37E29A);clip-path:polygon(0 100%,100% 0,100% 100%);}
+.t-type{background:repeating-linear-gradient(90deg,#8A5CF6 0 3px,#8A5CF633 3px 7px);}
+.t-move{background:linear-gradient(90deg,#FFC24B11,#FFC24B);}
+.t-glow{background:radial-gradient(120% 180% at 60% 50%,#36E2FF,#36E2FF22 70%,transparent);}
+.glyphsw{display:inline-grid;place-items:center;background:var(--surface-4);color:var(--text-2);border:1px solid var(--border-strong);font-size:9px;width:18px;height:13px;border-radius:3px;}
+
+/* ---- scroll viewport ---- */
+.scroller{max-height:440px;overflow:auto;position:relative;}
+.scroller::-webkit-scrollbar{width:11px;height:11px;} .scroller::-webkit-scrollbar-thumb{background:var(--surface-4);border-radius:99px;border:3px solid var(--surface-1);}
+.tl-row{display:flex;width:max-content;min-width:100%;padding:8px 0 14px;}
+.gutter-col{position:sticky;left:0;z-index:3;flex:0 0 auto;background:var(--surface-1);overflow:hidden;}
+.gutter-col.grouped{border-right:1px solid var(--border);box-shadow:8px 0 12px -10px rgba(0,0,0,.6);}
+.g-spacer{}
+.glabel{display:flex;align-items:center;gap:7px;padding:0 10px 0 16px;font-size:11px;color:var(--text-2);white-space:nowrap;overflow:hidden;}
+.gdot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;}
+.gname{overflow:hidden;text-overflow:ellipsis;}
+
+.x-content{position:relative;flex:0 0 auto;padding-right:16px;}
+.rtrack{position:relative;border-bottom:1px solid var(--border);margin:0 0 0 0;}
+.tk{position:absolute;bottom:0;width:1px;height:6px;background:var(--border-strong);}
+.tk-label{position:absolute;bottom:7px;left:3px;font-family:var(--font-mono);font-size:9px;color:var(--text-3);white-space:nowrap;}
+.band{position:relative;}
+.band.lane .lane-bg{position:absolute;left:0;right:16px;top:5px;bottom:5px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);}
+
+.cue{position:absolute;border-radius:8px;cursor:pointer;overflow:hidden;
+  background:color-mix(in srgb,var(--c) 22%,var(--surface-3));border:1px solid color-mix(in srgb,var(--c) 45%,transparent);}
+.cue:hover{filter:brightness(1.08);}
+.cue.live{outline:1px solid #fff3;}
+.cue.sel{box-shadow:0 0 0 2px var(--c),0 6px 20px color-mix(in srgb,var(--c) 30%,transparent);z-index:5;}
+.cue-t{position:absolute;top:0;left:0;right:0;height:22px;display:flex;align-items:center;padding:0 9px;font-family:var(--font-display);font-weight:600;font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.5);}
+.cue-anims{position:absolute;inset:0;pointer-events:none;}
+.cue-anims.muted .astrip{opacity:.5;filter:saturate(.7);}
+.cue.sel .cue-anims.muted .astrip,.cue:hover .cue-anims.muted .astrip{opacity:1;filter:none;}
+.astrip{position:absolute;border:0;padding:0;border-radius:3px;overflow:visible;pointer-events:auto;cursor:pointer;transition:box-shadow .12s,opacity .14s;}
+.astrip:hover{box-shadow:0 0 0 1px #fff6;}
+.astrip.foc{box-shadow:0 0 0 2px #fff,0 0 12px #fff8;z-index:7;}
+.astrip .arrow{position:absolute;right:3px;top:50%;transform:translateY(-50%);color:#0a0710;font-size:10px;font-weight:700;}
+.astrip.glyph{display:grid;place-items:center;background:var(--surface-4);border:1px solid var(--border-strong);min-width:18px;width:18px;}
+.astrip.glyph .g-ic{font-size:10px;color:var(--text-1);line-height:1;}
+.astrip.glyph::after{content:"~";position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--text-3);}
+.astrip .h{position:absolute;top:-2px;bottom:-2px;width:7px;background:#fff;border-radius:2px;cursor:ew-resize;box-shadow:0 0 6px #fff8;}
+.astrip .h-l{left:-3px;} .astrip .h-r{right:-3px;}
+/* ＋N disclosure toggle */
+.disc{position:absolute;top:5px;right:6px;height:16px;min-width:16px;padding:0 5px;border-radius:8px;border:1px solid var(--border-strong);
+  background:var(--surface-4);color:var(--text-1);font-family:var(--font-mono);font-size:9.5px;font-weight:700;
+  display:inline-flex;align-items:center;gap:3px;cursor:pointer;z-index:8;line-height:1;transition:background .12s,border-color .12s,color .12s;}
+.disc:hover{background:var(--surface-3);border-color:var(--cyan);color:var(--cyan);}
+.disc .chev{display:inline-block;transition:transform .2s var(--ease-out);font-size:8px;}
+.cue.exp .disc .chev{transform:rotate(180deg);}
+.cue.exp .disc{background:color-mix(in srgb,var(--cyan) 14%,var(--surface-4));border-color:color-mix(in srgb,var(--cyan) 45%,transparent);color:var(--cyan);}
+/* floating overlay (expand) — lane height stays fixed */
+.cue.overlay{z-index:25;box-shadow:0 14px 34px rgba(0,0,0,.55);border-color:color-mix(in srgb,var(--c) 75%,transparent);}
+.cue.overlay::after{content:"";position:absolute;left:0;right:0;top:0;height:var(--baseh);border-radius:8px 8px 0 0;border:1px solid color-mix(in srgb,var(--cyan) 28%,transparent);border-bottom:none;pointer-events:none;}
+
+/* continuous, lower-opacity playhead + single grab head */
+.ph{position:absolute;top:0;bottom:0;width:2px;background:color-mix(in srgb,var(--cyan) 55%,transparent);
+  box-shadow:0 0 6px color-mix(in srgb,var(--cyan) 35%,transparent);pointer-events:none;z-index:6;}
+.ph .ph-head{position:absolute;top:0;left:50%;transform:translateX(-50%);width:13px;height:11px;background:var(--cyan);border-radius:0 0 4px 4px;box-shadow:0 0 8px var(--cyan);}
+
+.footer{display:flex;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid var(--border);background:var(--surface-2);font-size:12px;color:var(--text-2);}
+.footer .read{font-family:var(--font-mono);font-size:11.5px;color:var(--cyan);}
+.footer .sel-info{font-family:var(--font-mono);font-size:11px;color:var(--text-3);margin-left:4px;}
+.footer .sel-info b{color:var(--cyan);}
+
+.verdict{margin-top:20px;background:color-mix(in srgb,#4DE0C2 7%,var(--surface-1));border:1px solid color-mix(in srgb,#4DE0C2 32%,transparent);border-radius:var(--radius-md);padding:15px 18px;}
+.verdict .vh{font-family:var(--font-display);font-weight:600;font-size:12.5px;color:#4DE0C2;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;}
+.verdict p{margin:0 0 8px;font-size:13px;color:var(--text-1);line-height:1.6;}
+.verdict p:last-child{margin-bottom:0;}
+.verdict code{font-family:var(--font-mono);font-size:11.5px;color:var(--cyan);background:rgba(61,224,255,.08);padding:1px 5px;border-radius:4px;}
+.verdict .open{color:var(--warn);font-weight:600;}
+.hint{margin-top:12px;font-size:12px;color:var(--text-3);line-height:1.5;}
+.hint b{color:var(--text-2);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="hd">
+    <div>
+      <h1>Timeline — one track, three densities</h1>
+      <p>Per-event lanes are great until there are many events. So the same time-track has a <b>density toggle</b> (animated):
+      <b>Compact</b> packs into the fewest rows (groups may scatter); <b>Coherent</b> keeps each group on one row and lets
+      non-overlapping groups share (the default); <b>Lanes</b> gives every event its own labelled row. Bars are <b>constant height</b>;
+      past <b>3</b> a <code>＋N</code> toggle lifts a <b>floating overlay</b> — the lane height never changes. Separate <b>H / V zoom</b>; one continuous playhead.</p>
+    </div>
+    <div class="src">canonical strips from<br><b>tl-anim.css / .js</b><br>+ WordTrack.tsx lanes<br><b>feat/designer-sync</b></div>
+  </header>
+
+  <div class="dock">
+    <div class="dock-top">
+      <div class="seg" id="seg">
+        <button data-mode="compact"><span class="ic">☷</span>Compact</button>
+        <button data-mode="coherent" class="on"><span class="ic">☲</span>Coherent</button>
+        <button data-mode="lanes"><span class="ic">☰</span>Lanes</button>
+      </div>
+      <button class="tool" id="play">▶ Play</button>
+      <button class="tool on" id="mute">Mute strips ’til hover</button>
+      <span class="zoom"><span class="zl">H</span><input id="zh" type="range" min="0.6" max="3" step="0.05" value="1"><span id="zhv">1.0×</span></span>
+      <span class="zoom"><span class="zl">V</span><input id="zv" type="range" min="0.8" max="2" step="0.05" value="1"><span id="zvv">1.0×</span></span>
+      <span class="gcount" id="gcount"></span>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="scroller" id="scroller">
+      <div class="tl-row">
+        <div class="gutter-col" id="gutter"></div>
+        <div class="x-content" id="xc"></div>
+      </div>
+    </div>
+    <div class="footer">
+      <span class="read" id="read">t = 0.00s</span>
+      <span class="sel-info" id="selinfo"></span>
+    </div>
+  </div>
+
+  <div class="verdict">
+    <div class="vh">▍ Verdict</div>
+    <p>Ship the <b>density toggle</b> — <b>Compact · Coherent · Lanes</b> are three stops on one axis (most compact → most separated), defaulting to <b>Coherent</b>.
+    One shared <code>tl-anim</code> renderer; constant-height bars; overflow past <code>MAX_VISIBLE=3</code> opens a <b>floating overlay</b> (accordion, click-away / Esc to close) so the lane never reflows.</p>
+    <p>This matters most with <b>many groups</b>: Lanes becomes unusably tall, Compact scatters a group across rows, and <b>Coherent</b> keeps each group readable as one line at a fraction of the height. The toggle <b>FLIP-animates</b> between all three and keeps the <b>selected cue pinned</b>. <span class="open">Confirm:</span> auto-pick the default by event count (Lanes when ≤~6, Coherent above)?</p>
+  </div>
+
+  <p class="hint"><b>Try it:</b> step <b>Compact → Coherent → Lanes</b> and watch the rows reflow (8 events here — the many-group case). Click a cue's <code>＋N</code> for its overlay; drag <b>H</b>/<b>V</b> to zoom.</p>
+</div>
+
+<script>
+// ── canonical channel system (verbatim from tl-anim.js) ──
+const TYPES={color:{label:'Color change'},alpha:{label:'Alpha / fade'},size:{label:'Size / Pop'},type:{label:'Typewriter'},move:{label:'Move / slide'},glow:{label:'Glow pulse'}};
+const PALETTE=['#FF3DA6','#8A5CF6','#36E2FF','#37E29A','#FFC24B'];
+function typeColor(t){return {color:'#FF3DA6',alpha:'#36E2FF',size:'#37E29A',type:'#8A5CF6',move:'#FFC24B',glow:'#36E2FF'}[t]||'#fff';}
+function typeGlyph(t){return {color:'◑',alpha:'◧',size:'▲',type:'⌨',move:'→',glow:'✦'}[t]||'•';}
+function stripStyle(an,c){
+  switch(an.type){
+    case 'color': return `background:linear-gradient(90deg, ${an.from||'#fff'}, ${an.to||c});`;
+    case 'alpha': return `background:${an.dir==='out'?`linear-gradient(90deg, ${c}, ${c}00)`:`linear-gradient(90deg, ${c}00, ${c})`};`;
+    case 'size':  return `background:linear-gradient(90deg, ${c}22, ${c}); clip-path:polygon(0 100%,100% 0,100% 100%);`;
+    case 'type':  return `background:repeating-linear-gradient(90deg, ${c} 0 3px, ${c}33 3px 7px);`;
+    case 'move':  return `background:linear-gradient(90deg, ${c}11, ${c});`;
+    case 'glow':  return `background:radial-gradient(120% 180% at 60% 50%, ${c}, ${c}22 70%, transparent); filter:blur(.4px);`;
+    default: return `background:${c};`;
+  }
+}
+
+// ── data: 8 events (the "too many lanes" case) ──
+const T0=0, T1=15.8;
+const GROUPS=["Verse 1 · L1","Verse 1 · L2","Pre-chorus","Chorus · L1","Chorus · L2 · echo","Verse 2","Bridge","Outro"];
+const CUES=[
+  {text:"Caught in a", gi:0, s:0.30, e:1.60, anims:[{type:'alpha',s:0.30,e:0.62,dir:'in'}]},
+  {text:"bleating", gi:0, s:1.70, e:2.70, anims:[{type:'alpha',s:1.70,e:1.95,dir:'in'},{type:'color',s:1.80,e:2.60,from:'#fff',to:'#FF3DA6'},{type:'size',s:1.72,e:2.00}]},
+  {text:"obsession", gi:0, s:2.85, e:4.20, anims:[{type:'alpha',s:2.85,e:3.10,dir:'in'},{type:'color',s:2.95,e:4.05,from:'#fff',to:'#FF3DA6'},{type:'glow',s:3.55,e:4.20},{type:'size',s:2.87,e:3.15}]},
+  {text:"Tangled up", gi:1, s:4.45, e:5.55, anims:[{type:'move',s:4.45,e:4.82,dir:'up'},{type:'size',s:4.70,e:4.84}]},
+  {text:"in wool & thread", gi:1, s:5.65, e:7.10, anims:[{type:'type',s:5.65,e:6.40}]},
+  {text:"Don't let go", gi:2, s:7.30, e:8.65, anims:[{type:'alpha',s:7.30,e:7.55,dir:'in'},{type:'color',s:7.45,e:8.55,from:'#fff',to:'#36E2FF'}]},
+  {text:"Hold me closer", gi:3, s:8.45, e:10.00, anims:[{type:'color',s:8.55,e:9.80,from:'#fff',to:'#FF3DA6'},{type:'glow',s:9.40,e:10.00}]},
+  {text:"closer, now", gi:4, s:9.60, e:11.05, anims:[{type:'alpha',s:9.60,e:9.95,dir:'in'},{type:'move',s:9.62,e:10.00,dir:'up'}]},
+  {text:"Counting sheep", gi:5, s:11.25, e:12.60, anims:[{type:'type',s:11.25,e:12.10}]},
+  {text:"till the light", gi:6, s:12.70, e:13.95, anims:[{type:'color',s:12.80,e:13.85,from:'#fff',to:'#37E29A'},{type:'alpha',s:13.50,e:13.95,dir:'out'}]},
+  {text:"Fade to static", gi:7, s:14.05, e:15.55, anims:[{type:'alpha',s:14.90,e:15.55,dir:'out'},{type:'glow',s:14.10,e:14.90}]},
+];
+
+const BASE_PPS=68, RULER_H=26, GUTTER_W=132, MAX_VISIBLE=3, TINY_PX=24;
+const TEXT_H=22, BAR_H=6, GAP=4, PAD_B=7;
+const FIXED_CUE_H=TEXT_H+MAX_VISIBLE*BAR_H+(MAX_VISIBLE-1)*GAP+PAD_B; // constant cue height
+let mode="coherent", t=0, playing=false, raf=null, last=0, muted=true;
+let selCue=2, focusAnim=null, expandedCue=null;
+let hz=1, vz=1;
+
+const scroller=document.getElementById('scroller');
+const gutter=document.getElementById('gutter');
+const xc=document.getElementById('xc');
+const readEl=document.getElementById('read');
+const selinfo=document.getElementById('selinfo');
+
+const pps=()=>BASE_PPS*hz;
+const cueH=()=>FIXED_CUE_H;
+const bandH=()=>Math.round(Math.max(FIXED_CUE_H+10, 50*vz));
+const xOf=(sec)=>(sec-T0)*pps();
+const contentW=()=>(T1-T0)*pps();
+
+// greedy packing for Track mode (fewest non-colliding rows)
+// Compact: greedy fewest non-colliding rows (groups may scatter)
+function packRows(){
+  const order=CUES.map((c,i)=>({i,...c})).sort((a,b)=>a.s-b.s);
+  const ends=[], rowOf={};
+  for(const c of order){
+    let r=ends.findIndex(end=>c.s>=end-1e-6);
+    if(r<0){r=ends.length;ends.push(0);}
+    ends[r]=c.e+0.04; rowOf[c.i]=r;
+  }
+  return {rowOf,n:ends.length};
+}
+// Coherent: each group keeps one row; non-overlapping groups share. Rows ordered by group's first start.
+function packGroupRuns(){
+  const ov=(a,b)=>a.s<b.e-1e-6 && b.s<a.e-1e-6;
+  const giOrder=[...new Set(CUES.map(c=>c.gi))]
+    .map(gi=>({gi, first:Math.min(...CUES.filter(c=>c.gi===gi).map(c=>c.s))}))
+    .sort((a,b)=>a.first-b.first).map(o=>o.gi);
+  const rows=[], rowOf={};
+  for(const gi of giOrder){
+    const gc=CUES.map((c,i)=>({i,...c})).filter(c=>c.gi===gi);
+    let target=rows.findIndex(occ=>!gc.some(c=>occ.some(o=>ov(c,o))));
+    if(target<0){ target=rows.length; rows.push([]); }
+    gc.forEach(c=>{ rows[target].push(c); rowOf[c.i]=target; });
+  }
+  return {rowOf,n:rows.length};
+}
+const packFor=()=> mode==='compact'?packRows():packGroupRuns();
+
+function barsHTML(c,ci,cc,list){
+  let s="";
+  list.forEach((an,ai)=>{
+    const aLeft=((an.s-c.s)/(c.e-c.s))*100, aWpc=((an.e-an.s)/(c.e-c.s))*100, aWpx=(an.e-an.s)*pps();
+    const top=TEXT_H+ai*(BAR_H+GAP), foc=focusAnim&&focusAnim.ci===ci&&focusAnim.ai===ai;
+    if(aWpx<TINY_PX){
+      s+=`<button class="astrip glyph ${foc?'foc':''}" data-ci="${ci}" data-ai="${ai}" style="left:${aLeft}%;top:${top}px;height:${BAR_H+4}px;" title="${TYPES[an.type].label} · ${(an.e-an.s).toFixed(2)}s"><i class="g-ic">${typeGlyph(an.type)}</i></button>`;
+    } else {
+      s+=`<button class="astrip ${foc?'foc':''}" data-ci="${ci}" data-ai="${ai}" style="left:${aLeft}%;width:${aWpc}%;top:${top}px;height:${BAR_H}px;${stripStyle(an,cc)}" title="${TYPES[an.type].label} · ${an.s.toFixed(2)}–${an.e.toFixed(2)}s">${an.type==='move'?'<i class="arrow">→</i>':''}${foc?'<i class="h h-l"></i><i class="h h-r"></i>':''}</button>`;
+    }
+  });
+  return s;
+}
+
+function cueHTML(c,ci){
+  const cc=PALETTE[c.gi%PALETTE.length];
+  const left=xOf(c.s), w=Math.max(10,xOf(c.e)-xOf(c.s));
+  const sel=ci===selCue, live=t>=c.s&&t<c.e;
+  const total=c.anims.length, over=total>MAX_VISIBLE, isExp=expandedCue===ci;
+  const list=c.anims.slice(0,MAX_VISIBLE); // constant height: only what fits, never squished
+  const disc=over?`<button class="disc" data-ci="${ci}">${isExp?'－':'＋'+(total-MAX_VISIBLE)}<span class="chev">⌄</span></button>`:"";
+  const ch=cueH(), top=Math.round((bandH()-ch)/2);
+  return `<div class="cue ${sel?'sel':''} ${live?'live':''}" data-flip="c${ci}" data-ci="${ci}" style="left:${left}px;width:${w}px;top:${top}px;height:${ch}px;--c:${cc}" title="${c.text}">
+    <span class="cue-t">${c.text}</span><span class="cue-anims ${muted?'muted':''}">${barsHTML(c,ci,cc,list)}</span>${disc}</div>`;
+}
+
+// floating overlay for an expanded cue — full height, does NOT change the lane
+function overlayHTML(c,ci,top){
+  const cc=PALETTE[c.gi%PALETTE.length];
+  const left=xOf(c.s), w=Math.max(10,xOf(c.e)-xOf(c.s)), total=c.anims.length;
+  const fullH=TEXT_H+total*BAR_H+(total-1)*GAP+PAD_B;
+  return `<div class="cue exp overlay ${ci===selCue?'sel':''}" data-ci="${ci}" data-overlay="1" style="left:${left}px;width:${w}px;top:${top}px;height:${fullH}px;--c:${cc};--baseh:${FIXED_CUE_H}px" title="${c.text}">
+    <span class="cue-t">${c.text}</span><span class="cue-anims ${muted?'muted':''}">${barsHTML(c,ci,cc,c.anims)}</span>
+    <button class="disc" data-ci="${ci}">－<span class="chev">⌄</span></button></div>`;
+}
+
+// cues for a band + the floating overlay if one of them is expanded
+function bandInner(cues){
+  let h=cues.map(x=>cueHTML(x.c,x.ci)).join("");
+  const ec=cues.find(x=>x.ci===expandedCue);
+  if(ec){ const top=Math.round((bandH()-cueH())/2); h+=overlayHTML(ec.c,ec.ci,top); }
+  return h;
+}
+
+function tickStepPx(){ const steps=[1,2,5,10,15,20,30]; const want=70/pps(); return steps.find(s=>s>=want)??30; }
+
+function render(){
+  const cw=contentW(), bh=bandH();
+  // ruler ticks
+  let ticks="";
+  const step=tickStepPx();
+  for(let s=0;s<=Math.floor(T1)+0.001;s+=step) ticks+=`<div class="tk" style="left:${xOf(s)}px"><span class="tk-label">${s}s</span></div>`;
+  let bands="", gut="";
+  if(mode!=='lanes'){
+    gutter.className="gutter-col"; gutter.style.width="0px"; gut="";
+    const {rowOf,n}=packFor();
+    for(let r=0;r<n;r++){
+      const cues=CUES.map((c,ci)=>({c,ci})).filter(x=>rowOf[x.ci]===r);
+      bands+=`<div class="band" style="height:${bh}px">${bandInner(cues)}</div>`;
+    }
+    gut=`<div class="g-spacer" style="height:${RULER_H}px"></div>`;
+  } else {
+    gutter.className="gutter-col grouped"; gutter.style.width=GUTTER_W+"px";
+    gut=`<div class="g-spacer" style="height:${RULER_H}px;border-bottom:1px solid var(--border)"></div>`;
+    const present=[...new Set(CUES.map(c=>c.gi))].sort((a,b)=>a-b);
+    present.forEach(gi=>{
+      const cc=PALETTE[gi%PALETTE.length];
+      gut+=`<div class="glabel" style="height:${bh}px"><span class="gdot" style="background:${cc}"></span><span class="gname">${GROUPS[gi]}</span></div>`;
+      const cues=CUES.map((c,ci)=>({c,ci})).filter(x=>x.c.gi===gi);
+      bands+=`<div class="band lane" style="height:${bh}px"><div class="lane-bg"></div>${bandInner(cues)}</div>`;
+    });
+  }
+  gutter.innerHTML=gut;
+  xc.style.width=cw+16+"px";
+  xc.innerHTML=`<div class="rtrack" data-flip="ruler" style="height:${RULER_H}px;width:${cw}px">${ticks}</div>`
+    +bands
+    +`<div class="ph" data-flip="ph" style="left:${xOf(t)}px"><i class="ph-head"></i></div>`;
+  readEl.textContent='t = '+t.toFixed(2)+'s';
+  const sc=CUES[selCue];
+  if(sc){
+    if(focusAnim){ const an=CUES[focusAnim.ci].anims[focusAnim.ai];
+      selinfo.innerHTML=`focused <b>${TYPES[an.type].label}</b> on “${CUES[focusAnim.ci].text}” · ${an.s.toFixed(2)}–${an.e.toFixed(2)}s — drag the white handles to retime`;
+    } else selinfo.innerHTML=`“${sc.text}” · <b>${sc.anims.length}</b> animation${sc.anims.length>1?'s':''} — click a strip again to focus it`;
+  } else selinfo.textContent="";
+}
+
+// ── FLIP helpers for the animated toggle ──
+function captureFlip(){ const m={}; document.querySelectorAll('[data-flip]').forEach(el=>{const r=el.getBoundingClientRect(); m[el.dataset.flip]={l:r.left,t:r.top};}); return m; }
+const anchorCi=()=> (selCue!=null && CUES[selCue]) ? selCue : 0;
+function captureV(){ const el=xc.querySelector(`.cue[data-ci="${anchorCi()}"]`); if(!el) return null; return el.getBoundingClientRect().top - scroller.getBoundingClientRect().top; }
+function restoreV(pre){ if(pre==null) return; const el=xc.querySelector(`.cue[data-ci="${anchorCi()}"]`); if(!el) return; const cur=el.getBoundingClientRect().top - scroller.getBoundingClientRect().top; scroller.scrollTop += (cur-pre); }
+function playFlip(before){
+  const els=[...document.querySelectorAll('[data-flip]')];
+  els.forEach(el=>{ const o=before[el.dataset.flip]; if(!o)return; const r=el.getBoundingClientRect();
+    const dx=o.l-r.left, dy=o.t-r.top; if(Math.abs(dx)<0.5&&Math.abs(dy)<0.5)return;
+    el.style.transition='none'; el.style.transform=`translate(${dx}px,${dy}px)`; });
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    els.forEach(el=>{ if(!before[el.dataset.flip])return; el.style.transition='transform .38s var(--ease-out)'; el.style.transform='translate(0,0)'; });
+  }));
+  setTimeout(()=>els.forEach(el=>{el.style.transition='';el.style.transform='';}),460);
+}
+
+function setMode(m){
+  if(m===mode) return;
+  expandedCue=null;
+  const before=captureFlip();
+  const preV=captureV();
+  mode=m;
+  [...document.querySelectorAll('#seg button')].forEach(x=>x.classList.toggle('on',x.dataset.mode===m));
+  render();
+  restoreV(preV);   // pin the selected lane vertically (instant)
+  playFlip(before); // animate cues + ruler + playhead from old → new
+}
+
+// ── interactions ──
+document.getElementById('seg').addEventListener('click',e=>{ const b=e.target.closest('button[data-mode]'); if(b) setMode(b.dataset.mode); });
+xc.addEventListener('click',e=>{
+  const disc=e.target.closest('.disc');
+  if(disc){ e.stopPropagation(); const ci=+disc.dataset.ci; expandedCue=(expandedCue===ci)?null:ci; render(); return; }
+  const strip=e.target.closest('.astrip'), cue=e.target.closest('.cue');
+  if(strip){
+    const ci=+strip.dataset.ci, ai=+strip.dataset.ai;
+    if(selCue===ci) focusAnim={ci,ai}; else {selCue=ci;focusAnim=null;}
+    render(); return;
+  }
+  if(cue){ const ci=+cue.dataset.ci; if(selCue!==ci){selCue=ci;focusAnim=null;} else focusAnim=null; render(); }
+});
+document.addEventListener('click',e=>{ if(expandedCue!=null && !e.target.closest('#xc')){ expandedCue=null; render(); }});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ focusAnim=null; expandedCue=null; render(); }});
+
+const muteBtn=document.getElementById('mute');
+muteBtn.addEventListener('click',()=>{ muted=!muted; muteBtn.classList.toggle('on',muted); muteBtn.textContent=muted?"Mute strips ’til hover":"Strips always lit"; render(); });
+const playBtn=document.getElementById('play');
+playBtn.addEventListener('click',()=>{ playing=!playing; playBtn.textContent=playing?"❚❚ Pause":"▶ Play"; if(playing){last=performance.now();raf=requestAnimationFrame(tick);} else cancelAnimationFrame(raf); });
+function tick(now){ const dt=(now-last)/1000; last=now; t+=dt; if(t>T1)t=T0; render(); raf=requestAnimationFrame(tick); }
+
+// H zoom — anchored on the playhead so it stays put on screen
+const zh=document.getElementById('zh'), zhv=document.getElementById('zhv');
+zh.addEventListener('input',e=>{ const preX=t*pps()-scroller.scrollLeft; hz=+e.target.value; zhv.textContent=hz.toFixed(1)+'×'; render(); scroller.scrollLeft=t*pps()-preX; });
+// V zoom — anchored on the selected lane
+const zv=document.getElementById('zv'), zvv=document.getElementById('zvv');
+zv.addEventListener('input',e=>{ const preV=captureV(); vz=+e.target.value; zvv.textContent=vz.toFixed(1)+'×'; render(); restoreV(preV); });
+
+document.getElementById('gcount').innerHTML=`<b>${GROUPS.length}</b> events`;
+document.getElementById('legend').innerHTML=Object.entries(TYPES).map(([k,v])=>`<span class="lg"><i class="lg-sw t-${k}"></i>${v.label}</span>`).join("")+`<span class="lg"><i class="glyphsw">▲</i>too short → glyph</span>`;
+render();
+</script>
+
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<rect width="100" height="100" fill="#15111F"/>
+<rect x="14" y="30" width="30" height="14" rx="3" fill="#FF3DA6"/>
+<rect x="50" y="30" width="22" height="14" rx="3" fill="#8A5CF6"/>
+<rect x="22" y="50" width="26" height="14" rx="3" fill="#36E2FF"/>
+<rect x="55" y="50" width="20" height="14" rx="3" fill="#37E29A"/>
+<rect x="14" y="40" width="30" height="3" rx="1" fill="#fff" opacity=".7"/>
+<rect x="61" y="22" width="2" height="50" fill="#3DE0FF"/>
+</svg>
+</template>
+</body>
+</html>

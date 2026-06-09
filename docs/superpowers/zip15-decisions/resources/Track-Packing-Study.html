@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<!-- @dsCard group="UI Kit — Desktop App" name="Track packing — collision vs group-coherent" subtitle="How overlapping cues fill rows · hover a group to see scatter vs phrase · interactive" viewport="1200x980" -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Track packing study</title>
+<link rel="icon" href="../assets/logo-mark.svg" />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+:root{
+  --bg:#0C0A14; --surface-1:#15111F; --surface-2:#1A1528; --surface-3:#221B33; --surface-4:#241C36;
+  --border:#2C2440; --border-strong:#3A3052;
+  --text-1:#ECE7F4; --text-2:#A599BC; --text-3:#6E6385; --text-on-accent:#22041A;
+  --accent:#FF3DA6; --cyan:#3DE0FF; --violet:#8A5BFF; --warn:#FFC24D; --success:#4DE0C2;
+  --p0:#FF3DA6; --p1:#8A5CF6; --p2:#36E2FF; --p3:#37E29A; --p4:#FFC24B;
+  --font-display:'Space Grotesk',system-ui,sans-serif;
+  --font-ui:'Hanken Grotesk',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --radius-xs:5px; --radius-sm:7px; --radius-md:9px; --radius-lg:12px;
+  --shadow-3:0 18px 50px rgba(0,0,0,.5); --ease-out:cubic-bezier(.2,.7,.3,1); --dur:200ms;
+}
+*{box-sizing:border-box;} html,body{margin:0;}
+body{background:radial-gradient(130% 80% at 50% -8%,#150F24 0%,var(--bg) 60%);color:var(--text-1);
+  font-family:var(--font-ui);font-size:13px;-webkit-font-smoothing:antialiased;}
+.page{max-width:1120px;margin:0 auto;padding:36px 36px 70px;}
+.hd h1{font-family:var(--font-display);font-weight:700;font-size:24px;letter-spacing:-.02em;margin:0 0 8px;}
+.hd p{margin:0;color:var(--text-2);font-size:13px;line-height:1.55;max-width:790px;}
+.hd p b{color:var(--text-1);} .hd code{font-family:var(--font-mono);font-size:11px;color:var(--cyan);}
+
+.legend{display:flex;align-items:center;gap:10px;margin:18px 0 4px;flex-wrap:wrap;}
+.legend .ttl{font-size:12px;color:var(--text-3);font-family:var(--font-mono);}
+.gchip{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--text-2);background:var(--surface-2);
+  border:1px solid var(--border);border-radius:var(--radius-pill);padding:5px 11px;cursor:pointer;transition:.12s;}
+.gchip:hover,.gchip.on{border-color:var(--cyan);color:var(--text-1);}
+.gchip .sw{width:11px;height:11px;border-radius:3px;}
+.hint-inline{margin-left:auto;font-size:11.5px;color:var(--text-3);}
+
+.row{margin-top:16px;background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-3);overflow:hidden;}
+.row.win{border-color:color-mix(in srgb,var(--success) 42%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--success) 20%,transparent),var(--shadow-3);}
+.row-h{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);background:var(--surface-2);}
+.row-h .lbl{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:3px 8px;border-radius:var(--radius-xs);background:var(--surface-4);color:var(--text-3);}
+.row.win .row-h .lbl{background:color-mix(in srgb,var(--success) 16%,transparent);color:var(--success);}
+.row-h .ttl{font-family:var(--font-display);font-weight:600;font-size:14px;}
+.row-h .sub{color:var(--text-3);font-size:12px;}
+.row-h .stat{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--text-2);}
+.row-h .stat b{color:var(--warn);} .row-h .rec{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--success);background:color-mix(in srgb,var(--success) 14%,transparent);border:1px solid color-mix(in srgb,var(--success) 35%,transparent);border-radius:var(--radius-pill);padding:2px 9px;margin-left:10px;}
+
+.board{position:relative;padding:14px 16px 16px;}
+.ruler{position:relative;height:15px;margin-bottom:7px;}
+.ruler .tk{position:absolute;bottom:0;width:1px;height:5px;background:var(--border-strong);}
+.ruler .tk span{position:absolute;bottom:6px;left:3px;font-family:var(--font-mono);font-size:9px;color:var(--text-3);}
+.rows{position:relative;display:flex;flex-direction:column;gap:6px;}
+.lane{position:relative;height:30px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);}
+.cue{position:absolute;top:3px;bottom:3px;border-radius:5px;display:flex;align-items:center;padding:0 8px;
+  font-size:11.5px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  text-shadow:0 1px 2px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.12);transition:opacity .15s,box-shadow .15s,transform .15s;}
+.cue.dim{opacity:.16;}
+.cue.hot{box-shadow:0 0 0 2px #fff,0 0 14px rgba(255,255,255,.4);z-index:3;transform:translateY(-1px);}
+.split-tag{position:absolute;right:8px;top:-9px;font-family:var(--font-mono);font-size:9px;font-weight:700;color:var(--warn);
+  background:rgba(12,10,20,.9);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);border-radius:4px;padding:1px 6px;z-index:4;white-space:nowrap;}
+
+.note{margin-top:12px;font-size:12px;color:var(--text-3);line-height:1.55;} .note b{color:var(--text-2);}
+.verdict{margin-top:20px;background:color-mix(in srgb,var(--success) 7%,var(--surface-1));border:1px solid color-mix(in srgb,var(--success) 32%,transparent);border-radius:var(--radius-md);padding:15px 18px;}
+.verdict .vh{font-family:var(--font-display);font-weight:600;font-size:12.5px;color:var(--success);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;}
+.verdict p{margin:0 0 8px;font-size:13px;color:var(--text-1);line-height:1.6;} .verdict p:last-child{margin-bottom:0;}
+.verdict code{font-family:var(--font-mono);font-size:11.5px;color:var(--cyan);background:rgba(61,224,255,.08);padding:1px 5px;border-radius:4px;}
+.verdict b.a{color:var(--cyan);} .verdict b.b{color:var(--accent);} .verdict .open{color:var(--warn);font-weight:600;}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="hd">
+    <h1>Track packing — collision-only vs. group-coherent</h1>
+    <p>Packing only matters where cues <b>overlap in time</b> (echo / harmony / ad-libs). Same cues below, packed two ways.
+    <b>Hover a group</b> to see how its cues are distributed — that's the whole question.</p>
+  </header>
+
+  <div class="legend" id="legend"><span class="ttl">groups:</span></div>
+
+  <!-- Collision -->
+  <div class="row">
+    <div class="row-h"><span class="lbl">Strategy 1</span><span class="ttl">Collision-only (fewest rows)</span><span class="sub">lowest free row, ignores group</span>
+      <span class="stat" id="stat-a"></span></div>
+    <div class="board"><div class="ruler" id="ruler-a"></div><div class="rows" id="rows-a"></div></div>
+  </div>
+  <p class="note"><b>1:</b> the most <b>compact</b> result — but a single group can land on <b>different rows</b> across the song (hover <b>Harmony</b>: its two cues split across rows). The eye can't track a group as one thread.</p>
+
+  <!-- Group coherent -->
+  <div class="row win">
+    <div class="row-h"><span class="lbl">Strategy 2</span><span class="ttl">Group-coherent runs</span><span class="sub">each group keeps one row; compatible groups share</span>
+      <span class="stat" id="stat-b"></span><span class="rec">Recommend</span></div>
+    <div class="board"><div class="ruler" id="ruler-b"></div><div class="rows" id="rows-b"></div></div>
+  </div>
+  <p class="note"><b>2:</b> each group stays on <b>one row</b> (hover Harmony — now contiguous), and groups that never overlap <b>share</b> a row to stay compact. Reads as phrases; usually the same row count, occasionally one more.</p>
+
+  <div class="verdict">
+    <div class="vh">▍ Verdict</div>
+    <p>Go <b class="b">group-coherent</b>. Pure collision optimises a number nobody's counting (rows) at the cost of the thing you scan for —
+    <b>a group reading as one continuous line</b>. Coherent packing keeps each group on a single row, still merges non-overlapping groups so it stays tight, and only adds a row when overlap genuinely forces it.</p>
+    <p><span class="open">Tie-breakers to confirm:</span> (a) order rows by each group's <b>first start</b> (lead on top)? (b) when a group <i>self</i>-overlaps (true simultaneous words), allow it a second row — or is that the cue-merge case instead? (c) keep <b>Grouped</b> view as the explicit per-event extreme when even coherent Track gets too tall.</p>
+  </div>
+</div>
+
+<script>
+const PALETTE=['#FF3DA6','#8A5CF6','#36E2FF','#37E29A','#FFC24B'];
+const GROUPS=[
+  {name:"Lead",    c:PALETTE[0]},
+  {name:"Echo",    c:PALETTE[1]},
+  {name:"Harmony", c:PALETTE[2]},
+  {name:"Ad-lib",  c:PALETTE[3]},
+];
+// cues with deliberate overlaps so the two strategies diverge
+const CUES=[
+  {t:"Caught in a",     gi:0, s:0.0,  e:1.4},
+  {t:"bleating",        gi:0, s:1.5,  e:2.9},
+  {t:"(ooh)",           gi:1, s:1.0,  e:2.2},   // Echo overlaps Lead
+  {t:"obsession",       gi:0, s:3.0,  e:4.4},
+  {t:"(ahh)",           gi:2, s:3.2,  e:4.0},   // Harmony overlaps Lead  ← split point
+  {t:"Tangled up",      gi:0, s:5.0,  e:6.4},
+  {t:"in wool",         gi:0, s:6.5,  e:7.9},
+  {t:"(echo…)",         gi:1, s:6.8,  e:8.0},   // Echo overlaps Lead
+  {t:"(harmony…)",      gi:2, s:7.0,  e:8.2},   // Harmony overlaps Lead+Echo  ← 2nd Harmony
+  {t:"Don't let go",    gi:0, s:8.5,  e:9.9},
+  {t:"(hey!)",          gi:3, s:8.7,  e:9.5},   // Ad-lib overlaps Lead
+  {t:"closer now",      gi:0, s:10.2, e:11.6},
+];
+const T0=0, T1=12.0;
+const W=()=>document.querySelector('.board').clientWidth-32 || 1000;
+let PXW=1000;
+const xOf=s=>((s-T0)/(T1-T0))*PXW;
+const overlap=(a,b)=>a.s<b.e-1e-6 && b.s<a.e-1e-6;
+let hot=null; // gi
+
+// ---- Strategy 1: collision-only greedy (fewest rows) ----
+function packCollision(){
+  const order=CUES.map((c,i)=>({i,...c})).sort((a,b)=>a.s-b.s);
+  const rowEnds=[], rowOf={};
+  for(const c of order){
+    let r=rowEnds.findIndex(end=>c.s>=end-1e-6);
+    if(r<0){ r=rowEnds.length; rowEnds.push(0); }
+    rowEnds[r]=c.e; rowOf[c.i]=r;
+  }
+  return {rowOf, n:rowEnds.length};
+}
+// ---- Strategy 2: group-coherent (each group one row; compatible groups share) ----
+function packGroupRuns(){
+  const giOrder=[...new Set(CUES.map(c=>c.gi))]
+    .map(gi=>({gi, first:Math.min(...CUES.filter(c=>c.gi===gi).map(c=>c.s))}))
+    .sort((a,b)=>a.first-b.first).map(o=>o.gi);
+  const rows=[]; // each row: array of placed cue intervals
+  const rowOf={};
+  for(const gi of giOrder){
+    const groupCues=CUES.map((c,i)=>({i,...c})).filter(c=>c.gi===gi);
+    let target=-1;
+    for(let r=0;r<rows.length;r++){
+      const clash=groupCues.some(gc=>rows[r].some(o=>overlap(gc,o)));
+      if(!clash){ target=r; break; }
+    }
+    if(target<0){ target=rows.length; rows.push([]); }
+    groupCues.forEach(gc=>{ rows[target].push(gc); rowOf[gc.i]=target; });
+  }
+  return {rowOf, n:rows.length};
+}
+
+function rowsSpannedByGroup(rowOf){
+  const m={}; CUES.forEach((c,i)=>{ (m[c.gi]=m[c.gi]||new Set()).add(rowOf[i]); });
+  return m;
+}
+
+function ruler(id){ const el=document.getElementById(id); let h=""; el.style.width=PXW+"px";
+  for(let s=0;s<=Math.floor(T1);s+=2) h+=`<div class="tk" style="left:${xOf(s)}px"><span>${s}s</span></div>`; el.innerHTML=h; }
+
+function renderBoard(rowsId, pack){
+  const {rowOf,n}=pack();
+  const el=document.getElementById(rowsId); el.innerHTML="";
+  const spans=rowsSpannedByGroup(rowOf);
+  for(let r=0;r<n;r++){
+    const lane=document.createElement('div'); lane.className='lane';
+    CUES.forEach((c,i)=>{ if(rowOf[i]!==r) return;
+      const cc=GROUPS[c.gi].c;
+      const b=document.createElement('div'); b.className='cue'+(hot!=null&&c.gi!==hot?' dim':'')+(hot===c.gi?' hot':'');
+      b.style.left=xOf(c.s)+'px'; b.style.width=Math.max(20,xOf(c.e)-xOf(c.s))+'px'; b.style.background=cc;
+      b.textContent=c.t; b.title=`${GROUPS[c.gi].name} · ${c.s}–${c.e}s`;
+      b.dataset.gi=c.gi;
+      lane.appendChild(b);
+    });
+    el.appendChild(lane);
+  }
+  return {n, spans};
+}
+
+function renderAll(){
+  PXW=Math.max(900,(document.querySelector('.board').clientWidth||1032)-32);
+  ruler('ruler-a'); ruler('ruler-b');
+  const a=renderBoard('rows-a',packCollision);
+  const b=renderBoard('rows-b',packGroupRuns);
+  // stats: rows + worst group scatter
+  const worst=(spans)=>Math.max(...Object.values(spans).map(s=>s.size));
+  const scatterA=Object.entries(a.spans).filter(([,s])=>s.size>1).map(([gi])=>GROUPS[gi].name);
+  document.getElementById('stat-a').innerHTML=`<b>${a.n}</b> rows · ${scatterA.length?`<span style="color:var(--warn)">${scatterA.join(', ')} split across rows</span>`:'all groups coherent'}`;
+  document.getElementById('stat-b').innerHTML=`<b>${b.n}</b> rows · <span style="color:var(--success)">every group on one row</span>`;
+}
+
+// legend chips
+const legend=document.getElementById('legend');
+GROUPS.forEach((g,gi)=>{ const ch=document.createElement('span'); ch.className='gchip'; ch.dataset.gi=gi;
+  ch.innerHTML=`<span class="sw" style="background:${g.c}"></span>${g.name}`;
+  ch.addEventListener('mouseenter',()=>{ hot=gi; markHot(); });
+  ch.addEventListener('mouseleave',()=>{ hot=null; markHot(); });
+  ch.addEventListener('click',()=>{ hot=(hot===gi)?null:gi; markHot(true); });
+  legend.appendChild(ch);
+});
+legend.insertAdjacentHTML('beforeend',`<span class="hint-inline">hover a group → watch where its cues sit in each strategy</span>`);
+
+function markHot(persist){
+  document.querySelectorAll('.gchip').forEach(c=>c.classList.toggle('on',persist&&+c.dataset.gi===hot));
+  document.querySelectorAll('.cue').forEach(b=>{ const gi=+b.dataset.gi;
+    b.classList.toggle('dim',hot!=null&&gi!==hot); b.classList.toggle('hot',hot===gi); });
+}
+
+renderAll();
+window.addEventListener('resize',renderAll);
+</script>
+
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<rect width="100" height="100" fill="#15111F"/>
+<rect x="14" y="32" width="26" height="9" rx="2" fill="#FF3DA6"/>
+<rect x="44" y="32" width="20" height="9" rx="2" fill="#FF3DA6"/>
+<rect x="30" y="45" width="22" height="9" rx="2" fill="#36E2FF"/>
+<rect x="68" y="45" width="18" height="9" rx="2" fill="#36E2FF"/>
+<rect x="14" y="58" width="24" height="9" rx="2" fill="#8A5CF6"/>
+</svg>
+</template>
+</body>
+</html>

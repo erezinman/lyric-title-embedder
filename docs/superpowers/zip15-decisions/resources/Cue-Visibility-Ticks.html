@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<!-- @dsCard group="UI Kit — Desktop App" name="Cue visibility — window vs appear/disappear" subtitle="Mark the cue's real visible span distinct from its event window · delayed fade-in, early clear, linger · interactive" viewport="1200x900" -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cue visibility ticks</title>
+<link rel="icon" href="../assets/logo-mark.svg" />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+:root{
+  --bg:#0C0A14; --surface-1:#15111F; --surface-2:#1A1528; --surface-3:#221B33; --surface-4:#241C36;
+  --border:#2C2440; --border-strong:#3A3052;
+  --text-1:#ECE7F4; --text-2:#A599BC; --text-3:#6E6385; --text-on-accent:#22041A;
+  --accent:#FF3DA6; --cyan:#3DE0FF; --violet:#8A5BFF; --warn:#FFC24D; --success:#4DE0C2;
+  --p0:#FF3DA6; --p1:#8A5CF6; --p2:#36E2FF; --p3:#37E29A;
+  --font-display:'Space Grotesk',system-ui,sans-serif;
+  --font-ui:'Hanken Grotesk',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --radius-xs:5px; --radius-sm:7px; --radius-md:9px; --radius-lg:12px; --radius-pill:999px;
+  --shadow-3:0 18px 50px rgba(0,0,0,.5); --ease-out:cubic-bezier(.2,.7,.3,1);
+}
+*{box-sizing:border-box;} html,body{margin:0;}
+body{background:radial-gradient(130% 80% at 50% -8%,#150F24 0%,var(--bg) 60%);color:var(--text-1);font-family:var(--font-ui);font-size:13px;-webkit-font-smoothing:antialiased;}
+.page{max-width:1120px;margin:0 auto;padding:36px 36px 70px;}
+.hd h1{font-family:var(--font-display);font-weight:700;font-size:24px;letter-spacing:-.02em;margin:0 0 8px;}
+.hd p{margin:0;color:var(--text-2);font-size:13px;line-height:1.55;max-width:800px;}
+.hd p b{color:var(--text-1);} .hd code{font-family:var(--font-mono);font-size:11px;color:var(--cyan);}
+
+.controls{display:flex;align-items:center;gap:12px;margin:20px 0 6px;}
+.seg{display:inline-flex;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;gap:2px;}
+.seg button{font:inherit;font-size:12.5px;color:var(--text-2);background:transparent;border:0;border-radius:var(--radius-xs);padding:6px 13px;cursor:pointer;transition:.15s;}
+.seg button.on{background:var(--accent);color:var(--text-on-accent);font-weight:600;}
+.controls .lbl{font-family:var(--font-mono);font-size:11px;color:var(--text-3);}
+.controls .play{font:inherit;font-size:12px;color:var(--text-2);background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 12px;cursor:pointer;}
+
+.board{margin-top:10px;background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-3);padding:18px 18px 22px;overflow:visible;}
+.ruler{position:relative;height:16px;margin-bottom:10px;}
+.ruler .tk{position:absolute;bottom:0;width:1px;height:5px;background:var(--border-strong);}
+.ruler .tk span{position:absolute;bottom:6px;left:3px;font-family:var(--font-mono);font-size:9px;color:var(--text-3);}
+.lane{position:relative;height:96px;}
+
+.cue{position:absolute;top:30px;height:46px;border-radius:8px;overflow:visible;
+  background:color-mix(in srgb,var(--c) 20%,var(--surface-3));border:1px solid color-mix(in srgb,var(--c) 42%,transparent);}
+.cue .fill{position:absolute;inset:0;border-radius:7px;overflow:hidden;}
+.cue-t{position:absolute;top:0;left:0;right:0;height:100%;display:flex;align-items:center;padding:0 10px;font-family:var(--font-display);font-weight:600;font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.5);}
+/* window-but-not-visible regions (hatched) */
+.veil{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg,rgba(12,10,20,.55) 0 5px,rgba(12,10,20,.2) 5px 10px);pointer-events:none;}
+
+/* visibility span bar on the TOP edge */
+.vis{position:absolute;top:20px;height:5px;border-radius:3px;background:var(--cyan);box-shadow:0 0 8px color-mix(in srgb,var(--cyan) 55%,transparent);}
+.vis.linger{background:linear-gradient(90deg,var(--cyan),color-mix(in srgb,var(--cyan) 30%,transparent));}
+.tick{position:absolute;top:14px;width:0;height:0;}
+.tick.ap{border-top:6px solid transparent;border-bottom:6px solid transparent;border-left:7px solid var(--cyan);transform:translateX(0);}
+.tick.dp{border-top:6px solid transparent;border-bottom:6px solid transparent;border-right:7px solid var(--cyan);transform:translateX(-7px);}
+.tick.dp.linger{border-right-color:var(--cyan);} 
+.lglabel{position:absolute;top:0;font-family:var(--font-mono);font-size:8.5px;color:var(--cyan);white-space:nowrap;}
+.lglabel.ap{transform:translateX(3px);}
+.lglabel.dp{transform:translateX(calc(-100% - 3px));}
+/* window edge ticks (subtle) */
+.wt{position:absolute;top:26px;bottom:8px;width:1px;background:color-mix(in srgb,var(--text-3) 70%,transparent);}
+.cuelbl{position:absolute;bottom:2px;font-family:var(--font-mono);font-size:9px;color:var(--text-3);white-space:nowrap;}
+.lingertail{position:absolute;top:30px;height:46px;border:1px dashed color-mix(in srgb,var(--cyan) 50%,transparent);border-left:none;border-radius:0 8px 8px 0;background:color-mix(in srgb,var(--cyan) 6%,transparent);pointer-events:none;}
+
+.playhead{position:absolute;top:24px;bottom:4px;width:2px;background:color-mix(in srgb,var(--cyan) 55%,transparent);box-shadow:0 0 6px color-mix(in srgb,var(--cyan) 35%,transparent);z-index:8;pointer-events:none;}
+
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:16px;font-size:11.5px;color:var(--text-2);}
+.legend .lg{display:inline-flex;align-items:center;gap:7px;}
+.legend .sw-vis{width:18px;height:5px;border-radius:3px;background:var(--cyan);box-shadow:0 0 6px color-mix(in srgb,var(--cyan) 50%,transparent);}
+.legend .sw-win{width:1px;height:13px;background:var(--text-3);}
+.legend .sw-veil{width:16px;height:11px;border-radius:3px;background:repeating-linear-gradient(45deg,rgba(255,255,255,.28) 0 4px,rgba(255,255,255,.08) 4px 8px);}
+.legend .sw-ling{width:16px;height:11px;border:1px dashed color-mix(in srgb,var(--cyan) 55%,transparent);border-radius:3px;background:color-mix(in srgb,var(--cyan) 8%,transparent);}
+
+.cases{display:flex;gap:12px;margin-top:18px;flex-wrap:wrap;}
+.case{flex:1;min-width:230px;background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius-md);padding:11px 13px;}
+.case h4{margin:0 0 4px;font-family:var(--font-display);font-size:12.5px;font-weight:600;color:var(--text-1);}
+.case p{margin:0;font-size:11.5px;color:var(--text-3);line-height:1.5;} .case code{font-family:var(--font-mono);font-size:10.5px;color:var(--cyan);}
+
+.verdict{margin-top:22px;background:color-mix(in srgb,var(--success) 7%,var(--surface-1));border:1px solid color-mix(in srgb,var(--success) 32%,transparent);border-radius:var(--radius-md);padding:15px 18px;}
+.verdict .vh{font-family:var(--font-display);font-weight:600;font-size:12.5px;color:var(--success);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;}
+.verdict p{margin:0 0 8px;font-size:13px;color:var(--text-1);line-height:1.6;} .verdict p:last-child{margin-bottom:0;}
+.verdict code{font-family:var(--font-mono);font-size:11.5px;color:var(--cyan);background:rgba(61,224,255,.08);padding:1px 5px;border-radius:4px;}
+.verdict .open{color:var(--warn);font-weight:600;}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="hd">
+    <h1>Cue visibility — the window vs. when the text is actually on screen</h1>
+    <p>The block's left/right edges are the <b>event window</b> <code>[win_start, win_end]</code>. But the text's real
+    <b>appear / disappear</b> can differ: a fade-in delays the appear, a fade-out clears it early, and <b>linger</b> holds it
+    on screen <i>past</i> the window. These markers show that real visible span. Toggle how often they show.</p>
+  </header>
+
+  <div class="controls">
+    <span class="lbl">show ticks:</span>
+    <div class="seg" id="seg">
+      <button data-m="off">Off</button>
+      <button data-m="auto" class="on">Auto</button>
+      <button data-m="always">Always</button>
+    </div>
+    <button class="play" id="play">▶ Play</button>
+    <span class="lbl" id="read">t = 0.0s</span>
+  </div>
+
+  <div class="board">
+    <div class="ruler" id="ruler"></div>
+    <div class="lane" id="lane"></div>
+    <div class="legend">
+      <span class="lg"><i class="sw-win"></i>window edge (block)</span>
+      <span class="lg"><i class="sw-vis"></i>visible span (▸ appear · disappear ◂)</span>
+      <span class="lg"><i class="sw-veil"></i>window but not yet / no longer visible</span>
+      <span class="lg"><i class="sw-ling"></i>linger past window</span>
+    </div>
+  </div>
+
+  <div class="cases" id="cases"></div>
+
+  <div class="verdict">
+    <div class="vh">▍ Verdict</div>
+    <p>Show ticks on <b>Auto</b> — render the appear/disappear markers <b>only when they differ from the window edge</b>.
+    Most cues appear at <code>win_start</code> and clear at <code>win_end</code>, so their block edge already says it; drawing ticks there is noise.
+    The markers earn their place exactly when there's a <b>delay, early clear, or linger</b> — which is also when an editor most needs to see it.</p>
+    <p>Mechanic: hatch the window region where the text isn't visible yet / anymore; extend a dashed tail past the block for linger.
+    <span class="open">Confirm:</span> (a) is “appear” the moment the fade-in <i>starts</i> or <i>completes</i>? (I've drawn it as the fade midpoint — the perceptual on.) (b) on a busy timeline, keep ticks even in <b>Compact</b>, or fold them into the focus/overlay view only?</p>
+  </div>
+</div>
+
+<script>
+const T0=0, T1=11.5;
+// each cue: window [ws,we]; appear a; disappear d (may exceed we = linger)
+const CUES=[
+  {t:"Caught in a", gi:0, ws:0.30, we:2.00, a:0.30, d:2.00, why:"coincident"},
+  {t:"bleating",    gi:1, ws:2.30, we:4.20, a:2.75, d:4.20, why:"delayed appear"},
+  {t:"obsession",   gi:2, ws:4.50, we:6.60, a:4.50, d:5.95, why:"early clear"},
+  {t:"hold on…",    gi:3, ws:7.00, we:8.40, a:7.00, d:9.40, why:"linger"},
+];
+const PALETTE=['#FF3DA6','#8A5CF6','#36E2FF','#37E29A'];
+let tickMode="auto", t=0, playing=false, raf=null, last=0;
+let PXW=1000;
+const xOf=s=>((s-T0)/(T1-T0))*PXW;
+
+function differs(c){ return Math.abs(c.a-c.ws)>1e-3 || Math.abs(c.d-c.we)>1e-3; }
+function showTicks(c){ return tickMode==='always' || (tickMode==='auto' && differs(c)); }
+
+function ruler(){ const el=document.getElementById('ruler'); el.style.width=PXW+"px"; let h="";
+  for(let s=0;s<=Math.floor(T1);s+=1) h+=`<div class="tk" style="left:${xOf(s)}px"><span>${s}s</span></div>`; el.innerHTML=h; }
+
+function render(){
+  PXW=Math.max(880,(document.querySelector('.board').clientWidth||1040)-36);
+  ruler();
+  const lane=document.getElementById('lane'); lane.innerHTML="";
+  CUES.forEach((c,ci)=>{
+    const cc=PALETTE[c.gi%PALETTE.length];
+    const wL=xOf(c.ws), wR=xOf(c.we), aL=xOf(c.a), dR=xOf(c.d);
+    const block=document.createElement('div'); block.className='cue'; block.style.cssText=`left:${wL}px;width:${Math.max(40,wR-wL)}px;--c:${cc}`;
+    block.innerHTML=`<div class="fill"><span class="cue-t">${c.t}</span></div>`;
+    lane.appendChild(block);
+    // cue time label
+    const cl=document.createElement('div'); cl.className='cuelbl'; cl.style.left=wL+'px'; cl.textContent=`win ${c.ws.toFixed(1)}–${c.we.toFixed(1)}`; lane.appendChild(cl);
+
+    if(showTicks(c)){
+      const showAp = tickMode==='always' || c.a>c.ws+1e-3;        // appear differs from window open
+      const showDp = tickMode==='always' || Math.abs(c.d-c.we)>1e-3; // clear/linger differs from window close
+      // veil the not-visible window regions
+      if(c.a>c.ws+1e-3){ block.querySelector('.fill').appendChild(mkVeilInner(aL-wL,0)); }
+      if(c.d<c.we-1e-3){ block.querySelector('.fill').appendChild(mkVeilInner((wR-dR),dR-wL)); }
+      // linger dashed tail past the block
+      if(c.d>c.we+1e-3){ const tail=document.createElement('div'); tail.className='lingertail'; tail.style.cssText=`left:${wR}px;width:${dR-wR}px`; lane.appendChild(tail); }
+      // visibility span bar
+      const vis=document.createElement('div'); vis.className='vis'+(c.d>c.we?' linger':''); vis.style.cssText=`left:${aL}px;width:${Math.max(6,dR-aL)}px`; lane.appendChild(vis);
+      // appear marker (only the differing side, unless Always)
+      if(showAp){
+        const ap=document.createElement('div'); ap.className='tick ap'; ap.style.left=aL+'px'; lane.appendChild(ap);
+        const apL=document.createElement('div'); apL.className='lglabel ap'; apL.style.left=aL+'px'; apL.textContent='appear '+c.a.toFixed(1); lane.appendChild(apL);
+      }
+      // disappear / linger marker
+      if(showDp){
+        const dp=document.createElement('div'); dp.className='tick dp'+(c.d>c.we?' linger':''); dp.style.left=dR+'px'; lane.appendChild(dp);
+        const dpL=document.createElement('div'); dpL.className='lglabel dp'; dpL.style.left=dR+'px'; dpL.textContent=(c.d>c.we?'linger→ ':'clear ')+c.d.toFixed(1); lane.appendChild(dpL);
+      }
+    }
+  });
+  // playhead
+  const ph=document.createElement('div'); ph.className='playhead'; ph.style.left=xOf(t)+'px'; lane.appendChild(ph);
+  document.getElementById('read').textContent='t = '+t.toFixed(1)+'s';
+}
+function mkVeilInner(w,left){ const v=document.createElement('div'); v.className='veil'; v.style.cssText=`left:${left}px;width:${w}px`; return v; }
+
+document.getElementById('cases').innerHTML=CUES.map(c=>{
+  const desc={
+    "coincident":"Text appears at <code>win_start</code> and clears at <code>win_end</code>. Block edges already say everything — <b>Auto shows no ticks</b>.",
+    "delayed appear":"A fade-in (or lead-in) means the word isn't visible until after the window opens. Left of ▸ is hatched.",
+    "early clear":"A fade-out clears the word before the window ends. Right of ◂ is hatched.",
+    "linger":"<code>linger</code> holds the word on screen past <code>win_end</code> — the dashed tail extends beyond the block."
+  }[c.why];
+  return `<div class="case"><h4>${c.t} · ${c.why}</h4><p>${desc}</p></div>`;
+}).join("");
+
+document.getElementById('seg').addEventListener('click',e=>{ const b=e.target.closest('button[data-m]'); if(!b)return;
+  tickMode=b.dataset.m; [...document.querySelectorAll('#seg button')].forEach(x=>x.classList.toggle('on',x===b)); render(); });
+document.getElementById('play').addEventListener('click',function(){ playing=!playing; this.textContent=playing?'❚❚ Pause':'▶ Play';
+  if(playing){last=performance.now();raf=requestAnimationFrame(tick);} else cancelAnimationFrame(raf); });
+function tick(now){ const dt=(now-last)/1000; last=now; t+=dt; if(t>T1)t=T0; render(); raf=requestAnimationFrame(tick); }
+
+render();
+window.addEventListener('resize',render);
+</script>
+
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<rect width="100" height="100" fill="#15111F"/>
+<rect x="22" y="42" width="56" height="20" rx="5" fill="#3A2440"/>
+<rect x="34" y="36" width="38" height="4" rx="2" fill="#36E2FF"/>
+<path d="M30 34 l7 4 -7 4 z" fill="#36E2FF"/>
+<path d="M76 34 l-7 4 7 4 z" fill="#36E2FF"/>
+</svg>
+</template>
+</body>
+</html>

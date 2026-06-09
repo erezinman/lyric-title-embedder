@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<!-- @dsCard group="UI Kit — Desktop App" name="Strips — constant bars, two overflow options" subtitle="A: cue grows in place · B: constant cue height + popover · interactive" viewport="1200x1080" -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Strips — constant bars, two options</title>
+<link rel="icon" href="../assets/logo-mark.svg" />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+:root{
+  --bg:#0C0A14; --surface-1:#15111F; --surface-2:#1A1528; --surface-3:#221B33; --surface-4:#241C36;
+  --border:#2C2440; --border-strong:#3A3052;
+  --text-1:#ECE7F4; --text-2:#A599BC; --text-3:#6E6385; --text-on-accent:#22041A;
+  --accent:#FF3DA6; --cyan:#3DE0FF; --violet:#8A5BFF; --warn:#FFC24D; --success:#4DE0C2;
+  --p0:#FF3DA6; --p1:#8A5CF6; --p2:#36E2FF; --p3:#37E29A; --p4:#FFC24B;
+  --font-display:'Space Grotesk',system-ui,sans-serif;
+  --font-ui:'Hanken Grotesk',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --radius-xs:5px; --radius-sm:7px; --radius-md:9px; --radius-lg:12px;
+  --shadow-3:0 18px 50px rgba(0,0,0,.5); --ease-out:cubic-bezier(.2,.7,.3,1); --dur:200ms;
+}
+*{box-sizing:border-box;} html,body{margin:0;}
+body{background:radial-gradient(130% 80% at 50% -8%,#150F24 0%,var(--bg) 60%);color:var(--text-1);
+  font-family:var(--font-ui);font-size:13px;-webkit-font-smoothing:antialiased;}
+.page{max-width:1120px;margin:0 auto;padding:36px 36px 80px;}
+.hd h1{font-family:var(--font-display);font-weight:700;font-size:24px;letter-spacing:-.02em;margin:0 0 8px;}
+.hd p{margin:0;color:var(--text-2);font-size:13px;line-height:1.55;max-width:780px;}
+.hd p b{color:var(--text-1);} .hd code{font-family:var(--font-mono);font-size:11px;color:var(--cyan);}
+
+.row{margin-top:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-3);overflow:visible;}
+.row-h{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);background:var(--surface-2);border-radius:var(--radius-lg) var(--radius-lg) 0 0;}
+.row-h .lbl{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:3px 8px;border-radius:var(--radius-xs);background:color-mix(in srgb,var(--cyan) 14%,transparent);color:var(--cyan);}
+.row-h .ttl{font-family:var(--font-display);font-weight:600;font-size:14px;}
+.row-h .sub{color:var(--text-3);font-size:12px;}
+.row-h .acts{margin-left:auto;display:flex;gap:8px;}
+.tool{font:inherit;font-size:11.5px;color:var(--text-2);background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 11px;cursor:pointer;}
+.tool:hover{border-color:var(--border-strong);color:var(--text-1);}
+
+.board{position:relative;padding:16px 16px 18px;overflow:visible;}
+.ruler{position:relative;height:16px;margin-bottom:9px;min-width:980px;}
+.ruler .tk{position:absolute;bottom:0;width:1px;height:5px;background:var(--border-strong);}
+.ruler .tk span{position:absolute;bottom:6px;left:3px;font-family:var(--font-mono);font-size:9px;color:var(--text-3);}
+.lane{position:relative;min-width:980px;transition:height var(--dur) var(--ease-out);}
+
+.cue{position:absolute;top:0;border-radius:8px;overflow:visible;cursor:default;
+  background:color-mix(in srgb,var(--c) 22%,var(--surface-3));border:1px solid color-mix(in srgb,var(--c) 45%,transparent);
+  transition:height var(--dur) var(--ease-out),box-shadow .14s;}
+.cue .inner{position:absolute;inset:0;border-radius:8px;overflow:hidden;}
+.cue:hover{filter:brightness(1.06);}
+.cue.exp{box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:5;border-color:color-mix(in srgb,var(--c) 70%,transparent);}
+.cue.pop-open{z-index:20;box-shadow:0 0 0 1px var(--cyan);}
+.cue.overlay{z-index:25;box-shadow:0 14px 34px rgba(0,0,0,.55);border-color:color-mix(in srgb,var(--c) 75%,transparent);}
+.cue.overlay::after{content:"";position:absolute;left:0;right:0;top:0;height:var(--baseh);border-radius:8px 8px 0 0;border:1px solid color-mix(in srgb,var(--cyan) 28%,transparent);border-bottom:none;pointer-events:none;}
+.cue-t{position:absolute;top:0;left:0;right:0;height:22px;display:flex;align-items:center;padding:0 9px;
+  font-family:var(--font-display);font-weight:600;font-size:12.5px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.5);z-index:1;}
+
+/* constant-height bars (height fixed; WIDTH = real duration) */
+.astrip{position:absolute;border-radius:3px;overflow:hidden;transition:top var(--dur) var(--ease-out);}
+.astrip.glyph{display:grid;place-items:center;background:var(--surface-4);border:1px solid var(--border-strong);min-width:15px;width:15px;}
+.astrip.glyph .gi{font-size:8px;color:var(--text-1);line-height:1;}
+
+.disc{position:absolute;top:4px;right:6px;height:16px;min-width:16px;padding:0 5px;border-radius:8px;border:1px solid var(--border-strong);
+  background:var(--surface-4);color:var(--text-1);font-family:var(--font-mono);font-size:9.5px;font-weight:700;
+  display:inline-flex;align-items:center;gap:3px;cursor:pointer;z-index:8;line-height:1;transition:background .12s,border-color .12s,color .12s;}
+.disc:hover{background:var(--surface-3);border-color:var(--cyan);color:var(--cyan);}
+.disc .chev{display:inline-block;transition:transform var(--dur) var(--ease-out);font-size:8px;}
+.cue.exp .disc .chev,.cue.pop-open .disc .chev{transform:rotate(180deg);}
+.cue.exp .disc,.cue.pop-open .disc{background:color-mix(in srgb,var(--cyan) 14%,var(--surface-4));border-color:color-mix(in srgb,var(--cyan) 45%,transparent);color:var(--cyan);}
+
+/* popover (Option B) */
+.pop{position:absolute;z-index:30;width:224px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:var(--radius-md);
+  box-shadow:var(--shadow-3);padding:9px 10px;}
+.pop h5{margin:0 0 7px;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);}
+.pop .arow{display:flex;align-items:center;gap:8px;padding:3px 0;}
+.pop .abar{width:30px;height:6px;border-radius:3px;flex:0 0 auto;}
+.pop .an{font-size:11.5px;color:var(--text-1);flex:1;white-space:nowrap;}
+.pop .at{font-family:var(--font-mono);font-size:9.5px;color:var(--text-3);white-space:nowrap;flex:0 0 auto;}
+
+.legend{display:flex;gap:13px;flex-wrap:wrap;font-size:11px;color:var(--text-2);padding:10px 16px;border-top:1px solid var(--border);}
+.legend .lg{display:inline-flex;align-items:center;gap:6px;} .legend .sw{width:16px;height:6px;border-radius:3px;}
+
+.note{margin-top:14px;font-size:12px;color:var(--text-3);line-height:1.55;}
+.note b{color:var(--text-2);} .note code{font-family:var(--font-mono);font-size:11px;color:var(--cyan);}
+.verdict{margin-top:22px;background:color-mix(in srgb,var(--success) 7%,var(--surface-1));border:1px solid color-mix(in srgb,var(--success) 32%,transparent);border-radius:var(--radius-md);padding:15px 18px;}
+.verdict .vh{font-family:var(--font-display);font-weight:600;font-size:12.5px;color:var(--success);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;}
+.verdict p{margin:0 0 8px;font-size:13px;color:var(--text-1);line-height:1.6;} .verdict p:last-child{margin-bottom:0;}
+.verdict code{font-family:var(--font-mono);font-size:11.5px;color:var(--cyan);background:rgba(61,224,255,.08);padding:1px 5px;border-radius:4px;}
+.verdict b.a{color:var(--cyan);} .verdict b.b{color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="hd">
+    <h1>Strips, refined — two overflow options</h1>
+    <p>Both keep the <b>current strips</b> with <b>constant-height bars</b> (height fixed; width = real duration, never squished by count).
+    They differ only in how <b>overflow</b> is handled past <code>MAX_VISIBLE</code> (3 here).</p>
+  </header>
+
+  <!-- Option A -->
+  <div class="row">
+    <div class="row-h"><span class="lbl">Option A</span><span class="ttl">Expand to overlay</span><span class="sub">lane height fixed · a floating full-height copy lifts out, disappears on click-away</span></div>
+    <div class="board"><div class="ruler" id="ruler-a"></div><div class="lane" id="lane-a"></div></div>
+    <div class="legend" id="legend-a"></div>
+  </div>
+  <p class="note"><b>A:</b> the lane <b>never changes height</b>. The <code>＋N</code> toggle <b>lifts a floating overlay</b> of the cue at full height — all bars at their real timeline positions — which auto-collapses when you open another or click away. Timeline-accurate <i>and</i> a rigid grid.</p>
+
+  <!-- Option B -->
+  <div class="row">
+    <div class="row-h"><span class="lbl" style="background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)">Option B</span><span class="ttl">Constant height + popover</span><span class="sub">block height never changes; overflow opens a list</span></div>
+    <div class="board"><div class="ruler" id="ruler-b"></div><div class="lane" id="lane-b"></div></div>
+    <div class="legend" id="legend-b"></div>
+  </div>
+  <p class="note"><b>B:</b> every block is the <b>same fixed height</b> forever. The <code>＋N</code> toggle opens a popover listing all animations (channel · time). The lane never reflows — denser songs stay rigid.</p>
+
+  <div class="verdict">
+    <div class="vh">▍ Verdict</div>
+    <p><b class="a">Option A</b> (overlay) gives you the <b>real bars on the timeline</b> while the lane stays <b>rock-steady</b> — best of both.
+    <b class="b">Option B</b> (popover list) is more compact and adds channel labels, but <b>drops timeline position</b> for the bars.</p>
+    <p><span style="color:var(--warn);font-weight:600">Decision:</span> overlay is the richer default; the popover list is the fallback when a cue is too narrow to read bars in. Both keep the grid fixed. Confirm <code>MAX_VISIBLE</code> = 2 or 3?</p>
+  </div>
+</div>
+
+<script>
+const PALETTE=['#FF3DA6','#8A5CF6','#36E2FF','#37E29A','#FFC24B'];
+const TYPES={color:'Color',alpha:'Fade',size:'Pop',type:'Typewriter',move:'Slide',glow:'Glow'};
+function typeColor(t){return {color:'#FF3DA6',alpha:'#36E2FF',size:'#37E29A',type:'#8A5CF6',move:'#FFC24B',glow:'#36E2FF'}[t]||'#fff';}
+function typeGlyph(t){return {color:'◑',alpha:'◧',size:'▲',type:'⌨',move:'→',glow:'✦'}[t]||'•';}
+function stripBg(an,c){
+  switch(an.type){
+    case 'color': return `linear-gradient(90deg, ${an.from||'#fff'}, ${an.to||c})`;
+    case 'alpha': return an.dir==='out'?`linear-gradient(90deg, ${c}, ${c}00)`:`linear-gradient(90deg, ${c}00, ${c})`;
+    case 'size':  return `linear-gradient(90deg, ${c}33, ${c})`;
+    case 'type':  return `repeating-linear-gradient(90deg, ${c} 0 3px, ${c}33 3px 7px)`;
+    case 'move':  return `linear-gradient(90deg, ${c}22, ${c})`;
+    case 'glow':  return `radial-gradient(120% 180% at 60% 50%, ${c}, ${c}33 70%, ${c}11)`;
+    default: return c;
+  }
+}
+const T0=0,T1=14.2;
+const CUES=[
+  {text:"Caught in a", gi:0, s:0.30, e:1.70, anims:[{type:'alpha',s:0.30,e:0.62,dir:'in'}]},
+  {text:"bleating", gi:0, s:1.85, e:3.30, anims:[{type:'alpha',s:1.85,e:2.10,dir:'in'},{type:'color',s:1.95,e:3.20,from:'#fff',to:'#FF3DA6'},{type:'size',s:1.87,e:2.20}]},
+  {text:"obsession", gi:0, s:3.50, e:5.60, anims:[{type:'alpha',s:3.50,e:3.78,dir:'in'},{type:'color',s:3.62,e:5.40,from:'#fff',to:'#FF3DA6'},{type:'glow',s:4.60,e:5.60},{type:'size',s:3.52,e:3.86},{type:'alpha',s:5.20,e:5.60,dir:'out'}]},
+  {text:"Tangled up", gi:1, s:5.85, e:7.10, anims:[{type:'move',s:5.85,e:6.28,dir:'up'},{type:'size',s:6.05,e:6.30}]},
+  {text:"Hold me closer", gi:2, s:7.40, e:9.40, anims:[{type:'alpha',s:7.40,e:7.66,dir:'in'},{type:'color',s:7.55,e:9.20,from:'#fff',to:'#36E2FF'},{type:'glow',s:8.60,e:9.40},{type:'move',s:7.42,e:7.80,dir:'up'}]},
+  {text:"Fade to static", gi:3, s:9.70, e:11.70, anims:[{type:'glow',s:9.75,e:10.60},{type:'alpha',s:11.0,e:11.70,dir:'out'}]},
+];
+const PPS=980/(T1-T0);
+const xOf=s=>(s-T0)*PPS;
+const TEXT_H=22, BAR_H=6, GAP=4, PAD_B=7, MAX_VISIBLE=3, TINY=18;
+
+function ruler(id){ const el=document.getElementById(id); let h=""; el.style.width=xOf(T1)+"px";
+  for(let s=0;s<=Math.floor(T1);s+=2) h+=`<div class="tk" style="left:${xOf(s)}px"><span>${s}s</span></div>`; el.innerHTML=h; }
+
+function barsHTML(c,cc,list){
+  return list.map((an,bi)=>{
+    const aL=((an.s-c.s)/(c.e-c.s))*100, aWpx=(an.e-an.s)*PPS, aW=((an.e-an.s)/(c.e-c.s))*100;    const top=TEXT_H+bi*(BAR_H+GAP);
+    if(aWpx<TINY) return `<div class="astrip glyph" style="left:${aL}%;top:${top}px;height:${BAR_H+3}px" title="${TYPES[an.type]}"><span class="gi">${typeGlyph(an.type)}</span></div>`;
+    return `<div class="astrip" style="left:${aL}%;width:${aW}%;top:${top}px;height:${BAR_H}px;background:${stripBg(an,cc)};${an.type==='size'?'clip-path:polygon(0 100%,100% 0,100% 100%);':''}" title="${TYPES[an.type]} · ${an.s.toFixed(2)}–${an.e.toFixed(2)}s"></div>`;
+  }).join("");
+}
+
+/* ---------- Option A: expand to floating overlay (lane height fixed) ---------- */
+let expandedA=null; // single ci or null
+function renderA(){
+  const lane=document.getElementById('lane-a'); lane.innerHTML=""; lane.style.width=xOf(T1)+"px";
+  // every base cue is the same fixed height — lane never reflows
+  CUES.forEach((c,ci)=>{
+    const cc=PALETTE[c.gi%PALETTE.length], left=xOf(c.s), w=Math.max(56,xOf(c.e)-xOf(c.s));
+    const total=c.anims.length, over=total>MAX_VISIBLE;
+    const list=c.anims.slice(0,MAX_VISIBLE);
+    const isOpen=expandedA===ci;
+    const disc=over?`<button class="disc" data-ci="${ci}">${isOpen?'－':'＋'+(total-MAX_VISIBLE)}<span class="chev">⌄</span></button>`:"";
+    lane.insertAdjacentHTML("beforeend",
+      `<div class="cue" data-ci="${ci}" style="left:${left}px;width:${w}px;height:${FIXED_H}px;--c:${cc}">
+        <div class="inner"><span class="cue-t">${c.text}</span>${barsHTML(c,cc,list)}</div>${disc}</div>`);
+  });
+  lane.style.height=(FIXED_H+6)+"px";
+  // floating overlay for the expanded cue — does NOT affect lane height
+  if(expandedA!=null){
+    const c=CUES[expandedA], cc=PALETTE[c.gi%PALETTE.length];
+    const left=xOf(c.s), w=Math.max(56,xOf(c.e)-xOf(c.s)), total=c.anims.length;
+    const fullH=TEXT_H+total*BAR_H+(total-1)*GAP+PAD_B;
+    const disc=`<button class="disc" data-ci="${expandedA}">－<span class="chev">⌄</span></button>`;
+    lane.insertAdjacentHTML("beforeend",
+      `<div class="cue exp overlay" data-ci="${expandedA}" style="left:${left}px;width:${w}px;height:${fullH}px;--c:${cc};--baseh:${FIXED_H}px">
+        <div class="inner"><span class="cue-t">${c.text}</span>${barsHTML(c,cc,c.anims)}</div>${disc}</div>`);
+  }
+}
+
+/* ---------- Option B: constant height + popover ---------- */
+let popOpen=null; // ci
+const FIXED_H=TEXT_H+MAX_VISIBLE*BAR_H+(MAX_VISIBLE-1)*GAP+PAD_B;
+function renderB(){
+  const lane=document.getElementById('lane-b'); lane.innerHTML=""; lane.style.width=xOf(T1)+"px";
+  CUES.forEach((c,ci)=>{
+    const cc=PALETTE[c.gi%PALETTE.length], left=xOf(c.s), w=Math.max(56,xOf(c.e)-xOf(c.s));
+    const total=c.anims.length, over=total>MAX_VISIBLE;
+    const list=c.anims.slice(0,MAX_VISIBLE); // ALWAYS only what fits — height never changes
+    const isOpen=popOpen===ci;
+    const disc=over?`<button class="disc" data-ci="${ci}">${isOpen?'－':'＋'+(total-MAX_VISIBLE)}<span class="chev">⌄</span></button>`:"";
+    lane.insertAdjacentHTML("beforeend",
+      `<div class="cue ${isOpen?'pop-open':''}" data-ci="${ci}" style="left:${left}px;width:${w}px;height:${FIXED_H}px;--c:${cc}">
+        <div class="inner"><span class="cue-t">${c.text}</span>${barsHTML(c,cc,list)}</div>${disc}</div>`);
+  });
+  lane.style.height=(FIXED_H+6)+"px";
+  if(popOpen!=null){
+    const c=CUES[popOpen], cc=PALETTE[c.gi%PALETTE.length];
+    const left=xOf(c.s);
+    const rows=c.anims.map(an=>`<div class="arow"><span class="abar" style="background:${stripBg(an,cc)}"></span><span class="an">${TYPES[an.type]}</span><span class="at">${an.s.toFixed(1)}–${an.e.toFixed(1)}s</span></div>`).join("");
+    const px=Math.min(left, xOf(T1)-224);
+    lane.insertAdjacentHTML("beforeend",`<div class="pop" style="left:${Math.max(0,px)}px;top:${FIXED_H+6}px"><h5>${c.anims.length} animations · ${c.text}</h5>${rows}</div>`);
+  }
+}
+
+document.getElementById('legend-a').innerHTML=document.getElementById('legend-b').innerHTML=
+  Object.entries(TYPES).map(([k,v])=>`<span class="lg"><i class="sw" style="background:${typeColor(k)}"></i>${v}</span>`).join("");
+
+document.getElementById('lane-a').addEventListener('click',e=>{ const b=e.target.closest('.disc'); if(!b)return; e.stopPropagation(); const ci=+b.dataset.ci; expandedA=(expandedA===ci)?null:ci; renderA(); });
+document.getElementById('lane-b').addEventListener('click',e=>{ const b=e.target.closest('.disc'); if(!b)return; e.stopPropagation(); const ci=+b.dataset.ci; popOpen=(popOpen===ci)?null:ci; renderB(); });
+document.addEventListener('click',e=>{ if(expandedA!=null && !e.target.closest('#lane-a')){ expandedA=null; renderA(); } if(popOpen!=null && !e.target.closest('#lane-b')){ popOpen=null; renderB(); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(expandedA!=null){expandedA=null;renderA();} if(popOpen!=null){popOpen=null;renderB();} } });
+
+ruler('ruler-a'); ruler('ruler-b'); renderA(); renderB();
+</script>
+
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<rect width="100" height="100" fill="#15111F"/>
+<rect x="20" y="24" width="56" height="22" rx="5" fill="#3A2440"/>
+<rect x="26" y="36" width="44" height="4" rx="2" fill="#FF3DA6"/>
+<rect x="20" y="54" width="56" height="22" rx="5" fill="#2A3A4A"/>
+<rect x="26" y="66" width="34" height="4" rx="2" fill="#36E2FF"/>
+<rect x="60" y="57" width="13" height="9" rx="3" fill="#241C36" stroke="#3DE0FF"/>
+</svg>
+</template>
+</body>
+</html>
