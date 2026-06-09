@@ -555,7 +555,15 @@ body.col-resizing .col-grip::after { background: var(--cyan); }
 .prow { display: grid; grid-template-columns: 78px 1fr auto; align-items: center; gap: 9px; min-height: 30px; }
 .prow .pl { font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .prow.over .pl { color: var(--text-1); }
-.prow.inh { opacity: .8; }
+/* Inherited dim: NEVER put opacity on the whole row — it contains the ColorPicker/FontPicker
+   anchor whose popover is portaled but inherits ancestor opacity until then, flashing it
+   half-transparent (zip-12 §E). Dim the label via color, and only the concrete value-controls
+   via opacity — explicitly skipping any .pv-ctl that hosts a .ksp-anchor (the picker trigger). */
+.prow.inh .pl { color: var(--text-3); }
+.prow.inh .pv > .pv-ctl:not(:has(.ksp-anchor)),
+.prow.inh .pv > .seg2,
+.prow.inh .pv > .pv-step { opacity: .62; }
+.prow.inh .pv .ksp-field { opacity: .62; }
 .pv { display: flex; justify-content: flex-end; align-items: center; min-width: 0; }
 .pv-ctl { display: inline-flex; align-items: center; gap: 6px; }
 

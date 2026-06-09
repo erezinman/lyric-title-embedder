@@ -42,10 +42,10 @@ Where zip14 is the source of truth and the right outcome is "make ours match." S
 ### A2. Visual fidelity — kit look we dropped
 | Item | Sev | Fix | Effort |
 |---|---|---|---|
-| **Gradient caption fill + glow dropped** | High | Kit `.cap` supports gradient fills (`background-clip:text`) + drop-shadow glow (`capFill`/`isGradient`, `stage.jsx:66-75`). Ours is solid color only. Restore the gradient/glow path in `PreviewStage`. | M |
+| ~~Gradient caption fill + glow~~ | — | **DISCARDED (2026-06-09).** Not a regression — the kit's `capFill` only has a defensive branch for `gradient(` strings its own data never produces; our model/ColorPicker carry solid hex only and the engine has zero gradient support (real impl = per-char `\c` stops, a future HANDOFF item). Restoring the preview alone would render something export can't produce. Not doing it. | — |
 | **`.cap` font-size clamp halved** | High | Kit `clamp(15px,3.3cqw,64px)` → ours `clamp(11px,4.2cqw,36px)`. Kit caption is ~1.8× bigger on large stages. Restore kit clamp (verify against our multi-line grouping). | S |
-| **Library card metadata stripped** | High | Kit cards show caption preview (`.cap2`), duration pill (`.dur`), preset `.badge`, kind, "edited Xh ago" (`.sub`). Ours render only `.scan` + name. **Needs `projects.list()` to return richer metadata** (backend half) before the UI can show it → see SPANNING note. | M |
-| **`.block.sel` selection treatment** | Med | Kit selected timeline block = multi-ring glow + lift + `scale(1.015)` + bold text + recede-others (`.has-sel`). Ours reduced to a plain 1.5px white outline. ⚠ **Verify first** whether this relocated to `.wt-area .block.sel` — see "needs verification". | S |
+| **Library card metadata** | Med | Render caption preview (`.cap2`), duration pill (`.dur`), and "edited Xh ago" (`.sub`). **Backend half:** enrich `library.list_projects` to return `{name, modified (mtime), duration_s, caption}` — all derivable today (no schema change). **NO preset badge, NO kind** (decided 2026-06-09 — mock-only concepts absent from our model). | M |
+| ~~`.block.sel` selection treatment~~ | — | **VERIFIED PRESENT (2026-06-09).** Our timeline renders `.wt-area .block` (not legacy `.track .block`); `.wt-area .block.sel` (theme.css:333) already has the multi-ring glow + recede-others (`.wt.has-sel`, :336) + resize handles (:382-386). The orphan `.block.sel` at theme.css:272 is dead legacy — optional cleanup only. No port needed. | — |
 | **Swatch dots** | Low | Kit `.sw-dot` = 17×17 rounded-rect + 2px accent ring shadow when on. Ours = 16×16 circle + outline. Match kit shape/size/indicator. | XS |
 | **`.num-in` edit affordance** | Low | Kit highlights the editable value cell with a cyan inset ring + tint; ours is a plain surface-1 box. Restore the cyan edit ring. | XS |
 | **`.substep::before` elbow connector** | Low | Kit draws an L-shaped connector from a sub-row to its parent; we removed it. Restore. | XS |
@@ -68,7 +68,7 @@ Where zip14 is the source of truth and the right outcome is "make ours match." S
 | **Color/accent swaps** (`.minibtn.on` cyan→accent, `.md-item.on` violet→cyan, tombstone warn→danger) | Low | Several active-state colors drifted from the kit. Match kit unless a deliberate re-theme. | S |
 | **`chevRight` markup, fallback stacks, `.crumb` clamp, snap-toggle/tl-toolrow sizes, playhead glow, sg-tag offset, preset-picker columns** | Low | The pixel-tier table in the appendix — batch as one "kit-fidelity CSS pass". | M |
 
-> **SPANNING note (library cards):** A2's "card metadata stripped" needs the backend to return preset/kind/duration/edited-time from `projects.list()` before the UI can render it. Backend half can proceed independently; UI half is a straight kit-match once data exists.
+> **Backend note (library cards):** The only backend touch in Track A. `library.list_projects` (`daemon/library.py:201`) returns names only; enrich it to `[{name, modified, duration_s, caption}]` — all derivable from existing files (`project.json` mtime, `cues_v2`/video duration, `lyrics.json` first words). TDD-first per house rule. preset/kind dropped (no model concept).
 
 ---
 
@@ -109,7 +109,7 @@ The mock can't contain them, so there's no authoritative visual. Confirm the tre
 | Item | Check |
 |---|---|
 | **GLOBAL_STYLE engine defaults** | Kit pins defaults (fontsize 64, bold true, outline_w 3, back_alpha "80", border_style 1). Our web layer pins none — they come from the backend. Confirm `engine`/`get_project` defaults match the kit; if not, that's a silent divergence. |
-| **`.block.sel` relocation** | The CSS audit flagged the classic `.track .block.sel` glow/lift/handles/`.fade.on`/`.blk-subtick`/`.block.multi` as "removed," but some likely moved to `.wt-area .block.sel`. Open the timeline and confirm what actually renders before treating as regressions. |
+| ~~`.block.sel` relocation~~ | **RESOLVED (2026-06-09):** relocated to `.wt-area .block.sel` (glow + recede + handles intact); the `.track .block.sel` at theme.css:272 is dead legacy. Not a regression. |
 | **Resolved-source naming** | Kit anim source label is `"cue"`; our `ResolvedAnim.src` uses `"tag"` (style source is `"cue"` in both). Internal inconsistency — confirm intended. |
 
 ## Mock-isms — explicitly NOT differences to act on
