@@ -363,6 +363,9 @@ svg.lucide { display: block; }
 .astrip { position: absolute; border: 0; padding: 0; border-radius: 3px; cursor: pointer; overflow: visible;
   transition: opacity var(--dur) var(--ease-out), box-shadow .12s; }
 .astrip:hover { box-shadow: 0 0 0 1px #fff6; }
+/* visual fill (and the size-wedge clip) ride on an inner layer so the button
+ * itself stays a full-rectangle hit target (see WordTrack AnimStripEl). */
+.astrip > .astrip-fill { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
 .astrip.foc { box-shadow: 0 0 0 2px #fff, 0 0 12px #fff8; z-index: 7; }
 .astrip.warn { box-shadow: 0 0 0 1px var(--amber, #FFC24B); }
 /* §11 source-linking — every visible strip sharing a group/global source id */

@@ -790,7 +790,11 @@ function AnimStripEl({
       </button>
     );
   }
-  // real bar
+  // real bar. The visual fill (and the `size` wedge clip-path) live on an inner
+  // <i class="astrip-fill"> so the <button> stays a full-rectangle hit target:
+  // clip-path on the button itself would carve away most of its click area (the
+  // wedge leaves only a triangle), letting the cue block intercept clicks at the
+  // strip's geometric centre — which breaks select→focus (AP-5).
   return (
     <button
       className={"astrip t-" + bar.vt + (focused ? " foc" : "") + (bar.warning ? " warn" : "") + (linked ? " linked" : "")}
@@ -800,9 +804,13 @@ function AnimStripEl({
       {...hover}
       style={{
         left: `${bar.leftPx}px`, width: `${bar.widthPx}px`, top: `${bar.topPx}px`, height: `${bar.heightPx}px`,
-        background: bar.fill, ...(bar.clip ? { clipPath: bar.clip } : {}),
       }}
     >
+      <i
+        className="astrip-fill"
+        aria-hidden="true"
+        style={{ background: bar.fill, ...(bar.clip ? { clipPath: bar.clip } : {}) }}
+      />
       {bar.vt === "move" && <i className="arrow">→</i>}
       {focused && (
         <>
