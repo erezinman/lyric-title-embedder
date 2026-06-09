@@ -166,6 +166,13 @@ git commit -m "feat(timeline): pure trackPack row packer (compact/coherent/lanes
 
 ### Task 2: `animStrips.ts` → constant bars + overflow descriptor
 
+> **CORRECTION (sequencing, applied during execution):** Phase 2 is **ADDITIVE** so the build stays
+> green. Add a NEW pure `layoutBars(anims, cueStartS, pxPerSec)` + the constants + `barFill` gradients +
+> a new `animStrips.test.ts`, **without modifying** the existing `layoutStrips`/`StripLayout`/`MAX_BARS`
+> that `WordTrack.tsx` still imports. **Do NOT touch `WordTrack.tsx` or the AT-* tests in Phase 2.**
+> Phase 3 switches WordTrack to `layoutBars`, deletes the old `layoutStrips`, and updates AT-03/04/05/07.
+> (Step 5 below — "update existing strip tests" — moves to Phase 3.)
+
 **Files:**
 - Modify: `web/src/model/animStrips.ts` (constants `18`/`19`; `layoutStrips` `94-146`)
 - Test: `web/src/model/animStrips.test.ts` (create)
