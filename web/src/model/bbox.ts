@@ -1,7 +1,6 @@
 // bbox.ts — pure preview-box geometry in canvas (PlayRes) units.
-// Mirrors the Tk implementation (app_base.py: _box_from_margins /
-// _margins_from_box / _anchor_xy_playres). The vertical band is 18% of the
-// canvas height (Tk's 0.18 factor).
+// box_from_margins / margins_from_box / anchor_xy_playres. The vertical band is
+// 18% of the canvas height (0.18 factor).
 
 export interface Box { l: number; t: number; r: number; b: number }
 export interface PlacementState {

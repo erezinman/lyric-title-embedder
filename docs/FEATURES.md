@@ -16,10 +16,10 @@ Suno API ──suno_fetch──► aligned_lyrics.json ─┐
 SRT file ──engine/srt──► (same shape)         ├─► engine.make_project ─► project dict
                                               │        ▲ lyrics.json per project folder
 controller.Session: undo/redo snapshots of (project, aux-globals) + on_change
-mcp_server: EngineContext bridge — HeadlessContext (dict globals) / UIContext (Tk vars)
-daemon/: Starlette app = /api (HTTP) + /ws (push) + /mcp (FastMCP SSE) + autosave
+mcp_server: EngineContext bridge — HeadlessContext (dict globals) / DaemonContext (push)
+daemon/: Starlette app = /api (HTTP) + /ws (push) + /mcp (FastMCP SSE) + autosave + SPA
 web/:   Vite+React, server-authoritative (state := last /ws push; every edit = /api/call)
-Tk app: karaoke_subtitle_gui.py — same engine, widget-bound globals
+desktop/: Electron shell — owns a local native-mode daemon + native file dialogs
 ```
 
 - **Server-authoritative web UI**: components never mutate locally; they dispatch a tool
@@ -178,8 +178,8 @@ drag; Esc cancels (snap back, nothing dispatched); <3px = click, not drag; clamp
 canvas walls (overshoot intentionally lost — Tk parity). The caption tracks the live box
 during drags. **Shift = symmetric resize**; while dragging there's a **soft snap to center
 plus 5%/10% safe-area guides** (hold **Alt** to bypass the snap). Geometry oracle:
-`web/src/model/bbox.ts` (mirrors `app_base.py`; middle-row band is margin-symmetric by
-design — libass ignores MarginV for middle alignment).
+`web/src/model/bbox.ts` (middle-row band is margin-symmetric by design — libass ignores
+MarginV for middle alignment).
 
 ### 5.4 Inspector
 - **StyleWaterfall** — three tiers (CUE/GROUP/GLOBAL), per-key rows showing resolved value
@@ -285,7 +285,7 @@ the obvious: the **animation set** `add_animation` / `remove_animation` / `resto
 `./kill.sh` — stops both (force-kill fallback for uvicorn's lingering websockets).
 `vite.config.ts` honors `KSS_DAEMON_URL` (and a stale tsc-emitted `vite.config.js` can
 shadow it — the build now emits declarations only; if proxying misbehaves, check for that
-file). Tk app: `poetry run python karaoke_subtitle_gui.py`. Linux inotify limits may need
+file). Desktop (Electron) shell: `./run-desktop.sh`. Linux inotify limits may need
 `fs.inotify.max_user_watches=524288` for Vite.
 
 ## 8. Testing
@@ -306,22 +306,21 @@ file). Tk app: `poetry run python karaoke_subtitle_gui.py`. Linux inotify limits
   with revert symmetry; per-test reset restores a pristine snapshot (autosave-aware).
   Includes a dedicated **jassub pixel tier** (`e2e/jassub.spec.ts`, **14 specs**) that asserts
   the real libass-in-wasm render.
-- **Tk suites** (frozen/legacy; batched at session end via **`./run-tk-tests.sh`** — xvfb +
-  self-withdraw, no animation UI in Tk): **118 tests**.
+- **Desktop (Electron)**: `desktop/lib.test.js` (node:test) for the main-process helpers; an
+  end-to-end `--smoke` (`xvfb-run -a npm --prefix desktop run smoke`) spawns the daemon,
+  healthchecks, and exits clean.
 - Audit decision log: `docs/superpowers/testing/2026-06-05-adjudication-log.md`
   (the campaign found, among others: set_globals bypassing undo, echo-clobbered typing, the
   stage container-query bug, no persistence at all).
 
 ## 9. Known gaps & parked items
 
-- **Tk-parity gaps (web)**: attach/change video after creation; re-import/swap lyrics on a
-  live project; margins numeric entry (drag-box covers interactively); canvas W×H editing
-  (deliberate); portable preset file save/load. (The **rich font picker is DONE** —
-  `GET /api/fonts` via `fc-list`; no longer a gap.)
+- **Remaining gaps (web)**: re-import/swap lyrics on a live project; margins numeric entry
+  (drag-box covers interactively); canvas W×H editing (deliberate); portable preset file
+  save/load. (Attaching/changing video after creation and the rich font picker are DONE.)
 - **No audio playback** in the web (media is server-side; would need a daemon media
   endpoint + synced `<audio>`).
-- **Animations are SHIPPED** (general animation system; fades are a special case — §2a). The
-  Tk app deliberately gets **no** animation UI (frozen/legacy).
+- **Animations are SHIPPED** (general animation system; fades are a special case — §2a).
 - **Spec 2 (parked)**: "Connect to Suno" via Playwright persistent profile — fetch
   alignment by song link without manual tokens (design sketched in the create/import spec).
 - Designer questions parked in `design-system/HANDOFF_create-project-questions.md` and

@@ -206,7 +206,7 @@ def list_projects(projects_dir):
 
 def _bind_fonts_dir(ctx, folder):
     """Point the context at this project's fonts dir (for burn/frame :fontsdir).
-    No-op on contexts without the hook (e.g. the Tk UIContext)."""
+    No-op on contexts without the hook."""
     if hasattr(ctx, "set_fonts_dir"):
         ctx.set_fonts_dir(fonts_dir(folder))
 

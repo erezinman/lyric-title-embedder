@@ -16,52 +16,51 @@ def check(name, fn):
     except Exception as e:
         results.append((False, name, f"EXC {type(e).__name__}: {e}"))
 
-# Import the CURRENT location for the baseline; later tasks repoint these imports.
-import karaoke_subtitle_gui as m
+# v2 engine helpers (formerly re-exported by the now-removed Tk app) live in engine.
 import engine
 from engine import mutations as mut
 from controller import Session
 
 def t_make_project():
-    p = m.make_project_v2(CFG)
+    p = engine.make_project(CFG)
     return (len(p["words"]) > 50 and len(p["layout"]) > 0), f"words={len(p['words'])} layout={len(p['layout'])}"
 
 def t_render_groups():
-    p = m.make_project_v2(CFG); g = m.project_to_render_v2(p)
+    p = engine.make_project(CFG); g = engine.project_to_render(p)
     return (len(g) > 0 and all("lines" in x for x in g)), f"groups={len(g)}"
 
 def t_build_events():
-    p = m.make_project_v2(CFG); g = m.project_to_render_v2(p)
-    text, n = m.build_ass_v2(CFG, g)
+    p = engine.make_project(CFG); g = engine.project_to_render(p)
+    text, n = engine.build_ass(CFG, g)
     return (n == len(g) and "[V4+ Styles]" in text and text.count("Dialogue:") == len(g)), f"n={n}"
 
 def t_serialize_roundtrip():
-    p = m.make_project_v2(CFG)
+    p = engine.make_project(CFG)
     p["layout"][0]["linger"] = 3.14          # mutate so the roundtrip must carry something
-    d = m.serialize_cues_v2(p)
-    p2 = m.make_project_v2(CFG); ok = m.apply_cues_v2(p2, d)
+    d = engine.serialize_cues(p)
+    p2 = engine.make_project(CFG); ok = engine.apply_cues(p2, d)
     same = (ok and len(p2["layout"]) == len(p["layout"])
             and abs((p2["layout"][0].get("linger") or 0) - 3.14) < 1e-9)
     return same, f"applied={ok} linger={p2['layout'][0].get('linger')}"
 
 def t_style_roundtrip():
-    p = m.make_project_v2(CFG)
+    p = engine.make_project(CFG)
     p["layout"][0]["style"] = {"font": "Arial", "fontsize": 80}
     p["layout"][0]["lines"][0]["toks"][0]["style"] = {"primary": "#FF0000"}
-    d = m.serialize_cues_v2(p)
-    p2 = m.make_project_v2(CFG); m.apply_cues_v2(p2, d)
+    d = engine.serialize_cues(p)
+    p2 = engine.make_project(CFG); engine.apply_cues(p2, d)
     g_ok = p2["layout"][0]["style"] == {"font": "Arial", "fontsize": 80}
     c_ok = p2["layout"][0]["lines"][0]["toks"][0]["style"] == {"primary": "#FF0000"}
     return (g_ok and c_ok), f"group={g_ok} cue={c_ok}"
 
 def t_set_group_style():
-    p = m.make_project_v2(CFG)
+    p = engine.make_project(CFG)
     mut.set_group_style(p, 0, {"font": "Arial", "fontsize": 90})
     mut.set_group_style(p, 0, {"font": None})            # clear -> inherit
     return (p["layout"][0]["style"] == {"fontsize": 90}), f"{p['layout'][0]['style']}"
 
 def t_set_cue_style_border_ignored():
-    p = m.make_project_v2(CFG)
+    p = engine.make_project(CFG)
     wid = p["layout"][0]["lines"][0]["toks"][0]["ids"][0]
     mut.set_cue_style(p, {wid}, {"primary": "#00FF00", "border_style": 3})
     st = p["layout"][0]["lines"][0]["toks"][0]["style"]
@@ -80,22 +79,22 @@ def t_engine_no_tk():
     return (src_ok), f"tkinter_in_engine_ns={not src_ok} (loaded elsewhere ok)"
 
 def t_build_two_styles_for_boxmode():
-    p = m.make_project_v2(CFG)
+    p = engine.make_project(CFG)
     mut.set_group_style(p, 1, {"border_style": 3})     # second event = opaque box
-    g = m.project_to_render_v2(p); text, n = m.build_ass_v2(CFG, g)
+    g = engine.project_to_render(p); text, n = engine.build_ass(CFG, g)
     n_styles = text.count("\nStyle: ")
     return (n_styles == 2 and "Style: Box," in text), f"n_styles={n_styles}"
 
 def t_build_inline_cue_color():
-    p = m.make_project_v2(CFG)
+    p = engine.make_project(CFG)
     wid = p["layout"][0]["lines"][0]["toks"][0]["ids"][0]
     mut.set_cue_style(p, {wid}, {"primary": "#FF0000"})
-    g = m.project_to_render_v2(p); text, n = m.build_ass_v2(CFG, g)
+    g = engine.project_to_render(p); text, n = engine.build_ass(CFG, g)
     # #FF0000 -> ASS &H0000FF& on \1c
     return ("\\1c&H0000FF&" in text), "missing inline 1c override"
 
 def t_regress_do_noop_preserves_redo():
-    p = m.make_project_v2(CFG); s = Session(p)
+    p = engine.make_project(CFG); s = Session(p)
     s.do("set_global", "linger", 1.5)       # real edit
     s.undo()                                 # redo stack now holds it
     s.do("layout_merge", {0, 2})             # rejected (non-adjacent) -> must not clear redo
@@ -104,7 +103,7 @@ def t_regress_do_noop_preserves_redo():
     return (abs(s.project["globals"]["linger"] - 1.5) < 1e-9), f"linger={s.project['globals']['linger']}"
 
 def t_regress_build_delta_resets_baseline():
-    p = m.make_project_v2(CFG)
+    p = engine.make_project(CFG)
     # Find an event that has >1 word so the reset-to-baseline is observable
     ev_idx = next(
         i for i, g in enumerate(p["layout"])
@@ -112,7 +111,7 @@ def t_regress_build_delta_resets_baseline():
     )
     wid = p["layout"][ev_idx]["lines"][0]["toks"][0]["ids"][0]
     mut.set_cue_style(p, {wid}, {"primary": "#FF0000"})
-    g = m.project_to_render_v2(p); text, _ = m.build_ass_v2(CFG, g)
+    g = engine.project_to_render(p); text, _ = engine.build_ass(CFG, g)
     # Find the Dialogue line for this event
     diag_lines = [l for l in text.splitlines() if l.startswith("Dialogue:")]
     ev_line = diag_lines[ev_idx]

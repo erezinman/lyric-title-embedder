@@ -247,9 +247,9 @@ describe("PreviewStage audit — body drag (4 directions)", () => {
     expect(second).toEqual({ margin_l: 80, margin_r: 80, margin_v: 60 });
   });
 
-  // ADJ-02: wall-saturated drag round-trips are CORRECTLY lossy (applyMove clamps,
-  // mirroring app_base.py). Rewritten to assert the CLAMPED expected values via the
-  // bbox oracle — the test now PASSES by asserting correct clamp physics.
+  // ADJ-02: wall-saturated drag round-trips are CORRECTLY lossy (applyMove clamps).
+  // Rewritten to assert the CLAMPED expected values via the bbox oracle — the test
+  // now PASSES by asserting correct clamp physics.
   it("B-16 — saturated drag clamps; round-trip is intentionally lossy at walls — ADJ-02", () => {
     const b0 = boxFromState(base);
     const onPlacement = vi.fn();

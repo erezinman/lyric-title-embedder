@@ -1,7 +1,7 @@
 """core — shared, UI-free logic for Karaoke Subtitle Studio.
 
-Pure helpers, constants, and tooling discovery used by every front-end
-(the current app and the archived v1 in old/). No tkinter / customtkinter here.
+Pure helpers, constants, and tooling discovery used by the engine, daemon, and
+headless tooling. UI-framework-free.
 """
 import os, re, shutil, subprocess
 
