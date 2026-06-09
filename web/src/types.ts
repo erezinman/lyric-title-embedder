@@ -24,7 +24,10 @@ export type TimingMode =
   | "reverse" | "centerout" | "jitter" | "custom";
 export type AnimChannel =
   | "alpha" | "scale_x" | "scale_y" | "primary" | "clip_rect"
-  | "blur" | "karaoke_fill" | "move";
+  | "blur" | "karaoke_fill" | "move"
+  // Custom-builder channels (engine ANIM_CHANNELS already accepts these). The faux-italic
+  // "Slant" maps to shear_x (\fax); true \i/\b/\u toggles are not \t-animatable (see SYNC §F).
+  | "outline" | "fontsize" | "shear_x" | "rot_z" | "spacing" | "border_w";
 
 export interface AnimTime { anchor: AnimAnchor; offset: number; unit: AnimUnit; }
 export interface AnimSegment {
