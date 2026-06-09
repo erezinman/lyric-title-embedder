@@ -38,6 +38,13 @@
   --cyan:          #3DE0FF;  /* tertiary — playhead, live/now, waveform crest */
   --accent-ink:    #22041A;  /* alias of text-on-accent */
 
+  /* ---- Gradient tokens (re-skin once, used everywhere) ---- */
+  --grad-brand:      linear-gradient(120deg, var(--accent), var(--violet));   /* primary CTAs, logo */
+  --grad-brand-vert: linear-gradient(180deg, var(--accent), var(--violet));   /* vertical bars */
+  --grad-live:       linear-gradient(120deg, var(--cyan), var(--violet));     /* live/now */
+  --grad-canvas:     radial-gradient(120% 80% at 50% 0%, #150F24 0%, var(--bg) 62%); /* editor canvas */
+  --grad-stage:      radial-gradient(125% 120% at 70% 6%, #241A36 0%, #0F0A18 48%, #060410 100%); /* stage */
+
   /* ---- Semantic ---- */
   --success: #4DE0C2;  /* logs, completed, "ok" */
   --warn:    #FFC24D;  /* warnings */
