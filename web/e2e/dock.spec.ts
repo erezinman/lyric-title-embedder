@@ -95,9 +95,10 @@ test("G-13 — break-line toggles line count 2->3->2 in state + divider count in
   await expect(page.locator(".line-div")).toHaveCount(2);
 
   // toggle off: the break following a cue joins again -> back to 2
-  // re-select alpha (now last in its single-word line 0) and toggle
+  // re-select alpha (now last in its single-word line 0); the button now reads
+  // "Join line" (kit-match: the label flips when pressing would JOIN)
   await page.locator(".lane-row").nth(0).click();
-  await page.getByRole("button", { name: "Break line" }).click();
+  await page.getByRole("button", { name: "Join line" }).click();
   await until(async () => (await linesOf()) === 2);
   await expect(page.locator(".line-div")).toHaveCount(1);
 });

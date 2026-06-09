@@ -272,7 +272,7 @@ describe("WordTrack locked ↔ CueLanes sync", () => {
     emitState(baseProject());
 
     // Switch to timeline tab
-    const timelineTab = screen.getByText(/Timeline/i);
+    const timelineTab = screen.getByRole("button", { name: /Timeline/i });
     await user.click(timelineTab);
 
     // Click block for "alpha" in the WordTrack (locked mode — default timingsUnlocked=false)
@@ -286,7 +286,7 @@ describe("WordTrack locked ↔ CueLanes sync", () => {
     }
 
     // Switch to Cue lanes tab to check selection
-    const lanesTab = screen.getByText(/Cue lanes/i);
+    const lanesTab = screen.getByRole("button", { name: /Cue lanes/i });
     await user.click(lanesTab);
 
     // Some lane-row should have .sel class
@@ -350,7 +350,7 @@ describe("CueLanes double-click view-flip", () => {
     await waitFor(() => expect(FakeWS.last).toBeTruthy());
     emitState(baseProject());
 
-    await user.click(screen.getByText(/Timeline/i));
+    await user.click(screen.getByRole("button", { name: /Timeline/i }));
     const block = container.querySelector(".block") as HTMLElement;
     await user.dblClick(block);
 

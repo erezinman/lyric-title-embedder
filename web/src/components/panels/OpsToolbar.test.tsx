@@ -15,4 +15,25 @@ describe("OpsToolbar", () => {
     await userEvent.click(screen.getByText(/Merge words/i));
     expect(onMergeWords).toHaveBeenCalled();
   });
+
+  // Kit-match: the button label flips to "Join line" when a break already
+  // exists after the selected cue (pressing would JOIN), and reads "Break line"
+  // otherwise. State is conveyed by the label, not a persistent highlight.
+  const baseProps = {
+    selCount: 1, canGroupFade: false, fadeMembership: null, canMergeWords: false,
+    mergeOn: false, canUnmerge: false, canMergeEvents: false, canSplitEvent: false,
+    canBreakLine: true, hasEvent: false, wordDeleted: false,
+    onGroupFade: () => {}, onClearFade: () => {}, onMergeWords: () => {}, onUnmerge: () => {},
+    onMergeEvents: () => {}, onSplitEvent: () => {}, onBreakLine: () => {}, onUngroupEvent: () => {}, onDelete: () => {},
+  } as const;
+
+  it("Break line label flips to Join line when breakLineOn", () => {
+    const { rerender } = render(<OpsToolbar {...baseProps} breakLineOn={false} />);
+    expect(screen.getByText("Break line")).toBeTruthy();
+    expect(screen.queryByText("Join line")).toBeNull();
+
+    rerender(<OpsToolbar {...baseProps} breakLineOn={true} />);
+    expect(screen.getByText("Join line")).toBeTruthy();
+    expect(screen.queryByText("Break line")).toBeNull();
+  });
 });

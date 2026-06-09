@@ -309,7 +309,8 @@ describe("OpsToolbar action dispatches", () => {
     await bootWith(baseProject());
     await clickLaneWord(user, "delta");
     clearDispatches();
-    await user.click(btn(/Break line/i));
+    // delta is line-end (a break already follows) → button reads "Join line"
+    await user.click(btn(/Join line/i));
 
     const d = dispatches();
     // Should dispatch join_lines because delta is last in line 0 and line 1 follows
@@ -510,17 +511,18 @@ describe("OpsToolbar merge_events daemon contract", () => {
 });
 
 // User request 2026-06-06: Break line reflects its toggle state — "on"
-// (pressed) when the selected cue already has a break after it (i.e. the cue
-// is last in a non-final line, where pressing would JOIN the next line).
-describe("D-70 — Break line toggled state", () => {
-  it("D-70a — cue at end of a non-final line: Break line shows on/pressed", async () => {
+// (pressed) when the selected cue already has a break after it. zip-14 kit-match
+// (2026-06-09) additionally flips the LABEL to "Join line" in that state (pressing
+// joins). Both signals coexist: the on/pressed highlight AND the label flip.
+describe("D-70 — Break/Join toggled state", () => {
+  it("D-70a — cue at end of a non-final line: button reads 'Join line', on/pressed", async () => {
     await bootWith(baseProject());
-    // 'delta' is the last cue of line 0 (group 0 has 2 lines)
+    // 'delta' is the last cue of line 0 (group 0 has 2 lines) → pressing JOINs
     const els = screen.getAllByText("delta");
     const row = els.find((el) => el.closest(".lane-row"))!;
     fireEvent.click(row);
     const btn = within(document.querySelector(".cue-tools-wrap") as HTMLElement)
-      .getByRole("button", { name: /break line/i });
+      .getByRole("button", { name: /join line/i });
     expect(btn.className).toContain("on");
     expect(btn).toHaveAttribute("aria-pressed", "true");
   });

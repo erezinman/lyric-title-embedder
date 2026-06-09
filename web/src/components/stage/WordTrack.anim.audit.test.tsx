@@ -208,7 +208,7 @@ async function bootTimeline() {
   render(<Editor projectName="t" onHome={() => {}} />);
   await waitFor(() => expect(FakeWS.last).toBeTruthy());
   emitState(STACK);
-  await user.click(screen.getByText(/Timeline/i));
+  await user.click(screen.getByRole("button", { name: /Timeline/i }));
   return user;
 }
 

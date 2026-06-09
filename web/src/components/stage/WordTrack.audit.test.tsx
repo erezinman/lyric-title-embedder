@@ -221,7 +221,7 @@ describe("WordTrack drag-then-drag-back integration", () => {
     emitState(proj);
 
     // Switch to timeline tab to get WordTrack
-    const timelineTab = await screen.findByText(/Timeline/i);
+    const timelineTab = await screen.findByRole("button", { name: /Timeline/i });
     await user.click(timelineTab);
 
     // Unlock timing by clicking lock button in TimingPanel
@@ -229,7 +229,7 @@ describe("WordTrack drag-then-drag-back integration", () => {
     // (TimingPanel only appears in inspector tab — we use keyboard nudge path instead)
     // Actually, WordTrack unlock is via timingsUnlocked in Editor, toggled via TimingPanel lock button.
     // TimingPanel is in inspector rail. Click a lane word first, then unlock.
-    const lanesTab = screen.getByText(/Cue lanes/i);
+    const lanesTab = screen.getByRole("button", { name: /Cue lanes/i });
     await user.click(lanesTab);
     await screen.findAllByText("alpha");
     const alphaEls = screen.getAllByText("alpha");
@@ -252,7 +252,7 @@ describe("WordTrack drag-then-drag-back integration", () => {
     }
 
     // Now switch to Timeline and attempt a drag
-    const tlTab = screen.getByText(/Timeline/i);
+    const tlTab = screen.getByRole("button", { name: /Timeline/i });
     await user.click(tlTab);
 
     clearDispatches();

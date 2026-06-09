@@ -62,7 +62,7 @@ export function OpsToolbar({
         </button>
         <button className={"minibtn" + (breakLineOn ? " on" : "")} aria-pressed={breakLineOn}
           onClick={onBreakLine} disabled={!canBreakLine}>
-          <Icon name="scissors" size={13} />Break line
+          <Icon name="scissors" size={13} />{breakLineOn ? "Join line" : "Break line"}
         </button>
         <button className="minibtn" onClick={onMergeEvents} disabled={!canMergeEvents}>
           <Icon name="layers" size={13} />Merge events

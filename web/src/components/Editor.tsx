@@ -1093,6 +1093,11 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
               {shiftHeld ? "⇧ Range select" : "⌘ Cherry-pick"}
             </span>
           )}
+          <span className="dock-hint">
+            {dockTab === "timeline"
+              ? "Drag the ruler or playhead to scrub · drag a block to retime · double-click a block → Cue lanes · ⇧ range · ⌘/ctrl pick"
+              : "Click a cue · double-click a cue → Timeline · ⇧ shift = select range · ⌘/ctrl = add or remove"}
+          </span>
         </div>
         {groupExplicitSel && sel.scope === "group" && P.layout[sel.gi] && (
           <EventStrip g={P.layout[sel.gi]} onSet={setLayoutProp} />
