@@ -9,6 +9,7 @@ import { computeMove, computeResize } from "../model/edit";
 import { boxFromState, anchorXY } from "../model/bbox";
 import type { Token, Project } from "../types";
 import { fadeInAnim, fadeOutAnim, fadeAnimName, freshAnimId } from "../model/animPresets";
+import { buildCustom, type CustomCfg } from "../model/animCustom";
 
 // Panels
 import { PreviewStage } from "./stage/PreviewStage";
@@ -682,6 +683,37 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   function animSetProps(scope: AnimScope, ref: number | number[] | null, anim_id: string, partial: Record<string, unknown>) {
     dispatch("set_animation_props", { scope, ref, anim_id, partial });
   }
+  // The own lead record for (scope, ref, anim_id) — so a custom edit can carry its
+  // timing/enabled forward when the records are rebuilt.
+  function findOwnLead(scope: AnimScope, ref: number | number[] | null, anim_id: string) {
+    if (!P) return null;
+    let list: import("../types").Animation[] = [];
+    if (scope === "global") list = P.globals.animations;
+    else if (scope === "group") list = P.layout[ref as number]?.animations ?? [];
+    else {
+      const ids = (ref as number[]) ?? [];
+      const key = [...ids].sort((a, b) => a - b).join(",");
+      const t = P.anim_tags.find((tg) => [...tg.ids].sort((a, b) => a - b).join(",") === key);
+      list = t?.anims ?? [];
+    }
+    return list.find((a) => a.id === anim_id) ?? null;
+  }
+  // Rebuild a custom animation's record set from the editor cfg, preserving the lead
+  // id (so the open row stays put) + carrying timing/enabled; the engine splices.
+  function animEditCustom(scope: AnimScope, ref: number | number[] | null, anim_id: string, cfg: CustomCfg) {
+    const lead = findOwnLead(scope, ref, anim_id);
+    const timing = lead
+      ? { mode: lead.mode, step: lead.step, step_unit: lead.step_unit, enabled: lead.enabled }
+      : undefined;
+    const taken = new Set(allAnimIds());
+    let first = true;
+    const next = () => {
+      if (first) { first = false; return anim_id; }
+      const id = freshAnimId(taken); taken.add(id); return id;
+    };
+    const anims = buildCustom(cfg, next, timing);
+    dispatch("edit_custom_animation", { scope, ref, anim_id, anims });
+  }
   function selectCues(ids: number[]) {
     if (ids.length === 0) return;
     setSelectedWords(new Set(ids));
@@ -1014,6 +1046,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                   onRemove={animRemove}
                   onRestore={animRestore}
                   onSetProps={animSetProps}
+                  onEditCustom={animEditCustom}
                   onSelectCues={selectCues}
                 />
               </>

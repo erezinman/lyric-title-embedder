@@ -9,6 +9,7 @@
 // matching set_animation_props { partial }.
 import { useState } from "react";
 import { Icon } from "../icons/Icon";
+import { EditableNum } from "../controls/EditableNum";
 import type { Animation, TimingMode, AnimUnit } from "../../types";
 
 interface ModeDef { id: TimingMode; nm: string; group: "common" | "sequence" | "advanced"; tip: string; step?: boolean; }
@@ -128,7 +129,18 @@ function StepSubRow({
       <span className="ss-lbl"><Icon name="waveform" size={12} /> Step</span>
       <span className="stepper">
         <button type="button" aria-label="decrease step" onClick={() => bump(-1)}>−</button>
-        <span className="sv">{unit === "frac" ? `${Math.round(value * 100)}%` : value}</span>
+        <EditableNum
+          className="sv"
+          display={unit === "frac" ? `${Math.round(value * 100)}%` : String(value)}
+          value={unit === "frac" ? Math.round(value * 100) : value}
+          step={unit === "frac" ? 5 : 10}
+          parse={(s) => {
+            const n = parseFloat(s);
+            if (isNaN(n)) return null;
+            return unit === "frac" ? Math.max(0, Math.min(1, +(n / 100).toFixed(2))) : Math.max(0, n);
+          }}
+          onCommit={(n) => onStep(n)}
+        />
         <button type="button" aria-label="increase step" onClick={() => bump(1)}>+</button>
       </span>
       <span className="unit">

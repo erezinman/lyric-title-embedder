@@ -161,7 +161,7 @@ describe("AI-4A append model", () => {
 
     const cueTier = animSection().querySelector(".tier.append.cue") as HTMLElement;
     const row = within(cueTier).getByText("pop").closest(".ov-row") as HTMLElement;
-    await user.click(within(row).getByRole("button", { name: /Edit/i }));
+    await user.click(row.querySelector(".ov-line") as HTMLElement);
     // the edit affordance toggles enabled (a committable prop) → dispatch
     await user.click(within(cueTier).getByRole("button", { name: /Disable|Enable/i }));
 
@@ -183,7 +183,7 @@ describe("AI-4A append model", () => {
 
     const cueTier = animSection().querySelector(".tier.append.cue") as HTMLElement;
     const row = within(cueTier).getByText("pop").closest(".ov-row") as HTMLElement;
-    await user.click(within(row).getByRole("button", { name: /Edit/i }));
+    await user.click(row.querySelector(".ov-line") as HTMLElement);
 
     // the picker is in the expanded edit area
     const picker = cueTier.querySelector(".tm-row") as HTMLElement;
@@ -496,10 +496,12 @@ describe("AI-4E preset picker", () => {
     await user.click(within(cueTier).getByRole("button", { name: /Add animation/i }));
 
     const picker = document.querySelector(".preset-picker") as HTMLElement;
-    const names = [...picker.querySelectorAll(".preset")].map((e) => e.textContent?.trim());
+    // the 8 canonical presets (the ＋ Custom tile is .preset.custom, asserted separately)
+    const names = [...picker.querySelectorAll(".preset:not(.custom)")].map((e) => e.textContent?.trim());
     expect(names).toEqual([
       "Fade in", "Fade out", "Sweep", "Pop", "Color flash", "Wipe in", "Blur in", "Slide",
     ]);
+    expect(picker.querySelector(".preset.custom")?.textContent).toContain("Custom");
   });
 
   it("AI-19 — each preset instantiates the correct channel(s)", async () => {
