@@ -7,6 +7,16 @@ import { VideoControl } from "./VideoControl";
 import type { Project, TextDirection } from "../../types";
 import { posActive } from "../../model/bbox";
 
+// Numpad 1–9 alignment names (index = numpad position). Used for the current-value
+// caption beside the Alignment grid. Full names so the caption reads "Bottom-Center (2)".
+const ALIGN_NAMES: Record<number, string> = {
+  1: "Bottom-Left", 2: "Bottom-Center", 3: "Bottom-Right",
+  4: "Middle-Left", 5: "Center", 6: "Middle-Right",
+  7: "Top-Left", 8: "Top-Center", 9: "Top-Right",
+};
+
+const POS_DISABLED_TITLE = "Disabled — free placement (\\pos) overrides alignment";
+
 const DIR_OPTS: { value: TextDirection; label: string }[] = [
   { value: "auto", label: "Auto" },
   { value: "ltr", label: "LTR" },
@@ -54,8 +64,12 @@ export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos,
         </div>
       </div>
       <div className="ctl">
-        <label>Alignment</label>
-        <AlignGrid value={pl.align} onPick={(n) => onSetGlobal("align", n)} disabled={posOn} />
+        <label>
+          Alignment
+          <span className="ctl-cap">{ALIGN_NAMES[pl.align || 2] ?? "?"} ({pl.align || 2})</span>
+        </label>
+        <AlignGrid value={pl.align} onPick={(n) => onSetGlobal("align", n)} disabled={posOn}
+          title={posOn ? POS_DISABLED_TITLE : ""} />
       </div>
       <div className="ctl">
         <label>Free placement (\pos)</label>

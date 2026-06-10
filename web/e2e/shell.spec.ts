@@ -56,9 +56,11 @@ test("G-34 — dock tabs switch Timeline <-> Cue lanes", async ({ page }) => {
   await openAudit(page);
   await page.locator(".dock-tab", { hasText: "Timeline" }).click();
   await expect(page.locator(".wt")).toBeVisible();
-  await expect(page.locator(".lanes")).toHaveCount(0);
+  // Target the CueLanes panel specifically (.lanes.anim-dock) — the WordTrack also
+  // carries a `.lanes` class at Lanes density, which is now the small-project default.
+  await expect(page.locator(".lanes.anim-dock")).toHaveCount(0);
   await page.locator(".dock-tab", { hasText: "Cue lanes" }).click();
-  await expect(page.locator(".lanes")).toBeVisible();
+  await expect(page.locator(".lanes.anim-dock")).toBeVisible();
 });
 
 // FINDING G-35: the .stage element declares `aspect-ratio: 16/9` in CSS but its

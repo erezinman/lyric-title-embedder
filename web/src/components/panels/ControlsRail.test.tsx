@@ -42,6 +42,26 @@ describe("ControlsRail", () => {
     expect(onSetGlobal).toHaveBeenCalledWith("align", 8);
   });
 
+  it("shows the current-value alignment caption (named + numpad)", () => {
+    const { container } = render(<ControlsRail project={proj({ align: 8 })} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} {...VID_PROPS} />);
+    const cap = container.querySelector(".ctl-cap") as HTMLElement;
+    expect(cap.textContent).toBe("Top-Center (8)");
+  });
+
+  it("alignment grid is enabled with no disabled-reason title when \\pos is off", () => {
+    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} {...VID_PROPS} />);
+    const btn = screen.getByLabelText(/alignment/i);
+    expect(btn).not.toBeDisabled();
+    expect(btn).not.toHaveAttribute("title");
+  });
+
+  it("alignment grid is disabled with the \\pos-override title when free placement is active", () => {
+    render(<ControlsRail project={proj({ pos: [960, 540], use_pos: true })} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} {...VID_PROPS} />);
+    const btn = screen.getByLabelText(/alignment/i);
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAttribute("title", "Disabled — free placement (\\pos) overrides alignment");
+  });
+
   it("pos toggle shows OFF when use_pos is false even though pos is set", () => {
     render(<ControlsRail project={proj({ pos: [960, 540], use_pos: false })} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} {...VID_PROPS} />);
     expect(screen.getByRole("switch", { name: /free placement/i })).toHaveAttribute("aria-checked", "false");

@@ -356,7 +356,7 @@ export function StyleWaterfall({ project, sel, aiTier, onSetStyle, onClearStyle 
           tierClass="group"
           scope="group"
           title="GROUP"
-          previewText={g.label || "Karaoke"}
+          previewText={(tok ? tok.ids.map((id) => project.words[id]?.text).filter(Boolean).join(tok.sep || " ") : "") || g.label || "Karaoke"}
           rtl={isRtl}
           badge={<span className="t3-meta">{g.label}</span>}
           keys={STYLE_KEYS}

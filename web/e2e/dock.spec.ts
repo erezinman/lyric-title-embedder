@@ -130,7 +130,12 @@ test("G-14 — delete then restore round-trip (state del flag + strikethrough)",
 test("G-14b — Coherent packs non-overlapping cues onto a shared row", async ({ page }) => {
   await openAudit(page);
   await page.locator(".dock-tab", { hasText: "Timeline" }).click();
+  // The small audit project now defaults to Lanes density; select Coherent explicitly
+  // so this test exercises the coherent packing semantics deterministically.
+  await page.locator('.tl-toolrow .seg button[data-mode="coherent"]').click();
+  await expect(page.locator(".tl-toolrow .seg button.on")).toHaveAttribute("data-mode", "coherent");
   await page.locator(".wt .wt-block").first().waitFor();
+  await page.waitForTimeout(550);   // let the FLIP reflow from the default Lanes settle
 
   const byTitle = (prefix: string) =>
     page.locator(`.wt .wt-block[title^="${prefix}"]`).first();
@@ -158,6 +163,9 @@ test("G-14c — Lanes yields more rows than Coherent; selected cue stays pinned"
   await page.locator(".wt .wt-block").first().waitFor();
 
   const seg = page.locator(".tl-toolrow .seg");
+  // The small audit project now defaults to Lanes density; select Coherent first so we
+  // can measure the Coherent→Lanes reflow.
+  await seg.locator('button[data-mode="coherent"]').click();
   await expect(seg.locator("button.on")).toHaveAttribute("data-mode", "coherent");
 
   // select the first cue so it can be pinned, then record its viewport y in Coherent

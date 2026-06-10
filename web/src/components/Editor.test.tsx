@@ -26,6 +26,16 @@ function projectWithEvent(label: string): Project {
   };
 }
 
+function projectWithNEvents(n: number): Project {
+  const base = projectWithEvent("Verse 1");
+  base.layout = Array.from({ length: n }, (_, i) => ({
+    label: `Event ${i + 1}`, win_start: null, win_end: null, linger: null, del: false,
+    style: {}, animations: [], suppress: [],
+    lines: [{ toks: [{ ids: [0], sep: "", del: false, style: {} }] }],
+  }));
+  return base;
+}
+
 beforeEach(() => {
   (globalThis as any).WebSocket = FakeWS as unknown as typeof WebSocket;
   vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -86,12 +96,14 @@ describe("Editor shell", () => {
     // default is Coherent
     const seg = () => container.querySelector(".tl-toolrow .seg") as HTMLElement;
     await waitFor(() => expect(seg()).toBeTruthy());
-    expect(seg().querySelector("button.on")?.getAttribute("data-mode")).toBe("coherent");
+    // No stored pref + a single-event project (≤6) → locked default is Lanes.
+    await waitFor(() =>
+      expect(seg().querySelector("button.on")?.getAttribute("data-mode")).toBe("lanes"));
 
-    // click Lanes → persists + active stop moves
-    fireEvent.click(seg().querySelector('button[data-mode="lanes"]') as HTMLElement);
-    expect(store.get("kss.tlDensity")).toBe("lanes");
-    expect(seg().querySelector("button.on")?.getAttribute("data-mode")).toBe("lanes");
+    // explicit click Compact → persists + active stop moves (a stored pref wins later)
+    fireEvent.click(seg().querySelector('button[data-mode="compact"]') as HTMLElement);
+    expect(store.get("kss.tlDensity")).toBe("compact");
+    expect(seg().querySelector("button.on")?.getAttribute("data-mode")).toBe("compact");
 
     // re-mount: the persisted density is restored
     unmount();
@@ -101,7 +113,7 @@ describe("Editor shell", () => {
     await waitFor(() => screen.getByText("Verse 1"));
     fireEvent.click(timelineTab(r2.container));
     await waitFor(() =>
-      expect(r2.container.querySelector(".tl-toolrow .seg button.on")?.getAttribute("data-mode")).toBe("lanes"));
+      expect(r2.container.querySelector(".tl-toolrow .seg button.on")?.getAttribute("data-mode")).toBe("compact"));
     vi.unstubAllGlobals();
   });
 
@@ -130,5 +142,91 @@ describe("Editor shell", () => {
     expect(rail.style.width).toBe("400px");
     expect(store.get("kss.railW")).toBe("400");
     vi.unstubAllGlobals();
+  });
+
+  it("density default (no stored pref): ≤6 events → lanes", async () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => { store.set(k, String(v)); },
+      removeItem: (k: string) => { store.delete(k); },
+    });
+    const { container } = render(<Editor projectName="song1" onHome={() => {}} />);
+    await waitFor(() => expect(FakeWS.last).toBeTruthy());
+    act(() => FakeWS.last!.emit({ type: "state", state: projectWithNEvents(6) }));
+    await waitFor(() => screen.getByText("Event 1"));
+
+    const { fireEvent } = await import("@testing-library/react");
+    const timelineTab = Array.from(container.querySelectorAll(".dock-tab"))
+      .find((b) => b.textContent?.includes("Timeline")) as HTMLElement;
+    fireEvent.click(timelineTab);
+    await waitFor(() =>
+      expect(container.querySelector(".tl-toolrow .seg button.on")?.getAttribute("data-mode")).toBe("lanes"));
+    expect(store.get("kss.tlDensity")).toBeUndefined(); // derived default must not persist
+    vi.unstubAllGlobals();
+  });
+
+  it("density default (no stored pref): >6 events → coherent", async () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => { store.set(k, String(v)); },
+      removeItem: (k: string) => { store.delete(k); },
+    });
+    const { container } = render(<Editor projectName="song1" onHome={() => {}} />);
+    await waitFor(() => expect(FakeWS.last).toBeTruthy());
+    act(() => FakeWS.last!.emit({ type: "state", state: projectWithNEvents(7) }));
+    await waitFor(() => screen.getByText("Event 1"));
+
+    const { fireEvent } = await import("@testing-library/react");
+    const timelineTab = Array.from(container.querySelectorAll(".dock-tab"))
+      .find((b) => b.textContent?.includes("Timeline")) as HTMLElement;
+    fireEvent.click(timelineTab);
+    await waitFor(() =>
+      expect(container.querySelector(".tl-toolrow .seg button.on")?.getAttribute("data-mode")).toBe("coherent"));
+    vi.unstubAllGlobals();
+  });
+
+  it("density default: a stored preference wins over the count-derived default", async () => {
+    const store = new Map<string, string>([["kss.tlDensity", "coherent"]]);
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => { store.set(k, String(v)); },
+      removeItem: (k: string) => { store.delete(k); },
+    });
+    const { container } = render(<Editor projectName="song1" onHome={() => {}} />);
+    await waitFor(() => expect(FakeWS.last).toBeTruthy());
+    act(() => FakeWS.last!.emit({ type: "state", state: projectWithNEvents(2) }));
+    await waitFor(() => screen.getByText("Event 1"));
+
+    const { fireEvent } = await import("@testing-library/react");
+    const timelineTab = Array.from(container.querySelectorAll(".dock-tab"))
+      .find((b) => b.textContent?.includes("Timeline")) as HTMLElement;
+    fireEvent.click(timelineTab);
+    // ≤6 events would derive "lanes" but the stored "coherent" must win.
+    await waitFor(() =>
+      expect(container.querySelector(".tl-toolrow .seg button.on")?.getAttribute("data-mode")).toBe("coherent"));
+    vi.unstubAllGlobals();
+  });
+
+  it("magnet chip names the modifier: shows 'alt' while Alt is held, else on/off", async () => {
+    const { container } = render(<Editor projectName="song1" onHome={() => {}} />);
+    await waitFor(() => expect(FakeWS.last).toBeTruthy());
+    act(() => FakeWS.last!.emit({ type: "state", state: projectWithEvent("Verse 1") }));
+    await waitFor(() => screen.getByText("Verse 1"));
+
+    const { fireEvent } = await import("@testing-library/react");
+    const timelineTab = Array.from(container.querySelectorAll(".dock-tab"))
+      .find((b) => b.textContent?.includes("Timeline")) as HTMLElement;
+    fireEvent.click(timelineTab);
+    const chip = () => container.querySelector(".snap-toggle .st-state") as HTMLElement;
+    await waitFor(() => expect(chip()).toBeTruthy());
+    expect(chip().textContent).toBe("on"); // magnet on by default
+
+    act(() => { fireEvent.keyDown(window, { key: "Alt", altKey: true }); });
+    await waitFor(() => expect(chip().textContent).toBe("alt"));
+
+    act(() => { fireEvent.keyUp(window, { key: "Alt", altKey: false }); });
+    await waitFor(() => expect(chip().textContent).toBe("on"));
   });
 });

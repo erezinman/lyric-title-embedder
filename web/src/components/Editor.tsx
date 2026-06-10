@@ -95,12 +95,26 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     });
   }, []);
   // timeline density toggle + H/V zoom (persisted, mirrors the magnet pattern).
-  // density: Compact · Coherent (default) · Lanes; hz/vz: H/V zoom factors.
-  const [density, setDensityState] = useState<Density>(() => {
-    try { const v = localStorage.getItem("kss.tlDensity"); return v === "compact" || v === "lanes" ? v : "coherent"; }
-    catch { return "coherent"; }
-  });
+  // density: Compact · Coherent · Lanes; hz/vz: H/V zoom factors. When there is NO
+  // stored preference the default is derived from the event count once the project
+  // loads (Lanes when events ≤ 6, else Coherent — locked Track-B call); a stored
+  // preference always wins.
+  const storedDensity = (() => {
+    try { const v = localStorage.getItem("kss.tlDensity"); return v === "compact" || v === "lanes" || v === "coherent" ? (v as Density) : null; }
+    catch { return null; }
+  })();
+  const [density, setDensityState] = useState<Density>(storedDensity ?? "coherent");
+  // Apply the count-derived default exactly once, when P first becomes available and
+  // there was no stored preference. A user's explicit choice on later loads (which
+  // writes kss.tlDensity) is never overridden.
+  const densityDefaultApplied = useRef(storedDensity != null);
+  useEffect(() => {
+    if (densityDefaultApplied.current || !P) return;
+    densityDefaultApplied.current = true;
+    setDensityState(P.layout.length <= 6 ? "lanes" : "coherent");
+  }, [P]);
   const setDensity = useCallback((d: Density) => {
+    densityDefaultApplied.current = true;
     setDensityState(d);
     try { localStorage.setItem("kss.tlDensity", d); } catch { /* private mode */ }
   }, []);
@@ -1151,9 +1165,6 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
               : "Click a cue · double-click a cue → Timeline · ⇧ shift = select range · ⌘/ctrl = add or remove"}
           </span>
         </div>
-        {groupExplicitSel && sel.scope === "group" && sel.gi != null && P.layout[sel.gi] && (
-          <EventStrip g={P.layout[sel.gi]} onSet={setLayoutProp} />
-        )}
         <OpsToolbar
           selCount={selCount}
           canGroupFade={canGroupFade()}
@@ -1189,7 +1200,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                 >
                   <Icon name="magnet" size={14} />
                   Magnet
-                  <span className="st-state">{altHeld ? (magnet ? "off" : "on") : magnet ? "on" : "off"}</span>
+                  <span className="st-state">{altHeld ? "alt" : magnet ? "on" : "off"}</span>
                 </button>
                 <span className="tl-hint">Drag edges to snap · hold <b>Alt</b> to free</span>
                 <div className="seg" role="group" aria-label="Timeline density">
@@ -1271,6 +1282,9 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
             />
           )}
         </div>
+        {groupExplicitSel && sel.scope === "group" && sel.gi != null && P.layout[sel.gi] && (
+          <EventStrip g={P.layout[sel.gi]} onSet={setLayoutProp} />
+        )}
       </section>
       {store.burn && !store.burn.done && (
         <div className="toast burn-bar">rendering — {Math.round(store.burn.frac * 100)}%</div>

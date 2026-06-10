@@ -19,9 +19,11 @@ export interface AlignGridProps {
   value: number;
   onPick: (n: number) => void;
   disabled?: boolean;
+  /** Tooltip for the control button (e.g. the disabled-reason when \pos overrides). */
+  title?: string;
 }
 
-export function AlignGrid({ value, onPick, disabled = false }: AlignGridProps) {
+export function AlignGrid({ value, onPick, disabled = false, title }: AlignGridProps) {
   const [open, setOpen] = React.useState(false);
   const cur = value || 2;
   const label = `${ALIGN[cur]} (${cur})`;
@@ -43,6 +45,7 @@ export function AlignGrid({ value, onPick, disabled = false }: AlignGridProps) {
       <button
         className="kit-sel"
         aria-label="Alignment" disabled={disabled}
+        title={title || undefined}
         aria-haspopup="true"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}

@@ -121,6 +121,45 @@ describe("StyleWaterfall", () => {
     expect(within(cueTier).queryByText('"Caught"')).toBeNull();
   });
 
+  it("GROUP preview hybrid: shows the selected cue's text when a cue is selected (#10ii)", async () => {
+    const p = proj();
+    // a merged cue: "Caught in"
+    const mergedTok = { ids: [0, 1], sep: " ", del: false, style: {} };
+    render(
+      <StyleWaterfall
+        project={p}
+        sel={{ scope: "cue", gi: 0, tok: mergedTok }}
+        aiTier={null}
+        onSetStyle={vi.fn()}
+        onClearStyle={vi.fn()}
+      />
+    );
+    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
+    // GROUP badge still shows the label (unchanged)
+    expect(within(groupTier).getByText("V1")).toBeTruthy();
+    // Open the GROUP tier's Font picker; its preview caption is the GROUP previewText
+    await userEvent.click(groupTier.querySelector(".ksp-field") as HTMLElement);
+    const cap = document.querySelector(".ksp-cap") as HTMLElement;
+    expect(cap.textContent).toBe("Caught in");
+  });
+
+  it("GROUP preview hybrid: falls back to the group label when no cue is selected (#10ii)", async () => {
+    const p = proj();
+    render(
+      <StyleWaterfall
+        project={p}
+        sel={{ scope: "group", gi: 0, tok: null }}
+        aiTier={null}
+        onSetStyle={vi.fn()}
+        onClearStyle={vi.fn()}
+      />
+    );
+    const groupTier = screen.getByText("GROUP").closest(".tier3") as HTMLElement;
+    await userEvent.click(groupTier.querySelector(".ksp-field") as HTMLElement);
+    const cap = document.querySelector(".ksp-cap") as HTMLElement;
+    expect(cap.textContent).toBe("V1");
+  });
+
   it("GLOBAL tier shows 'base' chips and no clear button", () => {
     const p = proj();
     render(
