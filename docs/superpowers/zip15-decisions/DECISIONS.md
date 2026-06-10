@@ -98,6 +98,21 @@ sub-pixel nudges, and the missing `.ks-gradient-text` utility.
 > The ~100 other `theme.css` differences are **not** Track A — they are real app layout the
 > static kit mock omits and legitimate Track-B feature work. Do **not** revert those to the kit.
 
+### Track A — applied on branch (2026-06-10 recheck)
+Items 1–4 of the cosmetic patch are **merged** on `feat/designer-sync`: `.bbox.dragging` glow,
+`.substep` elbow + label, `.snap-guide`/`.sg-tag` offsets, `.snap-toggle` font, hover %.
+Not applied (intentional): **tombstone color** kept red/danger (deliberate — reads as "deleted"),
+`.ks-gradient-text` utility still absent (add only if a surface needs it).
+
+---
+
+## Track B conflicts — disposition
+
+The genuine kit↔port conflicts were reviewed against the live branch (see `Track-B-Disposition.md`).
+Headline: only **#2+#6 (nullable selection)** and **#10(i) (merged-cue badge)** are deterministic fixes;
+everything else is settled-keep or designer-gated. One reversal vs. the earlier review: **#1 `align`**
+is **kept** (engine-faithful — `engine/model.py` makes it a real group-level style key), not reverted.
+
 ---
 
 ## Contents
@@ -107,6 +122,7 @@ Karaoke-DS-Update/
 ├─ DECISIONS.md            ← this file
 ├─ Track-A-Rediff.md       ← full kit ↔ branch rule-level diff
 ├─ Track-A-Patch.css       ← the 5 remaining cosmetic fixes (kit values)
+├─ Track-B-Disposition.md  ← engineering disposition for the Track B conflicts report
 └─ resources/              ← interactive prototypes (open in a browser)
    ├─ Timeline-View-Toggle.html
    ├─ Track-Packing-Study.html
