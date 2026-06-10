@@ -161,6 +161,36 @@ describe("AnimSection — inherited-row redirect", () => {
   });
 });
 
+describe("AnimSection — nullable selection gates the GROUP tier (#2+#6)", () => {
+  const groupTier = () => document.querySelector(".tier.append.group") as HTMLElement | null;
+
+  it("with nothing selected (scope:null, gi:null) the GROUP tier is NOT rendered", () => {
+    // a project whose layout[0] (Verse 1) owns a group animation — if the GROUP
+    // tier leaked through it would bind to and expose that gi=0 record.
+    const p = withAnimations(baseProject(), { group: { 0: [anim({ id: "g_pop", name: "pop", channel: "scale_x" })] } });
+    renderSection(p, { scope: null, gi: null, selWid: null });
+    expect(groupTier()).toBeNull();
+    // the GLOBAL tier is still always present
+    expect(globalTier()).not.toBeNull();
+  });
+
+  it("at GLOBAL scope the GROUP tier is NOT rendered (no layout[0] target)", () => {
+    const p = withAnimations(baseProject(), { group: { 0: [anim({ id: "g_pop", name: "pop", channel: "scale_x" })] } });
+    renderSection(p, { scope: "global", gi: null, selWid: null });
+    expect(groupTier()).toBeNull();
+  });
+
+  it("when a group IS selected the GROUP tier renders and dispatches its real gi (not 0 by accident)", async () => {
+    const p = withAnimations(baseProject(), { group: { 1: [anim({ id: "g_pop", name: "pop", channel: "scale_x" })] } });
+    const h = renderSection(p, { scope: "group", gi: 1, selWid: null });
+    const gt = groupTier();
+    expect(gt).not.toBeNull();
+    await userEvent.click(within(gt as HTMLElement).getByLabelText("Remove animation"));
+    // ref is the real selected gi (1), never a defaulted 0
+    expect(h.onRemove).toHaveBeenCalledWith("group", 1, "g_pop");
+  });
+});
+
 describe("AnimSection — per-tier preview", () => {
   it("renders a strip per resolved animation; clicking it focuses the owning row", async () => {
     const p = withAnimations(baseProject(), {

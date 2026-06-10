@@ -31,8 +31,8 @@ import { Splitter } from "./atoms/Splitter";
 
 // ---- selection state ----
 interface SelState {
-  scope: "global" | "group" | "cue";
-  gi: number;
+  scope: "global" | "group" | "cue" | null;
+  gi: number | null;
   tok: { li: number; ti: number } | null;
 }
 
@@ -369,7 +369,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
 
   // ---- clearSelection ----
   const clearSelection = useCallback(() => {
-    setSel({ scope: "global", gi: 0, tok: null });
+    setSel({ scope: null, gi: null, tok: null });
     setSelectedWords(new Set());
     anchorRef.current = null;
   }, []);
@@ -460,7 +460,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
       if (!project) return;
       // Find current tok
       const s = sel;
-      if (!s.tok) return;
+      if (!s.tok || s.gi == null) return;
       const tok = project.layout[s.gi]?.lines[s.tok.li]?.toks[s.tok.ti];
       if (!tok) return;
 
@@ -511,7 +511,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
 
   // ---- derived: current tok (for inspector) ----
   function currentTok(): Token | null {
-    if (!P || !sel.tok) return null;
+    if (!P || !sel.tok || sel.gi == null) return null;
     const g = P.layout[sel.gi];
     if (!g) return null;
     return g.lines[sel.tok.li]?.toks[sel.tok.ti] ?? null;
@@ -549,12 +549,12 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   // ---- derived: can* flags ----
   function canGroupFade() { return selectedWords.size >= 1 || selWid() != null; }
   function canMergeWords() { return selectedWords.size >= 2; }
-  function canMergeEvents() { return !!P && sel.scope === "group" && sel.gi < P.layout.length - 1; }
-  function canSplitEvent() { return !!P && sel.scope === "group" && P.layout[sel.gi]?.lines.length > 1; }
+  function canMergeEvents() { return !!P && sel.scope === "group" && sel.gi != null && sel.gi < P.layout.length - 1; }
+  function canSplitEvent() { return !!P && sel.scope === "group" && sel.gi != null && P.layout[sel.gi]?.lines.length > 1; }
   function canBreakLine() { return sel.tok != null; }
   // true when the selected cue already has a break after it (pressing would JOIN)
   function breakLineOn() {
-    if (!P || !sel.tok) return false;
+    if (!P || !sel.tok || sel.gi == null) return false;
     const g = P.layout[sel.gi];
     const { li, ti } = sel.tok;
     return ti === (g?.lines[li]?.toks.length ?? 0) - 1 && li < (g?.lines.length ?? 0) - 1;
@@ -672,6 +672,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   // ---- intent handlers ----
   function setStyle(tier: "global" | "group" | "cue", key: string, value: unknown) {
     if (tier === "group") {
+      if (sel.gi == null) return;
       dispatch("set_group_style", { gi: sel.gi, partial: { [key]: value } });
     } else if (tier === "cue") {
       const ids = selectedWords.size > 0 ? [...selectedWords] : (selWid() != null ? [selWid()!] : []);
@@ -818,7 +819,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   }
 
   function setLayoutProp(patch: Partial<{ linger: number; win_start: number | null; win_end: number | null }>) {
-    if (!P) return;
+    if (!P || sel.gi == null) return;
     const g = P.layout[sel.gi];
     if (!g) return;
     dispatch("set_layout_props", {
@@ -864,7 +865,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   // inverse of Merge words — split the selected merged cue back into separate words;
   // the resulting word cues stay selected (re-derived when the echo lands).
   function unmergeWord() {
-    if (!P || !sel.tok) return;
+    if (!P || !sel.tok || sel.gi == null) return;
     const tok = currentTok();
     if (!tok || tok.ids.length < 2) return;
     pendingSelRef.current = { ids: [...tok.ids], kind: "unmerge" };
@@ -872,19 +873,22 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   }
 
   function mergeEvents() {
+    if (sel.gi == null) return;
     dispatch("merge_events", { gidxs: [sel.gi, sel.gi + 1] });
   }
 
   function ungroupEvent() {
+    if (sel.gi == null) return;
     dispatch("ungroup_event", { gi: sel.gi });
   }
 
   function splitEvent() {
+    if (sel.gi == null) return;
     dispatch("split_event", { gi: sel.gi, line_index: 1 });
   }
 
   function breakLine() {
-    if (!P || !sel.tok) return;
+    if (!P || !sel.tok || sel.gi == null) return;
     // §3 multi-select rule: when ≥2 cues are selected, look at how many lines they
     // span within a group. >1 line → JOIN those lines; else → BREAK after each
     // selected cue. With a single selection we keep the existing break/join toggle.
@@ -938,7 +942,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   }
 
   function setCueTime(start: number, end: number) {
-    if (!P || !sel.tok || !timingsUnlocked) return;
+    if (!P || !sel.tok || sel.gi == null || !timingsUnlocked) return;
     const tk = P.layout[sel.gi].lines[sel.tok.li].toks[sel.tok.ti];
     const earliest = tk.ids.reduce((a, b) => (P.words[a].start <= P.words[b].start ? a : b));
     const latest = tk.ids.reduce((a, b) => (P.words[a].end >= P.words[b].end ? a : b));
@@ -949,7 +953,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   }
 
   function setCueText(text: string) {
-    if (!P || !sel.tok) return;
+    if (!P || !sel.tok || sel.gi == null) return;
     const tk = P.layout[sel.gi].lines[sel.tok.li].toks[sel.tok.ti];
     if (tk.ids.length === 1) dispatch("set_word_text", { wid: tk.ids[0], text });
   }
@@ -1147,7 +1151,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
               : "Click a cue · double-click a cue → Timeline · ⇧ shift = select range · ⌘/ctrl = add or remove"}
           </span>
         </div>
-        {groupExplicitSel && sel.scope === "group" && P.layout[sel.gi] && (
+        {groupExplicitSel && sel.scope === "group" && sel.gi != null && P.layout[sel.gi] && (
           <EventStrip g={P.layout[sel.gi]} onSet={setLayoutProp} />
         )}
         <OpsToolbar

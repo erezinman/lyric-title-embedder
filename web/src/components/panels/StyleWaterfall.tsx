@@ -297,7 +297,7 @@ function Tier({ tierClass, scope, title, badge, keys, styleDict, isGlobal, inher
 // ---- StyleWaterfall props ----
 export interface StyleWaterfallProps {
   project: Project;
-  sel: { scope: "global" | "group" | "cue"; gi: number; tok: Token | null };
+  sel: { scope: "global" | "group" | "cue" | null; gi: number | null; tok: Token | null };
   aiTier: "global" | "group" | "cue" | null;
   onSetStyle: (tier: TierScope, key: string, value: unknown) => void;
   onClearStyle: (tier: TierScope, key: string) => void;

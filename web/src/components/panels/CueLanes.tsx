@@ -8,7 +8,7 @@ import { Icon } from "../icons/Icon";
 
 export interface CueLanesProps {
   project: Project;
-  sel: { scope: "global" | "group" | "cue"; gi: number; tok: { li: number; ti: number } | null };
+  sel: { scope: "global" | "group" | "cue" | null; gi: number | null; tok: { li: number; ti: number } | null };
   selectedWords: Set<number>;
   collapsed: Set<number>;
   aiHotKey: string | null;

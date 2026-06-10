@@ -37,8 +37,8 @@ interface OpenState { scope: AnimScope | "global" | "group" | "tag"; id: string;
 
 export interface AnimSectionProps {
   project: Project;
-  scope: AnimScope;
-  gi: number;
+  scope: AnimScope | null;
+  gi: number | null;
   /** selected cue word id (CUE scope only). */
   selWid: number | null;
   onAdd: (scope: AnimScope, ref: number | number[] | null, anim: Animation) => void;
@@ -52,16 +52,18 @@ export interface AnimSectionProps {
 }
 
 // ---- ref for a tier scope (the dispatch's `ref` arg) ----
-function refFor(tierScope: AnimScope, gi: number, selWid: number | null, row?: AnimRow): number | number[] | null {
+function refFor(tierScope: AnimScope, gi: number | null, selWid: number | null, row?: AnimRow): number | number[] | null {
   if (tierScope === "global") return null;
-  if (tierScope === "group") return gi;
+  // group tier is gated on gi != null upstream; null here is unreachable but we
+  // return null (a no-op ref) rather than ever resolving to layout[0].
+  if (tierScope === "group") return gi != null ? gi : null;
   if (row?.tag) return [...row.tag.ids];
   return selWid != null ? [selWid] : [];
 }
 
-function tierLabel(tierScope: AnimScope, project: Project, gi: number, selWid: number | null): string {
+function tierLabel(tierScope: AnimScope, project: Project, gi: number | null, selWid: number | null): string {
   if (tierScope === "global") return "defaults";
-  if (tierScope === "group") return project.layout[gi]?.label ?? "";
+  if (tierScope === "group") return gi != null ? (project.layout[gi]?.label ?? "") : "";
   return selWid != null ? `"${project.words[selWid]?.text ?? ""}"` : "";
 }
 
@@ -396,7 +398,7 @@ interface RowHandlers {
 function AnimOwnRow({
   row, tierScope, gi, selWid, editing, flashKey, ctx, onToggleEdit, onRemove, onSetProps, onEditCustom, onSelectCues,
 }: {
-  row: AnimRow; tierScope: AnimScope; gi: number; selWid: number | null; editing: boolean;
+  row: AnimRow; tierScope: AnimScope; gi: number | null; selWid: number | null; editing: boolean;
   flashKey: number; ctx: StyleCtx; onToggleEdit: () => void;
 } & RowHandlers) {
   const ref = refFor(tierScope, gi, selWid, row);
@@ -440,7 +442,7 @@ function AnimOwnRow({
 function AnimInheritedRow({
   row, tierScope, gi, selWid, onRemove, onRestore, onOpen,
 }: {
-  row: AnimRow; tierScope: AnimScope; gi: number; selWid: number | null;
+  row: AnimRow; tierScope: AnimScope; gi: number | null; selWid: number | null;
   onRemove: AnimSectionProps["onRemove"]; onRestore: AnimSectionProps["onRestore"];
   onOpen: (src: AnimRow["src"], id: string) => void;
 }) {
@@ -473,7 +475,7 @@ function AnimInheritedRow({
 function AnimTier({
   tierScope, project, gi, selWid, ctx, open, setOpen, onAdd, onRemove, onRestore, onSetProps, onEditCustom, onSelectCues,
 }: {
-  tierScope: AnimScope; project: Project; gi: number; selWid: number | null; ctx: StyleCtx;
+  tierScope: AnimScope; project: Project; gi: number | null; selWid: number | null; ctx: StyleCtx;
   open: OpenState | null; setOpen: (next: { scope: OpenState["scope"]; id: string } | null) => void;
   onAdd: AnimSectionProps["onAdd"]; onRemove: AnimSectionProps["onRemove"]; onRestore: AnimSectionProps["onRestore"];
   onSetProps: AnimSectionProps["onSetProps"]; onEditCustom: AnimSectionProps["onEditCustom"]; onSelectCues: AnimSectionProps["onSelectCues"];
@@ -482,8 +484,8 @@ function AnimTier({
   const [discOpen, setDiscOpen] = useState(false);
   const rows: AnimRow[] =
     tierScope === "global" ? globalRows(project)
-    : tierScope === "group" ? groupRows(project, gi)
-    : cueRows(project, gi, selWid ?? -1);
+    : tierScope === "group" ? groupRows(project, gi ?? -1)
+    : cueRows(project, gi ?? -1, selWid ?? -1);
   const own = rows.filter((r) => r.kind === "own");
   const inherited = rows.filter((r) => r.kind !== "own");
   const tag = tierScope === "global" ? "GLOBAL" : tierScope === "group" ? "GROUP" : "CUE";
@@ -561,7 +563,6 @@ function AnimTier({
 }
 
 export function AnimSection({ project, scope, gi, selWid, onAdd, onRemove, onRestore, onSetProps, onEditCustom, onSelectCues }: AnimSectionProps) {
-  void scope;
   // one "open animation" across all tiers: {scope, id, nonce}. Clicking an inherited
   // row sets it to the owning scope so the row expands where it's defined; the bumped
   // nonce both re-runs the focus-scroll and re-triggers the flash pulse.
@@ -602,7 +603,7 @@ export function AnimSection({ project, scope, gi, selWid, onAdd, onRemove, onRes
       <div className="sec-t cyan"><Icon name="sparkles" size={13} /> Animation</div>
       <div className="sec-sub">Same global → group → cue waterfall as style. Tiers append only what they override.</div>
       {selWid != null && <AnimTier tierScope="cue" {...tierProps} />}
-      <AnimTier tierScope="group" {...tierProps} />
+      {scope !== "global" && gi != null && <AnimTier tierScope="group" {...tierProps} />}
       <AnimTier tierScope="global" {...tierProps} />
     </div>
   );
