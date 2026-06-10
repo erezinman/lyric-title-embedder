@@ -337,9 +337,9 @@ export function StyleWaterfall({ project, sel, aiTier, onSetStyle, onClearStyle 
           tierClass="word"
           scope="cue"
           title="CUE"
-          previewText={project.words[tok.ids[0]]?.text || "Karaoke"}
+          previewText={tok.ids.map((id) => project.words[id]?.text).filter(Boolean).join(tok.sep || " ") || "Karaoke"}
           rtl={isRtl}
-          badge={<span className="t3-meta">"{project.words[tok.ids[0]]?.text ?? ""}"</span>}
+          badge={<span className="t3-meta">"{tok.ids.map((id) => project.words[id]?.text).filter(Boolean).join(tok.sep || " ") ?? ""}"</span>}
           keys={CUE_STYLE_KEYS}
           styleDict={tok.style as Record<string, unknown>}
           inherit={inheritMap(project, gi, "cue")}

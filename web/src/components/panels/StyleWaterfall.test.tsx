@@ -102,6 +102,25 @@ describe("StyleWaterfall", () => {
     expect(onSetStyle).toHaveBeenCalledWith("group", "fontsize", expect.any(Number));
   });
 
+  it("CUE badge/preview shows full merged-cue text, not just the first word (#10i)", () => {
+    const p = proj();
+    // merged cue: words 0 ("Caught") + 1 ("in"), joined by a space
+    const mergedTok = { ids: [0, 1], sep: " ", del: false, style: {} };
+    render(
+      <StyleWaterfall
+        project={p}
+        sel={{ scope: "cue", gi: 0, tok: mergedTok }}
+        aiTier={null}
+        onSetStyle={vi.fn()}
+        onClearStyle={vi.fn()}
+      />
+    );
+    const cueTier = screen.getByText("CUE").closest(".tier3") as HTMLElement;
+    // badge text node should contain the full merged text, not just "Caught"
+    expect(within(cueTier).getByText('"Caught in"')).toBeTruthy();
+    expect(within(cueTier).queryByText('"Caught"')).toBeNull();
+  });
+
   it("GLOBAL tier shows 'base' chips and no clear button", () => {
     const p = proj();
     render(
