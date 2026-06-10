@@ -113,6 +113,35 @@ Headline: only **#2+#6 (nullable selection)** and **#10(i) (merged-cue badge)** 
 everything else is settled-keep or designer-gated. One reversal vs. the earlier review: **#1 `align`**
 is **kept** (engine-faithful — `engine/model.py` makes it a real group-level style key), not reverted.
 
+> **Status (632bc92):** #2+#6 and #10(i) are **merged** on the branch — verified.
+
+### Judgment calls — LOCKED (2026-06-10)
+1. **Tombstone** → red/danger chip (reads as "deleted").
+2. **EventStrip** → bottom of dock (summary/footer).
+3. **Alignment control** → hybrid: inline grid + value caption + disabled-reason tooltip.
+4. **Magnet chip** → "alt" (names the modifier).
+5. **Tier chrome** → restore shaded band cosmetics only; keep collapse-only click.
+6. **GROUP preview** → hybrid: cue text when selected, else `g.label`.
+- `.ks-gradient-text` → leave out until needed. · Density default → Lanes when events ≤ ~6, else Coherent.
+
+---
+
+## Event authoring — naming the SRT-import gaps
+
+An `.srt` imports **cue text + line timing** (words share their cue's timing) — no events, names, or sections,
+so it lands as one flat **"Subtitles"** event. The **Events panel** (Project rail / Lanes dock) is the method to
+author the gaps; style / animation / placement / per-word retiming already have their own surfaces.
+
+- **Group** — `＋New` · `Merge selected` · `Split at cue` build the `layout[]` structure.
+- **Name** — inline rename (Events panel) or double-click the timeline lane header; both write `layout[i].label`.
+- **Section** — fixed enum (—, Intro, Verse, Pre-chorus, Chorus, Bridge, Outro, Hook) **+ Custom…** which opens a small single-line text-box modal.
+- **Linger** — stepper (hold past window). `win_start/win_end` are imported (editable in the timeline).
+
+**Locked rules:** event names are **single-line** (Enter commits, no newline; pasted breaks → spaces) and
+**truncate with … + a full-name tooltip**. SRT imports as a single "Subtitles" event — **no gap-threshold
+auto-suggest** (manual grouping). The event **color is its brand** — clicking the swatch recolors the group
+**everywhere** (its lane + every cue block in the timeline). → `resources/Event-Authoring.html`
+
 ---
 
 ## Contents
@@ -129,5 +158,6 @@ Karaoke-DS-Update/
    ├─ Strips-Refined.html
    ├─ Animation-Indicator-Study.html
    ├─ Cue-Visibility-Ticks.html
+   ├─ Event-Authoring.html
    └─ Timeline-Waveform-Review.html
 ```

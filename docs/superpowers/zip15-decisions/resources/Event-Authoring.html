@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<!-- @dsCard group="UI Kit — Desktop App" name="Event authoring — naming the SRT gaps" subtitle="Group cues into named events · inline rename · section · linger — what SRT can't import" viewport="1180x1080" -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Event authoring</title>
+<link rel="icon" href="../assets/logo-mark.svg" />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+:root{
+  --bg:#0C0A14; --surface-1:#15111F; --surface-2:#1A1528; --surface-3:#221B33; --surface-4:#241C36;
+  --border:#2C2440; --border-strong:#3A3052;
+  --text-1:#ECE7F4; --text-2:#A599BC; --text-3:#6E6385; --text-on-accent:#22041A;
+  --accent:#FF3DA6; --cyan:#3DE0FF; --violet:#8A5BFF; --violet-soft:#A88BFF; --warn:#FFC24D; --success:#4DE0C2;
+  --glow-accent:rgba(255,61,166,.32);
+  --p0:#FF3DA6; --p1:#8A5CF6; --p2:#36E2FF; --p3:#37E29A; --p4:#FFC24B;
+  --font-display:'Space Grotesk',system-ui,sans-serif;
+  --font-ui:'Hanken Grotesk',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --radius-xs:5px; --radius-sm:7px; --radius-md:9px; --radius-lg:12px; --radius-pill:999px;
+  --shadow-3:0 18px 50px rgba(0,0,0,.5); --ease-out:cubic-bezier(.2,.7,.3,1); --dur:160ms;
+}
+*{box-sizing:border-box;} html,body{margin:0;}
+body{background:radial-gradient(130% 80% at 50% -8%,#150F24 0%,var(--bg) 60%);color:var(--text-1);font-family:var(--font-ui);font-size:13px;-webkit-font-smoothing:antialiased;}
+.page{max-width:1120px;margin:0 auto;padding:36px 36px 70px;}
+.hd h1{font-family:var(--font-display);font-weight:700;font-size:24px;letter-spacing:-.02em;margin:0 0 8px;}
+.hd p{margin:0;color:var(--text-2);font-size:13px;line-height:1.55;max-width:800px;}
+.hd p b{color:var(--text-1);} .hd code{font-family:var(--font-mono);font-size:11px;color:var(--cyan);}
+
+.srtbar{display:flex;align-items:center;gap:12px;margin-top:18px;padding:11px 15px;background:color-mix(in srgb,var(--warn) 8%,var(--surface-1));border:1px solid color-mix(in srgb,var(--warn) 32%,transparent);border-radius:var(--radius-md);font-size:12.5px;color:var(--text-2);}
+.srtbar .ic{color:var(--warn);font-family:var(--font-mono);font-weight:700;}
+.srtbar b{color:var(--text-1);}
+
+.panel{margin-top:18px;background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-3);overflow:hidden;}
+.panel-h{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface-2);}
+.panel-h .t{font-family:var(--font-display);font-weight:600;font-size:14px;}
+.panel-h .sub{color:var(--text-3);font-size:11.5px;}
+.toolbar{margin-left:auto;display:flex;gap:7px;}
+.tb{font:inherit;font-size:11.5px;color:var(--text-2);background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 11px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.12s;}
+.tb:hover{border-color:var(--border-strong);color:var(--text-1);}
+.tb.primary{background:color-mix(in srgb,var(--accent) 16%,transparent);border-color:color-mix(in srgb,var(--accent) 45%,transparent);color:var(--accent-soft,#FF6FC0);}
+.tb:disabled{opacity:.4;cursor:default;}
+
+/* column headers */
+.evhead{display:grid;grid-template-columns:26px 1fr 150px 120px 90px 64px;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);}
+.evhead .imp{color:color-mix(in srgb,var(--text-3) 80%,transparent);} 
+.ev{display:grid;grid-template-columns:26px 1fr 150px 120px 90px 64px;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid color-mix(in srgb,var(--border) 55%,transparent);}
+.ev:last-child{border-bottom:0;}
+.ev.sel{background:color-mix(in srgb,var(--violet) 9%,transparent);box-shadow:inset 3px 0 0 var(--ev);}
+.ev.todo{background:color-mix(in srgb,var(--warn) 6%,transparent);}
+.ev .grip{color:var(--text-3);cursor:grab;display:flex;align-items:center;gap:6px;}
+.ev .dot{width:10px;height:10px;border-radius:50%;background:var(--ev);flex:0 0 auto;}
+.namewrap{display:flex;align-items:center;gap:8px;min-width:0;}
+.name{font-family:var(--font-display);font-weight:600;font-size:14px;color:#fff;background:transparent;border:1px solid transparent;border-radius:var(--radius-xs);padding:3px 7px;outline:none;min-width:0;max-width:100%;display:inline-block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.name:hover{border-color:var(--border);} 
+.name:focus{border-color:var(--accent);background:var(--surface-3);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent);overflow:auto;text-overflow:clip;}
+.name.unnamed{color:var(--warn);font-style:italic;font-weight:500;}
+.pencil{color:var(--text-3);opacity:0;flex:0 0 auto;transition:opacity .12s;cursor:pointer;}
+.namewrap:hover .pencil{opacity:1;}
+.cuecount{font-family:var(--font-mono);font-size:9.5px;color:var(--text-3);flex:0 0 auto;}
+
+.sec-sel{appearance:none;font:inherit;font-size:12px;color:var(--text-1);background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 26px 5px 10px;cursor:pointer;width:100%;
+  background-image:linear-gradient(45deg,transparent 50%,var(--text-3) 50%),linear-gradient(135deg,var(--text-3) 50%,transparent 50%);background-position:calc(100% - 13px) 13px,calc(100% - 8px) 13px;background-size:5px 5px,5px 5px;background-repeat:no-repeat;}
+.sec-sel:focus{outline:none;border-color:var(--accent);}
+.win{font-family:var(--font-mono);font-size:11px;color:var(--text-3);} .win b{color:var(--text-2);font-weight:500;}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--border-strong);border-radius:var(--radius-xs);background:var(--surface-3);overflow:hidden;height:24px;}
+.stepper button{width:20px;height:22px;border:0;background:transparent;color:var(--text-2);font-size:13px;cursor:pointer;display:grid;place-items:center;}
+.stepper button:hover{color:var(--text-1);background:var(--surface-4);}
+.stepper .sv{font-family:var(--font-mono);font-size:11px;color:var(--text-1);min-width:30px;text-align:center;}
+
+.legend{display:flex;gap:18px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--border);background:var(--surface-1);font-size:11px;color:var(--text-3);}
+.legend b{color:var(--text-2);}
+.tag-imp{font-family:var(--font-mono);font-size:8.5px;color:var(--cyan);border:1px solid color-mix(in srgb,var(--cyan) 35%,transparent);border-radius:3px;padding:1px 5px;}
+.tag-auth{font-family:var(--font-mono);font-size:8.5px;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:3px;padding:1px 5px;}
+
+/* inline-on-timeline inset */
+.inset{margin-top:20px;display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;}
+.inset .col{flex:1;min-width:300px;}
+.inset h4{font-family:var(--font-display);font-size:12.5px;font-weight:600;margin:0 0 8px;color:var(--text-1);}
+.inset p{margin:0;font-size:12px;color:var(--text-3);line-height:1.5;}
+.lanehdr{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:inset 3px 0 0 var(--p1);padding:9px 12px;font-family:var(--font-display);font-weight:600;font-size:12px;color:var(--text-2);}
+.lanehdr .dot{width:8px;height:8px;border-radius:50%;background:var(--p1);}
+.lanehdr .en{color:#fff;border:1px solid var(--accent);background:var(--surface-3);border-radius:var(--radius-xs);padding:2px 7px;outline:none;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:bottom;}
+.lanehdr .en:focus{overflow:auto;text-overflow:clip;}
+.lanehdr .cur{margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-3);}
+
+.verdict{margin-top:22px;background:color-mix(in srgb,var(--success) 7%,var(--surface-1));border:1px solid color-mix(in srgb,var(--success) 32%,transparent);border-radius:var(--radius-md);padding:15px 18px;}
+.verdict .vh{font-family:var(--font-display);font-weight:600;font-size:12.5px;color:var(--success);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;}
+.verdict p{margin:0 0 8px;font-size:13px;color:var(--text-1);line-height:1.6;} .verdict p:last-child{margin-bottom:0;}
+.verdict code{font-family:var(--font-mono);font-size:11.5px;color:var(--cyan);background:rgba(61,224,255,.08);padding:1px 5px;border-radius:4px;}
+.verdict .open{color:var(--warn);font-weight:600;}
+.modal-back{position:fixed;inset:0;z-index:100;background:rgba(8,6,14,.62);display:flex;align-items:center;justify-content:center;}
+.modal-back[hidden]{display:none;}
+.modal{width:300px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:var(--radius-md);box-shadow:var(--shadow-3);padding:16px;}
+.modal .m-h{font-family:var(--font-display);font-weight:600;font-size:13px;margin-bottom:10px;}
+.modal .m-in{width:100%;height:32px;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-1);font:inherit;font-size:13px;padding:0 10px;outline:none;}
+.modal .m-in:focus{border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent);}
+.modal .m-act{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;}
+.namewrap .dot{border:0;padding:0;cursor:pointer;box-shadow:0 0 0 1px rgba(255,255,255,.14);transition:transform .1s,box-shadow .1s;}
+.namewrap .dot:hover{transform:scale(1.18);box-shadow:0 0 0 2px rgba(255,255,255,.3);}
+.cpop{position:fixed;z-index:110;display:flex;gap:6px;padding:8px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);box-shadow:var(--shadow-3);}
+.cpop[hidden]{display:none;}
+.cpop .csw{width:20px;height:20px;border-radius:50%;border:1px solid rgba(255,255,255,.18);cursor:pointer;padding:0;transition:transform .1s;}
+.cpop .csw:hover{transform:scale(1.16);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="hd">
+    <h1>Event authoring — naming what SRT can't import</h1>
+    <p>An <code>.srt</code> brings in <b>cue text + line timing</b> (words share their cue's timing). It has no concept of
+    <b>events, names, or sections</b> — so it lands as one flat <i>"Subtitles"</i> group. This panel is the method to
+    author the gaps: <b>group cues into events, name them, set a section</b>. (Style, animation, placement and per-word
+    retiming already have their own editor surfaces — those aren't import gaps.)</p>
+  </header>
+
+  <div class="srtbar"><span class="ic">SRT</span>Imported <b>9 cues</b> as one event <b>"Subtitles"</b> · per-word timing = cue timing.
+    <span style="margin-left:auto;color:var(--text-3)">Split &amp; name below ↓</span></div>
+
+  <div class="panel">
+    <div class="panel-h"><span class="t">Events</span><span class="sub">group · name · section · linger</span>
+      <div class="toolbar">
+        <button class="tb" id="merge" disabled>⛓ Merge selected</button>
+        <button class="tb" id="split">✂ Split at cue</button>
+        <button class="tb primary" id="add">＋ New event</button>
+      </div>
+    </div>
+    <div class="evhead">
+      <span></span><span>Name <span class="tag-auth" style="font-size:8px">author</span></span>
+      <span>Section <span class="tag-auth" style="font-size:8px">author</span></span>
+      <span class="imp">Window <span class="tag-imp" style="font-size:8px">srt</span></span>
+      <span>Linger</span><span>Cues</span>
+    </div>
+    <div id="events"></div>
+    <div class="legend">
+      <span><span class="tag-imp">srt</span> imported from the file (read-only here)</span>
+      <span><span class="tag-auth">author</span> can't come from SRT — you set it</span>
+      <span><b>Tip:</b> click a name to rename · drag the grip to reorder · select rows then Merge</span>
+    </div>
+  </div>
+
+  <div class="inset">
+    <div class="col">
+      <h4>Same rename, inline on the timeline</h4>
+      <div class="lanehdr"><span class="dot"></span><span class="en" contenteditable="true">Chorus</span><span class="cur">double-click label to rename</span></div>
+      <p style="margin-top:8px;">Naming lives in two places that write the same <code>layout[i].label</code>: this Events panel
+      and a double-click on any lane/event header in the timeline.</p>
+    </div>
+    <div class="col">
+      <h4>What each field maps to</h4>
+      <p><code>label</code> → event name · <code>section</code> → category (drives section-header styling) ·
+      <code>win_start/win_end</code> → imported, editable in the timeline · <code>linger</code> → hold past window.
+      Grouping writes the <code>layout[]</code> structure (merge / split cues into events).</p>
+    </div>
+  </div>
+
+  <div class="verdict">
+    <div class="vh">▍ Verdict / proposal</div>
+    <p>Ship an <b>Events panel</b> (lives in the Project rail or the Lanes dock) as the home for the import-gap metadata:
+    inline-rename names, a section <code>&lt;select&gt;</code>, a linger stepper, and grouping actions
+    (<b>＋New · Merge selected · Split at cue</b>). Names also editable inline on the timeline lane header — both write <code>layout[i].label</code>. The event <b>color</b> is its brand — clicking the swatch recolors the group <b>everywhere</b> (its lane + every cue block in the timeline).</p>
+    <p style="color:var(--text-2);font-size:12.5px;"><b>Locked:</b> SRT imports as a single <b>"Subtitles"</b> event — <b>no gap-threshold auto-suggest</b>; you group manually with ＋New / Merge / Split.</p>
+    <p style="color:var(--text-2);font-size:12.5px;"><b>Locked:</b> event names are <b>single-line</b> (Enter commits, no newline; pasted breaks → spaces) and <b>truncate with … + a full-name tooltip</b>. <b>Section</b> = fixed enum + <b>Custom…</b> (opens a small text-box modal). Same rules on the timeline lane-header rename.</p>
+  </div>
+</div>
+
+<script>
+const SEC_BASE=["—","Intro","Verse","Pre-chorus","Chorus","Bridge","Outro","Hook"];
+function optsFor(e){ let h=SEC_BASE.map(s=>`<option ${s===e.section?'selected':''}>${s}</option>`).join(''); if(e.section && !SEC_BASE.includes(e.section)) h+=`<option selected>${e.section}</option>`; return h+`<option value="__custom">Custom…</option>`; }
+const PALETTE=['#FF3DA6','#8A5CF6','#36E2FF','#37E29A','#FFC24B','#FF6B6B','#A88BFF','#4DE0C2'];
+let EVENTS=[
+  {name:"Verse 1", section:"Verse", ws:0.3, we:6.4, linger:0, n:3, c:'#FF3DA6', sel:false},
+  {name:"Chorus",  section:"Chorus", ws:6.7, we:11.6, linger:0.4, n:3, c:'#36E2FF', sel:true},
+  {name:"", section:"—", ws:12.0, we:18.7, linger:0, n:3, c:'#FFC24B', sel:false, todo:true}, // unnamed remnant
+];
+const elc=document.getElementById('events');
+function render(){
+  elc.innerHTML="";
+  EVENTS.forEach((e,i)=>{
+    const row=document.createElement('div');
+    row.className='ev'+(e.sel?' sel':'')+(e.todo?' todo':'');
+    row.style.setProperty('--ev',e.c);
+    const opts=optsFor(e);
+    row.innerHTML=`
+      <span class="grip">⋮⋮</span>
+      <span class="namewrap"><button class="dot" data-color="${i}" style="background:${e.c}" title="Recolor group — rebrands its lane + cue blocks"></button>
+        <span class="name ${e.name?'':'unnamed'}" contenteditable="true" data-i="${i}" title="${(e.name||'Untitled event').replace(/"/g,'&quot;')}">${e.name||'Untitled event'}</span>
+        <span class="pencil" data-edit="${i}">✎</span></span>
+      <select class="sec-sel" data-sec="${i}">${opts}</select>
+      <span class="win"><b>${e.ws.toFixed(1)}</b>–<b>${e.we.toFixed(1)}</b>s</span>
+      <span class="stepper"><button data-ling="${i}" data-d="-1">−</button><span class="sv">${e.linger.toFixed(1)}</span><button data-ling="${i}" data-d="1">＋</button></span>
+      <span class="cuecount">${e.n} cue${e.n>1?'s':''}</span>`;
+    elc.appendChild(row);
+  });
+}
+elc.addEventListener('input',ev=>{ const n=ev.target.closest('.name'); if(n){ const i=+n.dataset.i; EVENTS[i].name=n.textContent.trim(); n.classList.toggle('unnamed',!EVENTS[i].name); n.title=EVENTS[i].name||'Untitled event'; }});
+elc.addEventListener('change',ev=>{ const s=ev.target.closest('[data-sec]'); if(s){ const i=+s.dataset.sec; if(s.value==='__custom') openCustom(i); else EVENTS[i].section=s.value; }});
+// Custom-section modal (enum + free text)
+const mb=document.createElement('div'); mb.className='modal-back'; mb.hidden=true;
+mb.innerHTML=`<div class="modal"><div class="m-h">Custom section</div><input id="m-in" class="m-in" type="text" maxlength="40" placeholder="e.g. Refrain · Drop · Tag…"><div class="m-act"><button class="tb" id="m-cancel">Cancel</button><button class="tb primary" id="m-save">Save</button></div></div>`;
+document.body.appendChild(mb);
+const mIn=mb.querySelector('#m-in'); let mIdx=null;
+function openCustom(i){ mIdx=i; const cur=EVENTS[i].section; mIn.value=SEC_BASE.includes(cur)?'':cur; mb.hidden=false; setTimeout(()=>mIn.focus(),0); }
+function closeCustom(save){ if(save && mIdx!=null){ const v=mIn.value.replace(/[\r\n]+/g,' ').trim(); EVENTS[mIdx].section=v||'—'; } mb.hidden=true; mIdx=null; render(); }
+mb.querySelector('#m-save').onclick=()=>closeCustom(true);
+mb.querySelector('#m-cancel').onclick=()=>closeCustom(false);
+mb.addEventListener('click',e=>{ if(e.target===mb) closeCustom(false); });
+mIn.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();closeCustom(true);} else if(e.key==='Escape'){e.preventDefault();closeCustom(false);} });
+elc.addEventListener('click',ev=>{
+  const p=ev.target.closest('[data-edit]'); if(p){ const n=elc.querySelector(`.name[data-i="${p.dataset.edit}"]`); n.focus(); document.getSelection().selectAllChildren(n); return; }
+  const l=ev.target.closest('[data-ling]'); if(l){ const i=+l.dataset.ling; EVENTS[i].linger=Math.max(0,EVENTS[i].linger+(+l.dataset.d)*0.1); render(); return; }
+  const row=ev.target.closest('.ev'); if(row && !ev.target.closest('.name,select,.stepper,.dot')){ const i=[...elc.children].indexOf(row); EVENTS[i].sel=!EVENTS[i].sel; render(); syncMerge(); }
+});
+function syncMerge(){ document.getElementById('merge').disabled=EVENTS.filter(e=>e.sel).length<2; }
+// names are SINGLE-LINE: Enter commits (blur), never inserts a newline; pasted newlines collapse to spaces.
+function noNewline(e){ if(e.key==='Enter'){ e.preventDefault(); e.target.blur(); } }
+elc.addEventListener('keydown',e=>{ if(e.target.classList && e.target.classList.contains('name')) noNewline(e); });
+const laneEn=document.querySelector('.lanehdr .en'); if(laneEn) laneEn.addEventListener('keydown',noNewline);
+if(laneEn){ const setT=()=>laneEn.title=laneEn.textContent.trim(); setT(); laneEn.addEventListener('input',setT); }
+document.addEventListener('paste',e=>{ const t=e.target; if(t && t.isContentEditable){ e.preventDefault(); const txt=(e.clipboardData.getData('text')||'').replace(/[\r\n]+/g,' ').trim(); document.execCommand('insertText',false,txt); }});
+document.getElementById('add').addEventListener('click',()=>{ EVENTS.push({name:"",section:"—",ws:18.7,we:21.0,linger:0,n:1,c:'#8A5CF6',todo:true}); render(); });
+// color "rebrand" — click an event's swatch to recolor the group everywhere (its lane + cue blocks)
+const cp=document.createElement('div'); cp.className='cpop'; cp.hidden=true;
+cp.innerHTML=PALETTE.map(c=>`<button class="csw" data-c="${c}" style="background:${c}"></button>`).join('');
+document.body.appendChild(cp); let cpIdx=null;
+function openColor(i,anchor){ cpIdx=i; const r=anchor.getBoundingClientRect(); cp.style.left=r.left+'px'; cp.style.top=(r.bottom+6)+'px'; cp.hidden=false; }
+elc.addEventListener('click',ev=>{ const d=ev.target.closest('.dot[data-color]'); if(d) openColor(+d.dataset.color,d); });
+cp.addEventListener('click',ev=>{ const b=ev.target.closest('[data-c]'); if(!b||cpIdx==null)return; EVENTS[cpIdx].c=b.dataset.c; cp.hidden=true; render(); syncLane(); });
+document.addEventListener('click',ev=>{ if(!cp.hidden && !ev.target.closest('.cpop,.dot[data-color]')) cp.hidden=true; });
+function syncLane(){ const e=EVENTS.find(x=>x.name==='Chorus')||EVENTS[1]; const lh=document.querySelector('.lanehdr'); if(lh&&e){ lh.style.boxShadow='inset 3px 0 0 '+e.c; const d=lh.querySelector('.dot'); if(d) d.style.background=e.c; } }
+render(); syncMerge(); syncLane();
+</script>
+
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<rect width="100" height="100" fill="#15111F"/>
+<circle cx="24" cy="36" r="5" fill="#FF3DA6"/><rect x="34" y="32" width="44" height="8" rx="2" fill="#ECE7F4"/>
+<circle cx="24" cy="54" r="5" fill="#36E2FF"/><rect x="34" y="50" width="34" height="8" rx="2" fill="#ECE7F4"/>
+<circle cx="24" cy="72" r="5" fill="#FFC24B"/><rect x="34" y="68" width="30" height="8" rx="2" fill="#6E6385"/>
+</svg>
+</template>
+</body>
+</html>
