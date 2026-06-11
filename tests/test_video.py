@@ -243,6 +243,43 @@ def t_api_video_clear_keeps_lyrics():
             and len(after["layout"]) == len(before["layout"])), "lyrics preserved"
 
 
+# ---------------------------------------------------------------------------
+# 4. daemon GET /api/video — stream the open project's video bytes (Range-capable).
+# ---------------------------------------------------------------------------
+def t_api_video_get_returns_bytes():
+    c, ctx, tmp = _daemon()
+    orig = _stub_probe()
+    body = b"\x00\x00fakevideobytes-1234567890"
+    try:
+        c.post("/api/video", files={"video_file": ("clip.mp4", body)})
+        r = c.get("/api/video")
+        ok = (r.status_code == 200 and r.content == body)
+    finally:
+        ffmpeg.probe_video = orig; shutil.rmtree(tmp, ignore_errors=True)
+    return ok, f"status={r.status_code} len={len(r.content)}"
+
+def t_api_video_get_range_returns_206_partial():
+    c, ctx, tmp = _daemon()
+    orig = _stub_probe()
+    body = b"abcdefghijklmnopqrstuvwxyz0123456789"
+    try:
+        c.post("/api/video", files={"video_file": ("clip.mp4", body)})
+        r = c.get("/api/video", headers={"Range": "bytes=0-9"})
+        ok = (r.status_code == 206 and r.content == body[0:10]
+              and "content-range" in {k.lower() for k in r.headers})
+    finally:
+        ffmpeg.probe_video = orig; shutil.rmtree(tmp, ignore_errors=True)
+    return ok, f"status={r.status_code} content={r.content!r} hdrs={dict(r.headers)}"
+
+def t_api_video_get_no_video_404():
+    c, ctx, tmp = _daemon()        # project created without a video
+    try:
+        r = c.get("/api/video")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return (r.status_code == 404), f"status={r.status_code} body={r.text}"
+
+
 for n, f in list(globals().items()):
     if n.startswith("t_"): check(n, f)
 npass = sum(1 for ok, *_ in results if ok)

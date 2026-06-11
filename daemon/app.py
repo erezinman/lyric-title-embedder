@@ -11,6 +11,19 @@ from starlette.responses import PlainTextResponse, FileResponse
 from daemon.api import make_routes
 from mcp_server.server import build_server
 
+class _CrossOriginIsolation(BaseHTTPMiddleware):
+    # Cross-origin isolation so jassub (libass-wasm) can use SharedArrayBuffer
+    # threads in the packaged build. COOP/COEP go on the document; CORP same-origin
+    # goes on every response so COEP `require-corp` accepts our own same-origin
+    # subresources (assets, /api/font, /api/video) — the app serves nothing
+    # cross-origin, so require-corp is safe here.
+    async def dispatch(self, request, call_next):
+        resp = await call_next(request)
+        resp.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        resp.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+        resp.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+        return resp
+
 class _Auth(BaseHTTPMiddleware):
     def __init__(self, app, token):
         super().__init__(app); self.token = token
@@ -22,7 +35,7 @@ class _Auth(BaseHTTPMiddleware):
 def build_app(ctx, hub, token=None, projects_dir="projects", file_access="native", web_dist=None):
     (call, state, render, ass, srt, vtt, ws_endpoint, frame, font, burn, burn_status,
      projects_list, projects_new, projects_open, projects_save, env, projects_create,
-     connect, fonts, video, video_clear, fonts_upload, fonts_file, fonts_delete) = make_routes(ctx, hub)
+     connect, fonts, video, video_get, video_clear, fonts_upload, fonts_file, fonts_delete) = make_routes(ctx, hub)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -48,6 +61,7 @@ def build_app(ctx, hub, token=None, projects_dir="projects", file_access="native
         Route("/api/projects/create", projects_create, methods=["POST"]),
         Route("/api/projects/open", projects_open, methods=["POST"]),
         Route("/api/projects/save", projects_save, methods=["POST"]),
+        Route("/api/video", video_get, methods=["GET"]),
         Route("/api/video", video, methods=["POST"]),
         Route("/api/video", video_clear, methods=["DELETE"]),
         Route("/api/env", env, methods=["GET"]),
@@ -79,7 +93,8 @@ def build_app(ctx, hub, token=None, projects_dir="projects", file_access="native
         routes.append(Route("/", _spa_root, methods=["GET"]))
         routes.append(Route("/{path:path}", _spa, methods=["GET"]))
 
-    middleware = [Middleware(CORSMiddleware, allow_origins=["http://127.0.0.1:5173",
+    middleware = [Middleware(_CrossOriginIsolation),
+                  Middleware(CORSMiddleware, allow_origins=["http://127.0.0.1:5173",
                   "http://localhost:5173"], allow_methods=["*"], allow_headers=["*"])]
     if token:
         middleware.append(Middleware(_Auth, token=token))

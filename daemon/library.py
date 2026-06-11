@@ -255,7 +255,11 @@ def open_project(ctx, projects_dir, name):
         engine.migrate_project(ctx.session.project)
         v = d.get("video")
         if v:
-            ctx.set_video(v if os.path.isabs(v) else os.path.join(folder, v))
+            # Resolve to ABSOLUTE: the persisted value is a folder-relative basename,
+            # and `folder`/projects_dir may itself be relative (the daemon runs with a
+            # cwd != repo). A relative video path would later fail ffmpeg input-open
+            # (blank EXACT preview). abspath pins it to the project folder regardless.
+            ctx.set_video(v if os.path.isabs(v) else os.path.abspath(os.path.join(folder, v)))
         ctx.session.set_project(ctx.session.project)   # fire on_change / reset undo
 
 def save_project(ctx, projects_dir, name):

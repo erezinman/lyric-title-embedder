@@ -1,6 +1,6 @@
 # daemon/api.py — Starlette handlers over a DaemonContext + Hub. Imports starlette only.
 import os
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse, Response, FileResponse
 from mcp_server import tools
 
 def _err(msg, code=400):
@@ -214,6 +214,23 @@ def make_routes(ctx, hub):
             return _err(f"{type(e).__name__}: {e}", 422)
         return JSONResponse({"video": meta})
 
+    async def video_get(request):
+        # GET /api/video — stream the OPEN project's attached video bytes so the web
+        # <video> can play/seek it. FileResponse handles HTTP Range (206 partial) for
+        # seeking. Gated native/same-machine like the other server-side media. The
+        # path is resolved ABSOLUTE (the daemon's cwd may != repo). 404 if no video.
+        if not _native(request):
+            return _err("video streaming is disabled on this server", 403)
+        if not autosaver.name:
+            return _err("no project open", 409)
+        vpath = ctx.video_path()
+        if not vpath:
+            return _err("no video attached", 404)
+        vpath = os.path.abspath(vpath)
+        if not os.path.isfile(vpath):
+            return _err("video file not found", 404)
+        return FileResponse(vpath)
+
     async def video_clear(request):
         # DELETE /api/video — detach the media pointer only (cues/styling kept).
         name = autosaver.name
@@ -323,4 +340,4 @@ def make_routes(ctx, hub):
 
     return call, state, render, ass, srt, vtt, ws_endpoint, frame, font, burn, burn_status, \
            projects_list, projects_new, projects_open, projects_save, env, projects_create, \
-           connect, fonts, video, video_clear, fonts_upload, fonts_file, fonts_delete
+           connect, fonts, video, video_get, video_clear, fonts_upload, fonts_file, fonts_delete

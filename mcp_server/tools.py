@@ -379,8 +379,19 @@ def render_frame(ctx, time_s):
         return cfg, ass
     cfg, ass = ctx.run(build)
     out = os.path.join(tempfile.gettempdir(), f"_mcp_frame_{uuid.uuid4().hex}.png")
-    cmd = engine.ffmpeg.frame_cmd(ctx.video_path(), ass, time_s, cfg["play_w"], cfg["play_h"], out,
-                                  fonts_dir=_fonts_dir(ctx))
+    # Resolve every path ffmpeg touches to ABSOLUTE before invoking it: the daemon may
+    # run with a cwd != repo (Electron shell), so a relative video input / fonts dir
+    # would fail to open and yield an empty-stderr "frame render failed" (blank preview).
+    vid = ctx.video_path()
+    if vid:
+        vid = os.path.abspath(vid)
+    fonts = _fonts_dir(ctx)
+    if fonts:
+        fonts = os.path.abspath(fonts)
+    ass = os.path.abspath(ass)
+    out = os.path.abspath(out)
+    cmd = engine.ffmpeg.frame_cmd(vid, ass, time_s, cfg["play_w"], cfg["play_h"], out,
+                                  fonts_dir=fonts)
     import subprocess
     p = subprocess.run(cmd, capture_output=True, text=True)
     if p.returncode != 0 or not os.path.isfile(out):
