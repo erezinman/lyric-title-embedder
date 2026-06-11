@@ -64,6 +64,7 @@ async function start() {
 
   const win = new BrowserWindow({
     width: 1440, height: 900, title: "Karaoke Subtitle Studio",
+    icon: path.join(__dirname, "assets", "icon.png"),   // brand mark (window + taskbar)
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -97,5 +98,10 @@ app.on("before-quit", () => { app.isQuitting = true; killDaemon(); });
 app.on("window-all-closed", () => { killDaemon(); app.quit(); });
 process.on("SIGINT", () => { app.isQuitting = true; killDaemon(); app.exit(0); });
 process.on("SIGTERM", () => { app.isQuitting = true; killDaemon(); app.exit(0); });
+
+// macOS dock icon (Linux/Windows use the BrowserWindow icon above).
+if (process.platform === "darwin" && app.dock) {
+  try { app.dock.setIcon(path.join(__dirname, "assets", "icon.png")); } catch { /* non-fatal */ }
+}
 
 app.whenReady().then(start).catch((e) => { console.error(e); killDaemon(); app.exit(1); });
