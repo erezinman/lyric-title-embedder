@@ -28,6 +28,21 @@ def set_layout_props(project, gi, win_start, win_end, linger):
     g["win_start"] = win_start; g["win_end"] = win_end
     g["linger"] = linger
 
+def _one_line(s):
+    return (s or "").replace("\r", " ").replace("\n", " ").strip()
+
+def set_event_label(project, gi, label):
+    L = project["layout"]
+    if 0 <= gi < len(L): L[gi]["label"] = _one_line(label)
+
+def set_event_section(project, gi, section):
+    L = project["layout"]
+    if 0 <= gi < len(L): L[gi]["section"] = _one_line(section)
+
+def set_event_color(project, gi, color):
+    L = project["layout"]
+    if 0 <= gi < len(L): L[gi]["color"] = (color or "").strip()
+
 def _clean(style, allowed):
     return {k: v for k, v in style.items() if k in allowed and v is not None}
 
@@ -272,9 +287,10 @@ def layout_merge(project, gidxs):
 
 def layout_ungroup(project, gi):
     L = project["layout"]; g = L[gi]
-    new = [{"label": g["label"], "lines": [ln], "accumulate": g["accumulate"],
+    new = [{"label": g["label"], "lines": [ln], "accumulate": g.get("accumulate", "words"),
             "win_start": None, "win_end": None, "linger": g.get("linger"),
             "del": False, "style": dict(g.get("style") or {}),
+            "section": g.get("section", ""), "color": g.get("color", ""),
             "fade": dict(g.get("fade") or {})} for ln in g["lines"]]  # copies parent group's style and fade (legacy AppV2 dropped it)
     project["layout"] = L[:gi] + new + L[gi + 1:]
 

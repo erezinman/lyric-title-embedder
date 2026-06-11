@@ -32,6 +32,8 @@ def _ser_group(g):
         out["accumulate"] = g["accumulate"]
     if "fade" in g:
         out["fade"] = dict(g.get("fade") or {})
+    if g.get("section"): out["section"] = g["section"]
+    if g.get("color"):   out["color"] = g["color"]
     return out
 
 
@@ -69,4 +71,6 @@ def _apply_group(g):
         out["accumulate"] = g["accumulate"]
     if "fade" in g:
         out["fade"] = dict(g.get("fade") or {})
+    if g.get("section"): out["section"] = g["section"]
+    if g.get("color"):   out["color"] = g["color"]
     return out

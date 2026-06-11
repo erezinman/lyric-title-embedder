@@ -40,6 +40,7 @@ def _event_view(ctx, gi):
     s = g["win_start"] if g.get("win_start") is not None else (min(words[i]["start"] for i in ids) if ids else 0.0)
     e = g["win_end"] if g.get("win_end") is not None else (max(words[i]["end"] for i in ids) if ids else 0.0)
     return {"gi": gi, "label": g["label"], "win": [s, e],
+            "section": g.get("section", ""), "color": g.get("color", ""),
             "linger": g.get("linger"), "deleted": g.get("del", False),
             "style_overrides": dict(g.get("style") or {}),
             "animations": list(g.get("animations") or []),
@@ -112,6 +113,7 @@ def get_project(ctx):
         # globals.animations / layout[].animations + suppress / anim_tags instead
         # of fin_tags/fout_tags/group.fade/accumulate. Tolerate either shape.
         layout = [{"label": grp["label"],
+                   "section": grp.get("section", ""), "color": grp.get("color", ""),
                    "win_start": grp.get("win_start"), "win_end": grp.get("win_end"),
                    "linger": grp.get("linger"), "del": grp.get("del", False),
                    "style": dict(grp.get("style") or {}),
@@ -186,6 +188,15 @@ def set_word_text(ctx, wid, text):
 
 def set_layout_props(ctx, gi, win_start=None, win_end=None, linger=None):
     _do(ctx, "set_layout_props", gi, win_start, win_end, linger); return ctx.run(lambda: _event_view(ctx, gi))
+
+def set_event_label(ctx, gi, label):
+    _do(ctx, "set_event_label", gi, label); return ctx.run(lambda: _event_view(ctx, gi))
+
+def set_event_section(ctx, gi, section):
+    _do(ctx, "set_event_section", gi, section); return ctx.run(lambda: _event_view(ctx, gi))
+
+def set_event_color(ctx, gi, color):
+    _do(ctx, "set_event_color", gi, color); return ctx.run(lambda: _event_view(ctx, gi))
 
 def merge_events(ctx, gidxs):
     ok = _do(ctx, "layout_merge", set(gidxs))

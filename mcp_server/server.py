@@ -45,6 +45,12 @@ def build_server(ctx, name="karaoke-subtitle-studio"):
                          linger: Optional[float] = None) -> dict:
         return tools.set_layout_props(ctx, gi, win_start, win_end, linger)
     @mcp.tool()
+    def set_event_label(gi: int, label: str) -> dict: return tools.set_event_label(ctx, gi, label)
+    @mcp.tool()
+    def set_event_section(gi: int, section: str) -> dict: return tools.set_event_section(ctx, gi, section)
+    @mcp.tool()
+    def set_event_color(gi: int, color: str) -> dict: return tools.set_event_color(ctx, gi, color)
+    @mcp.tool()
     def merge_events(gidxs: list) -> list: return tools.merge_events(ctx, gidxs)
     @mcp.tool()
     def ungroup_event(gi: int) -> list: return tools.ungroup_event(ctx, gi)
