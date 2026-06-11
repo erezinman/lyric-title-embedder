@@ -1165,7 +1165,7 @@ select.select { appearance: none; background: var(--surface-3); color: var(--tex
   border-radius: var(--radius-xs); padding: 3px 6px; outline: none; min-width: 0; max-width: 100%; display: inline-block;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ev .name:hover { border-color: var(--border); }
-.ev .name:focus { border-color: var(--accent); background: var(--surface-3); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); overflow: auto; text-overflow: clip; }
+.ev .name:focus { border-color: var(--accent); background: var(--surface-3); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); overflow: hidden; text-overflow: clip; }
 .ev .name.unnamed { color: var(--warn); font-style: italic; font-weight: 500; }
 .ev .pencil { color: var(--text-3); opacity: 0; flex: 0 0 auto; transition: opacity .12s; cursor: pointer; background: transparent; border: 0; font-size: 12px; padding: 0; }
 .ev .namewrap:hover .pencil { opacity: 1; }
