@@ -61,6 +61,8 @@ export interface Token {
 export interface Line { toks: Token[]; }
 export interface LayoutGroup {
   label: string;
+  section?: string;
+  color?: string;
   win_start: number | null; win_end: number | null; linger: number | null; del: boolean;
   style: StyleOverrides;
   animations: Animation[]; suppress: string[];

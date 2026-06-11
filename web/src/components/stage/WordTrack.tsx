@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect, useLayoutEffect } from "react";
-import { colorForIndex } from "../../model/palette";
+import { eventColor } from "../../model/palette";
 import { computeMove, computeResize, dragMode } from "../../model/edit";
 import type { TimeUpdate } from "../../model/edit";
 import type { Project, Token, ResolvedAnim } from "../../types";
@@ -31,6 +31,7 @@ export interface AnimFocus { wid: number; aid: string; }
 export interface TrackEvent {
   gi: number;
   label: string;
+  color?: string;
 }
 
 interface WordTrackProps {
@@ -721,6 +722,9 @@ export function WordTrack({
     row.length ? row[0].gi : null;
   const labelFor = (gi: number): string =>
     events.find((ev) => ev.gi === gi)?.label ?? "";
+  // group color: a stored per-event color overrides the index default (eventColor).
+  const colorFor = (gi: number): string =>
+    eventColor(events.find((ev) => ev.gi === gi), gi);
 
   /** Render a single cue as a constant-height card. `firstArea` flags the row
    *  whose `.wt-area` carries the pxPerSec measure ref (stable full width). */
@@ -731,7 +735,7 @@ export function WordTrack({
     const isMulti = selectedWords?.has(w.wid) ?? false;
     const anims = w.anims ?? [];
     const { bars, overflowCount } = anims.length > 0
-      ? layoutBars(anims, s, pxPerSec, { groupColor: colorForIndex(w.gi) })
+      ? layoutBars(anims, s, pxPerSec, { groupColor: colorFor(w.gi) })
       : { bars: [] as Bar[], overflowCount: 0 };
     const muted = !(w.wid === selId || isMulti);
     const cls =
@@ -747,7 +751,7 @@ export function WordTrack({
         data-flip={"c" + w.wid}
         style={{
           position: "absolute", left: `${left}%`, width: `${width}%`,
-          height: `${BLOCK_H}px`, background: colorForIndex(w.gi),
+          height: `${BLOCK_H}px`, background: colorFor(w.gi),
         }}
         onPointerDown={unlocked ? (ev) => handleBlockPointerDown(ev, w) : undefined}
         onPointerUp={unlocked ? (ev) => handleBlockPointerUp(ev, w) : undefined}
@@ -851,7 +855,7 @@ export function WordTrack({
     const left = (s / dur) * 100;
     const width = Math.max(0.4, ((e - s) / dur) * 100);
     const anims = w.anims ?? [];
-    const { bars, fullCount } = layoutBars(anims, s, pxPerSec, { all: true, groupColor: colorForIndex(w.gi) });
+    const { bars, fullCount } = layoutBars(anims, s, pxPerSec, { all: true, groupColor: colorFor(w.gi) });
     return (
       <div
         key={`ov-${w.wid}`}
@@ -860,7 +864,7 @@ export function WordTrack({
         data-overlay={w.wid}
         style={{
           position: "absolute", left: `${left}%`, width: `${width}%`,
-          height: `${fullBlockH(fullCount)}px`, background: colorForIndex(w.gi),
+          height: `${fullBlockH(fullCount)}px`, background: colorFor(w.gi),
           ["--baseh" as string]: `${BLOCK_H}px`,
         }}
       >
@@ -911,7 +915,7 @@ export function WordTrack({
               {isLanes && gi != null && (
                 <div className="wt-gutter">
                   <span className="glabel" title={labelFor(gi)}>
-                    <span className="gdot" style={{ background: colorForIndex(gi) }} />
+                    <span className="gdot" style={{ background: colorFor(gi) }} />
                     <span className="gname">{labelFor(gi)}</span>
                   </span>
                 </div>

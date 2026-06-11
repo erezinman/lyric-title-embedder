@@ -1244,7 +1244,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
               />
               <WordTrack
                 words={trackWords}
-                events={P.layout.map((g, gi) => ({ gi, label: g.label }))}
+                events={P.layout.map((g, gi) => ({ gi, label: g.label, color: g.color }))}
                 density={density}
                 pxPerSecOverride={BASE_PPS * hz}
                 rowH={Math.round(Math.max(BLOCK_H + 10, 50 * vz))}

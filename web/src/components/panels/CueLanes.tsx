@@ -1,7 +1,7 @@
 import React from "react";
 import type { Project, Token } from "../../types";
 import { eventWindow } from "../../model/resolve";
-import { colorForIndex } from "../../model/palette";
+import { eventColor } from "../../model/palette";
 import { cueExtent } from "../../model/spill";
 import { cueRows } from "../../model/animRows";
 import { Icon } from "../icons/Icon";
@@ -140,7 +140,7 @@ export function CueLanes({
       {project.layout.map((g, gi) => {
         const [s, e] = eventWindow(project, gi);
         const open = !collapsed.has(gi);
-        const gc = colorForIndex(gi);
+        const gc = eventColor(g, gi);
         const evtSel = sel.scope === "group" && sel.gi === gi && !sel.tok;
         return (
           <React.Fragment key={gi}>
