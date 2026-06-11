@@ -177,4 +177,19 @@ describe("CueLanes inline event rename", () => {
     fireEvent.click(label());
     expect(onSelectEvent).toHaveBeenCalledWith(0);
   });
+
+  it("surfaces the authored section as a header chip when set", () => {
+    const p = proj(); p.layout[0].section = "Chorus";
+    renderLanes(p);
+    const chip = document.querySelector(".lane-evt .evt-section");
+    expect(chip?.textContent).toBe("Chorus");
+  });
+
+  it("hides the section chip when section is unset or '—'", () => {
+    const none = proj(); none.layout[0].section = "—";
+    renderLanes(none);
+    expect(document.querySelector(".lane-evt .evt-section")).toBeNull();
+    renderLanes(proj()); // section undefined entirely
+    expect(document.querySelector(".lane-evt .evt-section")).toBeNull();
+  });
 });

@@ -171,6 +171,26 @@ Both write `layout[i].label` via `set_event_label` (single-line rules §6):
 
 ---
 
+## 11 · Designer flags (2026-06-11 — deferred-bits pass)
+
+Two items from the Event-Authoring prototype need a designer decision/mockup before they can be built faithfully:
+
+- **Grip-drag reorder of events — NOT implementable as drawn; needs a designer call.** The prototype's Events
+  panel shows a `⋮⋮` grip and the legend says "drag the grip to reorder." But our events are **contiguous,
+  time-ordered word ranges** (`layout[gi]` partitions `words` in time). You cannot put "Chorus" before
+  "Verse 1" without retiming the underlying words — there is no meaningful free reorder. (Same class of gap as
+  the empty "＋New event," which we already reinterpreted as split-off.) **Decision taken:** do not build
+  arbitrary reorder; flagged here for the designer. If reorder is desired, it must be specced as a *retiming*
+  operation (move a section's cues in time), not a list shuffle.
+- **Section-header *grouping/divider* visual — undesigned; needs a mockup.** zip-17 says "section drives
+  section-header styling," but no prototype shows what a section *header/divider* looks like in the lanes or
+  timeline. **Built (2026-06-11, grounded):** the authored `section` now renders as a styled **section chip**
+  on the CueLanes `.lane-evt` event header (kit tag vocabulary; hidden when unset/"—") — section is no longer
+  invisible outside the panel select. **Deferred (needs a designer mockup):** a fuller treatment that *groups*
+  events under shared section-divider rows, or surfaces sections on the timeline / in export.
+
+---
+
 ## 10 · Key file anchors
 - Engine: `engine/io.py` (`_ser_group`/`_apply_group`), `engine/model.py:51-53`, `engine/srt.py:92-94`,
   `engine/mutations.py` (`layout_ungroup` + new setters), `mcp_server/tools.py` (`_event_view`, `get_project`,

@@ -452,6 +452,10 @@ svg.lucide { display: block; }
 .lane-evt .chev { color: var(--text-3); display: flex; }
 .lane-evt .rng { font-family: var(--font-mono); font-weight: 400; color: var(--text-3); margin-left: auto; font-size: 10px; }
 .lane-evt .acc { font-family: var(--font-mono); font-weight: 400; color: var(--violet-soft); font-size: 10px; }
+/* section-header chip on the event header — surfaces the authored `section` (kit tag vocabulary) */
+.lane-evt .evt-section { font-family: var(--font-mono); font-size: 9px; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--violet-soft); border: 1px solid color-mix(in srgb, var(--violet) 38%, transparent);
+  background: color-mix(in srgb, var(--violet) 12%, transparent); border-radius: 3px; padding: 1px 6px; flex: 0 0 auto; }
 /* Cue-lanes (redesigned, zip 11): LAYOUT(text · start · end) + one ANIMATION lane.
    Column template is driven by --lane-cols (resizable text/start/end; ANIMATION flexes). */
 .lane-head { display: grid; grid-template-columns: var(--lane-cols, minmax(120px,1.7fr) 96px 96px minmax(150px,1.4fr)); background: var(--surface-2); border-bottom: 1px solid var(--border); }

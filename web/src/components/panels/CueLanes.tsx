@@ -188,6 +188,9 @@ export function CueLanes({
               >
                 {g.label || "Untitled event"}
               </span>
+              {g.section && g.section !== "—" && (
+                <span className="evt-section" title={`Section: ${g.section}`}>{g.section}</span>
+              )}
               <span className="rng">
                 {s.toFixed(2)}–{e.toFixed(2)}
                 {g.linger ? " +" + g.linger + "s" : ""}

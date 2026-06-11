@@ -145,9 +145,9 @@ The mock can't contain them, so there's no authoritative visual. Confirm the tre
 ## Needs a non-CSS verification before classifying
 | Item | Check |
 |---|---|
-| **GLOBAL_STYLE engine defaults** | Kit pins defaults (fontsize 64, bold true, outline_w 3, back_alpha "80", border_style 1). Our web layer pins none — they come from the backend. Confirm `engine`/`get_project` defaults match the kit; if not, that's a silent divergence. |
+| ~~GLOBAL_STYLE engine defaults~~ | **VERIFIED (2026-06-11):** engine `DEFAULT_GLOBALS` (`mcp_server/context.py:7-13`) vs kit `GLOBAL_STYLE` (`model.jsx:24-27`) — **11/12 match** (fontsize 64, bold true, italic/underline false, primary #FFFFFF, outline/back #000000, back_alpha "80", outline_w 3, shadow 0, border_style 1 all match). **Only divergence: default subtitle `font`** — kit "Space Grotesk" vs engine **"DejaVu Sans"**. Report-only: changing it alters every project's ASS output + burn/frame, requires Space Grotesk on the libass `fontsdir`, and breaks golden ASS tests — leave for a deliberate decision, not an auto-fix. |
 | ~~`.block.sel` relocation~~ | **RESOLVED (2026-06-09):** relocated to `.wt-area .block.sel` (glow + recede + handles intact); the `.track .block.sel` at theme.css:272 is dead legacy. Not a regression. |
-| **Resolved-source naming** | Kit anim source label is `"cue"`; our `ResolvedAnim.src` uses `"tag"` (style source is `"cue"` in both). Internal inconsistency — confirm intended. |
+| ~~Resolved-source naming~~ | **NOT PURSUED (2026-06-11):** purely-internal code nit (`ResolvedAnim.src` "tag" vs style src "cue"); the designer never specified `src` naming. Out of scope for the designer-sync effort. |
 
 ## Mock-isms — explicitly NOT differences to act on
 Simulated AI-agent edit loop · in-memory `useHistory` · `PROJECTS`/`WORDS` sample data ·
