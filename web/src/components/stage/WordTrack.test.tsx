@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { WordTrack } from "./WordTrack";
 import type { Project } from "../../types";
 
@@ -40,5 +40,24 @@ describe("WordTrack selection styling (zip 11)", () => {
   it("no has-sel when nothing is selected", () => {
     const { container } = renderWT(null);
     expect(container.querySelector(".wt")?.classList.contains("has-sel")).toBe(false);
+  });
+});
+
+describe("WordTrack Lanes gutter inline rename", () => {
+  it("double-clicking the gutter .gname enters edit and fires onRenameEvent on blur", () => {
+    const onRenameEvent = vi.fn();
+    const { container } = render(
+      <WordTrack words={words as never} events={events} project={proj()} density="lanes"
+        dur={10} time={0} liveId={null} selId={null} selectedWords={new Set<number>()}
+        unlocked={false} onRetime={() => {}} onSelect={() => {}} onRenameEvent={onRenameEvent} />,
+    );
+    const gname = container.querySelector(".wt-gutter .gname") as HTMLElement;
+    expect(gname).toBeTruthy();
+    expect(gname.getAttribute("contenteditable")).toBe("false");
+    fireEvent.doubleClick(gname);
+    expect(gname.getAttribute("contenteditable")).toBe("true");
+    gname.textContent = "  Chorus\nverse ";
+    fireEvent.blur(gname);
+    expect(onRenameEvent).toHaveBeenCalledWith(0, "Chorus verse");
   });
 });

@@ -6,6 +6,7 @@ import type { Project, Token, ResolvedAnim } from "../../types";
 import { layoutBars, type Bar, BLOCK_H, fullBlockH } from "../../model/animStrips";
 import { packTimeline, type Density } from "../../model/trackPack";
 import { collectTargets, snap, zoomAnchorScroll, type NearLine, type SnapTarget } from "../../model/snap";
+import { inlineRenameKeyDown, inlineRenamePaste, commitRename } from "../controls/inlineRename";
 
 export interface TrackWord {
   wid: number;
@@ -71,6 +72,8 @@ interface WordTrackProps {
   rowH?: number;
   /** magnet snapping on? (default true). Alt held during a drag inverts it. */
   magnet?: boolean;
+  /** Lanes-mode gutter: commit an inline rename of the event label. */
+  onRenameEvent?: (gi: number, label: string) => void;
 }
 
 /** active snap visualisation (lock guide + soft near-lines), in seconds. */
@@ -123,6 +126,7 @@ export function WordTrack({
   pxPerSecOverride,
   rowH,
   magnet = true,
+  onRenameEvent,
 }: WordTrackProps) {
   const progress = dur ? time / dur : 0;
 
@@ -137,6 +141,8 @@ export function WordTrack({
   // threshold. Falls back to a nominal width before layout / in jsdom.
   const areaElRef = useRef<HTMLDivElement | null>(null);
   const [areaPx, setAreaPx] = useState(1000);
+  // gi of the gutter label currently in inline-rename mode (Lanes), or null.
+  const [editingGi, setEditingGi] = useState<number | null>(null);
   useEffect(() => {
     const el = areaElRef.current;
     if (el) { const w = el.getBoundingClientRect().width; if (w > 0) setAreaPx(w); }
@@ -916,7 +922,33 @@ export function WordTrack({
                 <div className="wt-gutter">
                   <span className="glabel" title={labelFor(gi)}>
                     <span className="gdot" style={{ background: colorFor(gi) }} />
-                    <span className="gname">{labelFor(gi)}</span>
+                    <span
+                      className={"gname" + (labelFor(gi) ? "" : " unnamed")}
+                      role="textbox"
+                      aria-label="Event name"
+                      contentEditable={editingGi === gi}
+                      suppressContentEditableWarning
+                      onDoubleClick={(ev) => {
+                        if (!onRenameEvent) return;
+                        setEditingGi(gi);
+                        const el = ev.currentTarget;
+                        requestAnimationFrame(() => {
+                          el.focus();
+                          const s = window.getSelection();
+                          if (s) s.selectAllChildren(el);
+                        });
+                      }}
+                      onKeyDown={inlineRenameKeyDown}
+                      onPaste={inlineRenamePaste}
+                      onBlur={(ev) => {
+                        const v = commitRename(ev.currentTarget);
+                        setEditingGi(null);
+                        if (v !== labelFor(gi)) onRenameEvent?.(gi, v);
+                        if (!v) ev.currentTarget.textContent = "Untitled event";
+                      }}
+                    >
+                      {labelFor(gi) || "Untitled event"}
+                    </span>
                   </span>
                 </div>
               )}

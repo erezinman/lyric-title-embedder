@@ -5,6 +5,7 @@ import { eventColor } from "../../model/palette";
 import { cueExtent } from "../../model/spill";
 import { cueRows } from "../../model/animRows";
 import { Icon } from "../icons/Icon";
+import { inlineRenameKeyDown, inlineRenamePaste, commitRename } from "../controls/inlineRename";
 
 export interface CueLanesProps {
   project: Project;
@@ -14,6 +15,8 @@ export interface CueLanesProps {
   aiHotKey: string | null;
   onSelectWord: (gi: number, li: number, ti: number, wid: number, mods: { ctrl?: boolean; shift?: boolean }) => void;
   onSelectEvent: (gi: number) => void;
+  /** Commit an inline rename of the event header label. */
+  onRenameEvent?: (gi: number, label: string) => void;
   onToggleCollapse: (gi: number) => void;
   /** Double-click a cue row → flip to the Timeline tab on that cue (optional). */
   onCueOpen?: (gi: number, li: number, ti: number, wid: number) => void;
@@ -91,8 +94,10 @@ function loadLaneCols(): [number, number, number] {
 
 export function CueLanes({
   project, sel, selectedWords, collapsed, aiHotKey,
-  onSelectWord, onSelectEvent, onToggleCollapse, onCueOpen, onClearSel,
+  onSelectWord, onSelectEvent, onRenameEvent, onToggleCollapse, onCueOpen, onClearSel,
 }: CueLanesProps) {
+  // gi of the event header currently in inline-rename mode, or null.
+  const [editingGi, setEditingGi] = React.useState<number | null>(null);
   const [cols, setCols] = React.useState<[number, number, number]>(loadLaneCols);
   const tpl = `${cols[0]}px ${cols[1]}px ${cols[2]}px minmax(150px, 1.4fr)`;
 
@@ -147,12 +152,42 @@ export function CueLanes({
             <div
               className={"lane-evt" + (evtSel ? " sel" : "") + (aiHotKey === "g" + gi ? " aihot" : "")}
               style={{ "--g-color": gc } as React.CSSProperties}
-              onClick={() => onSelectEvent(gi)}
+              onClick={() => { if (editingGi !== gi) onSelectEvent(gi); }}
             >
               <span className="chev" onClick={(ev) => { ev.stopPropagation(); onToggleCollapse(gi); }}>
                 <Icon name="chevDown" size={13} stroke={2} />
               </span>
-              {g.label}
+              <span
+                className={"glabel-edit" + (g.label ? "" : " unnamed")}
+                role="textbox"
+                aria-label="Event name"
+                title={g.label || "Untitled event"}
+                contentEditable={editingGi === gi}
+                suppressContentEditableWarning
+                onDoubleClick={(ev) => {
+                  ev.stopPropagation();
+                  if (!onRenameEvent) return;
+                  setEditingGi(gi);
+                  // focus + select the text on the next tick (after contentEditable flips on)
+                  const el = ev.currentTarget;
+                  requestAnimationFrame(() => {
+                    el.focus();
+                    const s = window.getSelection();
+                    if (s) s.selectAllChildren(el);
+                  });
+                }}
+                onClick={(ev) => { if (editingGi === gi) ev.stopPropagation(); }}
+                onKeyDown={inlineRenameKeyDown}
+                onPaste={inlineRenamePaste}
+                onBlur={(ev) => {
+                  const v = commitRename(ev.currentTarget);
+                  setEditingGi(null);
+                  if (v !== g.label) onRenameEvent?.(gi, v);
+                  if (!v) ev.currentTarget.textContent = "Untitled event";
+                }}
+              >
+                {g.label || "Untitled event"}
+              </span>
               <span className="rng">
                 {s.toFixed(2)}–{e.toFixed(2)}
                 {g.linger ? " +" + g.linger + "s" : ""}

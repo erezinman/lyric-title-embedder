@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import type React from "react";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { CueLanes } from "./CueLanes";
 import type { Project } from "../../types";
@@ -49,7 +50,7 @@ function proj(): Project {
   };
 }
 
-function renderLanes(p: Project) {
+function renderLanes(p: Project, extra?: Partial<React.ComponentProps<typeof CueLanes>>) {
   return render(
     <CueLanes
       project={p}
@@ -60,6 +61,7 @@ function renderLanes(p: Project) {
       onSelectWord={() => {}}
       onSelectEvent={() => {}}
       onToggleCollapse={() => {}}
+      {...extra}
     />,
   );
 }
@@ -121,5 +123,58 @@ describe("CueLanes (redesigned)", () => {
     const grip = container.querySelector(".col-grip") as HTMLElement;
     grip.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     expect(JSON.parse(localStorage.getItem("kss.laneCols")!)[0]).toBe(160);   // text default
+  });
+});
+
+describe("CueLanes inline event rename", () => {
+  const label = () => document.querySelector(".lane-evt .glabel-edit") as HTMLElement;
+
+  it("double-clicking the header label enters edit mode (contenteditable) without selecting", () => {
+    const onSelectEvent = vi.fn();
+    renderLanes(proj(), { onRenameEvent: () => {}, onSelectEvent });
+    const el = label();
+    expect(el.getAttribute("contenteditable")).toBe("false");
+    fireEvent.doubleClick(el);
+    expect(el.getAttribute("contenteditable")).toBe("true");
+    // entering edit must not fire group-select
+    expect(onSelectEvent).not.toHaveBeenCalled();
+  });
+
+  it("typing + blur commits the trimmed single-line value via onRenameEvent", () => {
+    const onRenameEvent = vi.fn();
+    renderLanes(proj(), { onRenameEvent });
+    const el = label();
+    fireEvent.doubleClick(el);
+    el.textContent = "  Chorus  ";
+    fireEvent.blur(el);
+    expect(onRenameEvent).toHaveBeenCalledWith(0, "Chorus");
+  });
+
+  it("collapses newlines in the committed value to a single space", () => {
+    const onRenameEvent = vi.fn();
+    renderLanes(proj(), { onRenameEvent });
+    const el = label();
+    fireEvent.doubleClick(el);
+    el.textContent = "two\nlines";
+    fireEvent.blur(el);
+    expect(onRenameEvent).toHaveBeenCalledWith(0, "two lines");
+  });
+
+  it("empty commit shows the 'Untitled event' placeholder", () => {
+    const onRenameEvent = vi.fn();
+    renderLanes(proj(), { onRenameEvent });
+    const el = label();
+    fireEvent.doubleClick(el);
+    el.textContent = "   ";
+    fireEvent.blur(el);
+    expect(onRenameEvent).toHaveBeenCalledWith(0, "");
+    expect(el.textContent).toBe("Untitled event");
+  });
+
+  it("single click on the header still selects the group", () => {
+    const onSelectEvent = vi.fn();
+    renderLanes(proj(), { onRenameEvent: () => {}, onSelectEvent });
+    fireEvent.click(label());
+    expect(onSelectEvent).toHaveBeenCalledWith(0);
   });
 });

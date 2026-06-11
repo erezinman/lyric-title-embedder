@@ -1322,6 +1322,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                 onFocusStrip={focusStrip}
                 onToggleOverflow={toggleOverflow}
                 onAnimRetime={animRetime}
+                onRenameEvent={setEventLabel}
               />
             </div>
           )}
@@ -1334,6 +1335,7 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
               aiHotKey={aiHotKey}
               onSelectWord={selectCue}
               onSelectEvent={selectEvent}
+              onRenameEvent={setEventLabel}
               onToggleCollapse={toggleCollapse}
               onCueOpen={onCueOpen}
             />
