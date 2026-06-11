@@ -1,6 +1,6 @@
 // ControlsRail.tsx — source/output (real names) + placement (alignment editable,
-// \pos toggle). The old "Animation presets — Coming soon" stub was removed: the
-// engine now has animations and the real entry is the Inspector AnimSection.
+// \pos toggle). Animation editing lives in the Inspector's AnimSection; this rail
+// no longer carries an "Edit animations →" entry (removed as unneeded).
 import { Icon } from "../icons/Icon";
 import { AlignGrid } from "../atoms/AlignGrid";
 import { VideoControl } from "./VideoControl";
@@ -36,9 +36,6 @@ export interface ControlsRailProps {
   onUploadVideo: (file: File) => Promise<void>;
   /** Clear the project video (DELETE /api/video). Cues/styling are kept. */
   onClearVideo: () => Promise<void>;
-  /** Switch the rail to the Inspector tab (where the real AnimSection lives).
-   *  The "Coming soon" animation stub was removed; this points at the live entry. */
-  onOpenInspector?: () => void;
   // ── Events panel (Project rail) ──
   events?: EventRow[];
   focusedGi?: number | null;
@@ -51,7 +48,7 @@ export interface ControlsRailProps {
 }
 
 export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos,
-  onUploadVideo, onClearVideo, onOpenInspector,
+  onUploadVideo, onClearVideo,
   events, focusedGi = null, onSetEventLabel, onSetEventSection, onSetEventColor,
   onSetEventLinger, onMergeEvents, onSplitEvent }: ControlsRailProps) {
   const pl = project.placement;
@@ -148,16 +145,6 @@ export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos,
             ? "Forced left-to-right base direction."
             : "Auto: base direction inferred from the caption text."}
       </p>
-
-      {/* The "Animation presets — Coming soon" stub was removed; the real entry is
-          the Inspector's AnimSection. Point at it rather than leaving a dead gap. */}
-      <div className="sec-t spacer"><Icon name="sparkles" size={13} />Animations</div>
-      <button type="button" className="rail-link" onClick={() => onOpenInspector?.()}
-        title="Open the Inspector to edit animations">
-        <Icon name="sparkles" size={13} />
-        Edit animations
-        <Icon name="fwd" size={12} />
-      </button>
     </div>
   );
 }

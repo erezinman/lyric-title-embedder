@@ -24,11 +24,13 @@ function setup(dur: number, extra: Partial<React.ComponentProps<typeof Waveform>
 beforeEach(() => vi.restoreAllMocks());
 
 describe("Waveform — draggable playhead / scrub", () => {
-  it("renders a continuous playhead with a grab head", () => {
+  it("renders a continuous playhead with a grab strip (single kit head, no .ph-head)", () => {
     const { container } = setup(100);
     const ph = container.querySelector(".playhead") as HTMLElement;
     expect(ph).toBeTruthy();
-    expect(ph.querySelector(".ph-head")).toBeTruthy();
+    // Single-head kit treatment: the visible head is the through-playhead's ::before
+    // dot; the second .ph-head element was removed. The invisible grab strip stays.
+    expect(ph.querySelector(".ph-head")).toBeNull();
     expect(ph.querySelector(".ph-hit")).toBeTruthy();
   });
 

@@ -135,11 +135,4 @@ describe("ControlsRail", () => {
     fireEvent.click(sw);
     expect(onSetGlobal).toHaveBeenCalledWith("bidi_marks", true);
   });
-
-  it("Animations pointer row fires onOpenInspector (rail-tab switch is Editor-owned)", () => {
-    const onOpenInspector = vi.fn();
-    render(<ControlsRail project={proj()} projectName="p" onSetGlobal={vi.fn()} onTogglePos={vi.fn()} onOpenInspector={onOpenInspector} {...VID_PROPS} />);
-    fireEvent.click(screen.getByRole("button", { name: /animations/i }));
-    expect(onOpenInspector).toHaveBeenCalledTimes(1);
-  });
 });

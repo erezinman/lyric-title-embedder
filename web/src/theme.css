@@ -319,11 +319,7 @@ svg.lucide { display: block; }
 .ruler-track { cursor: ew-resize; user-select: none; -webkit-user-select: none; }
 .playhead.tl-through { background: color-mix(in srgb, var(--cyan) 55%, transparent);
   box-shadow: 0 0 6px color-mix(in srgb, var(--cyan) 35%, transparent); z-index: 6; }
-.playhead.tl-through::before { display: none; }
 .playhead.tl-through .ph-hit { position: absolute; top: -4px; bottom: 0; left: -6px; width: 14px; cursor: ew-resize; pointer-events: auto; }
-.playhead.tl-through .ph-head { position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-  width: 13px; height: 9px; background: var(--cyan); border-radius: 0 0 4px 4px;
-  box-shadow: 0 0 8px var(--cyan); cursor: ew-resize; pointer-events: auto; z-index: 7; }
 .playhead.tl-through:hover { background: color-mix(in srgb, var(--cyan) 75%, transparent); }
 
 /* ── packed-rows timeline (Phase 3) ──
@@ -422,8 +418,6 @@ svg.lucide { display: block; }
 .astrip.collapse:hover { border-color: var(--cyan); }
 .wt-playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--cyan); box-shadow: 0 0 10px var(--cyan);
   pointer-events: none; transition: left .1s linear; z-index: 4; }
-.wt-playhead::before { content:""; position: absolute; top: 0; left: -4px; width: 10px; height: 10px; border-radius: 50%;
-  background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
 /* snap guides — cyan magnetic line shown while a block/playhead edge locks on
    (adapted from kit theme.css §1/§4). Positioned over the lanes by sec/dur. */
 .wt-guides { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
@@ -1133,7 +1127,10 @@ select.select { appearance: none; background: var(--surface-3); color: var(--tex
 .vc-btn.danger { background: var(--danger); border-color: transparent; color: #2a0808; font-weight: 600; }
 
 /* ── Events panel (Project rail) — ported from the Event-Authoring prototype ── */
-.ev-panel { margin-top: 8px; background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+/* STOPGAP (see .evhead/.ev below): was overflow:hidden, which clipped the
+   over-wide grid. overflow-x:auto lets any residual width scroll instead of
+   being silently cut. Real fix = Cue-Lanes merge. */
+.ev-panel { margin-top: 8px; background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow-x: auto; }
 .ev-panel .panel-h { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
 .ev-panel .panel-h .t { font-family: var(--font-display); font-weight: 600; font-size: 13px; color: var(--text-1); }
 .ev-panel .panel-h .sub { color: var(--text-3); font-size: 11px; }
@@ -1145,12 +1142,17 @@ select.select { appearance: none; background: var(--surface-3); color: var(--tex
 .ev-panel .tb:disabled { opacity: .4; cursor: default; }
 .ev-panel .tb svg { color: currentColor; }
 
-.evhead { display: grid; grid-template-columns: 26px 1fr 150px 120px 90px 64px; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border);
+/* STOPGAP: this grid was authored at ~500px (26px 1fr 150px 120px 90px 64px) but
+   lives inside the ~320px Project rail, so the fixed columns overlapped and the
+   panel's overflow:hidden clipped them. Shrinkable tracks (minmax(0,1fr) name +
+   auto trailing columns) + a tighter gap keep rows readable within 320px.
+   The real fix is merging Events into the Cue Lanes (designer-gated) — not here. */
+.evhead { display: grid; grid-template-columns: 18px minmax(0,1fr) auto auto auto auto; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--border);
   font-family: var(--font-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); align-items: center; }
 .evhead .imp { color: color-mix(in srgb, var(--text-3) 80%, transparent); }
 
 .ev-list { display: block; }
-.ev { display: grid; grid-template-columns: 26px 1fr 150px 120px 90px 64px; gap: 10px; align-items: center; padding: 9px 12px;
+.ev { display: grid; grid-template-columns: 18px minmax(0,1fr) auto auto auto auto; gap: 6px; align-items: center; padding: 9px 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); cursor: pointer; }
 .ev:last-child { border-bottom: 0; }
 .ev.sel { background: color-mix(in srgb, var(--violet) 9%, transparent); box-shadow: inset 3px 0 0 var(--ev, var(--violet)); }

@@ -97,9 +97,12 @@ function AiPill() {
 
   return (
     <span className="ai-pill-wrap" onMouseEnter={loadOnHover}>
-      <span className="ai-pill"><span className="ai-dot" />AI agent · live</span>
+      {/* Honest pill: the daemon exposes an MCP endpoint, but the web/daemon has no
+          signal that an *agent* is actually connected — so we don't claim "· live".
+          (A real "agent connected" indicator would need a small daemon-side signal.) */}
+      <span className="ai-pill"><span className="ai-dot" />AI agent</span>
       <div className="ai-pop" aria-label="MCP connection">
-        <div className="ai-pop-h"><span className="ai-dot" />MCP daemon · connected</div>
+        <div className="ai-pop-h"><span className="ai-dot" />MCP endpoint · available</div>
         {rows.map((r) => (
           <button key={r.key} className="ai-pop-row" onClick={() => copy(r.copy, r.key)} title={"Copy " + r.copy}>
             <span>{r.key}</span><b>{copied === r.key ? "Copied ✓" : r.show}</b>

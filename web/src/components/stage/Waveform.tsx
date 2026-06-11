@@ -121,7 +121,6 @@ export function Waveform({ dur, time, onSeek, blocks, eventBounds, magnet = true
         )}
         <div className="playhead tl-through" style={{ left: `${progress * 100}%` }}>
           <i className="ph-hit" />
-          <i className="ph-head" />
         </div>
       </div>
     </div>

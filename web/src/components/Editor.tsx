@@ -1139,7 +1139,6 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                   try { await videoApi.clear(); }
                   catch (e) { setErrMsg(e instanceof Error ? e.message : String(e)); }
                 }}
-                onOpenInspector={() => setRailTab("inspector")}
                 events={panelEvents}
                 focusedGi={sel.scope === "group" || sel.scope === "cue" ? sel.gi : null}
                 onSetEventLabel={setEventLabel}

@@ -116,20 +116,6 @@ describe("ControlsRail audit — toggle dispatch (Editor level)", () => {
     expect(calls[0].args).toEqual({ partial: { use_pos: false, pos: null } });
   });
 
-  it("B-54 — Animations pointer row switches the rail to the Inspector tab", async () => {
-    const p = baseProject();
-    await mountEditor(p);
-    // starts on the Project tab → ControlsRail visible with the Animations row
-    const animRow = await screen.findByRole("button", { name: /animations/i });
-    fireEvent.click(animRow);
-    // inspector tab is now active and the project rail (Animations row) is gone
-    await waitFor(() => {
-      const inspectorTab = screen.getByRole("button", { name: /inspector/i });
-      expect(inspectorTab.className).toContain("on");
-    });
-    expect(screen.queryByRole("button", { name: /^animations/i })).toBeNull();
-  });
-
   it("B-53 — ON→OFF→ON (echo between) yields a stable pos again", async () => {
     const p0 = baseProject();
     const sw0 = await mountEditor(p0);
