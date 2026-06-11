@@ -48,14 +48,14 @@ describe("Editor shell", () => {
     render(<Editor projectName="song1" onHome={() => {}} />);
     await waitFor(() => expect(FakeWS.last).toBeTruthy());
     act(() => FakeWS.last!.emit({ type: "state", state: projectWithEvent("Verse 1") }));
-    await waitFor(() => screen.getByText("Verse 1"));
+    await waitFor(() => expect(screen.getAllByText("Verse 1").length).toBeGreaterThan(0));
   });
 
   it("play advances the clock and pause stops it", async () => {
     const { container } = render(<Editor projectName="song1" onHome={() => {}} />);
     await waitFor(() => expect(FakeWS.last).toBeTruthy());
     act(() => FakeWS.last!.emit({ type: "state", state: projectWithEvent("Verse 1") }));
-    await waitFor(() => screen.getByText("Verse 1"));
+    await waitFor(() => expect(screen.getAllByText("Verse 1").length).toBeGreaterThan(0));
 
     const timeLabel = () => (container.querySelector(".time") as HTMLElement).textContent ?? "";
     expect(timeLabel()).toContain("0:00.00");
@@ -86,7 +86,7 @@ describe("Editor shell", () => {
     const { container, unmount } = render(<Editor projectName="song1" onHome={() => {}} />);
     await waitFor(() => expect(FakeWS.last).toBeTruthy());
     act(() => FakeWS.last!.emit({ type: "state", state: projectWithEvent("Verse 1") }));
-    await waitFor(() => screen.getByText("Verse 1"));
+    await waitFor(() => expect(screen.getAllByText("Verse 1").length).toBeGreaterThan(0));
 
     const { fireEvent } = await import("@testing-library/react");
     // open the Timeline dock tab where the density .seg lives (first dock-tab)
@@ -110,7 +110,7 @@ describe("Editor shell", () => {
     const r2 = render(<Editor projectName="song1" onHome={() => {}} />);
     await waitFor(() => expect(FakeWS.last).toBeTruthy());
     act(() => FakeWS.last!.emit({ type: "state", state: projectWithEvent("Verse 1") }));
-    await waitFor(() => screen.getByText("Verse 1"));
+    await waitFor(() => expect(screen.getAllByText("Verse 1").length).toBeGreaterThan(0));
     fireEvent.click(timelineTab(r2.container));
     await waitFor(() =>
       expect(r2.container.querySelector(".tl-toolrow .seg button.on")?.getAttribute("data-mode")).toBe("compact"));
@@ -127,7 +127,7 @@ describe("Editor shell", () => {
     const { container } = render(<Editor projectName="song1" onHome={() => {}} />);
     await waitFor(() => expect(FakeWS.last).toBeTruthy());
     act(() => FakeWS.last!.emit({ type: "state", state: projectWithEvent("Verse 1") }));
-    await waitFor(() => screen.getByText("Verse 1"));
+    await waitFor(() => expect(screen.getAllByText("Verse 1").length).toBeGreaterThan(0));
 
     const seps = container.querySelectorAll('[role="separator"]');
     expect(seps).toHaveLength(2);
@@ -154,7 +154,7 @@ describe("Editor shell", () => {
     const { container } = render(<Editor projectName="song1" onHome={() => {}} />);
     await waitFor(() => expect(FakeWS.last).toBeTruthy());
     act(() => FakeWS.last!.emit({ type: "state", state: projectWithNEvents(6) }));
-    await waitFor(() => screen.getByText("Event 1"));
+    await waitFor(() => expect(screen.getAllByText("Event 1").length).toBeGreaterThan(0));
 
     const { fireEvent } = await import("@testing-library/react");
     const timelineTab = Array.from(container.querySelectorAll(".dock-tab"))
@@ -176,7 +176,7 @@ describe("Editor shell", () => {
     const { container } = render(<Editor projectName="song1" onHome={() => {}} />);
     await waitFor(() => expect(FakeWS.last).toBeTruthy());
     act(() => FakeWS.last!.emit({ type: "state", state: projectWithNEvents(7) }));
-    await waitFor(() => screen.getByText("Event 1"));
+    await waitFor(() => expect(screen.getAllByText("Event 1").length).toBeGreaterThan(0));
 
     const { fireEvent } = await import("@testing-library/react");
     const timelineTab = Array.from(container.querySelectorAll(".dock-tab"))
@@ -197,7 +197,7 @@ describe("Editor shell", () => {
     const { container } = render(<Editor projectName="song1" onHome={() => {}} />);
     await waitFor(() => expect(FakeWS.last).toBeTruthy());
     act(() => FakeWS.last!.emit({ type: "state", state: projectWithNEvents(2) }));
-    await waitFor(() => screen.getByText("Event 1"));
+    await waitFor(() => expect(screen.getAllByText("Event 1").length).toBeGreaterThan(0));
 
     const { fireEvent } = await import("@testing-library/react");
     const timelineTab = Array.from(container.querySelectorAll(".dock-tab"))
@@ -213,7 +213,7 @@ describe("Editor shell", () => {
     const { container } = render(<Editor projectName="song1" onHome={() => {}} />);
     await waitFor(() => expect(FakeWS.last).toBeTruthy());
     act(() => FakeWS.last!.emit({ type: "state", state: projectWithEvent("Verse 1") }));
-    await waitFor(() => screen.getByText("Verse 1"));
+    await waitFor(() => expect(screen.getAllByText("Verse 1").length).toBeGreaterThan(0));
 
     const { fireEvent } = await import("@testing-library/react");
     const timelineTab = Array.from(container.querySelectorAll(".dock-tab"))

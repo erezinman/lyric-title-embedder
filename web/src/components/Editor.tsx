@@ -5,6 +5,7 @@ import { TopBar } from "./TopBar";
 import { ExportMenu } from "./ExportMenu";
 import { Icon } from "./icons/Icon";
 import { resolveStyle, eventWindow, wordSchedule } from "../model/resolve";
+import { eventColor } from "../model/palette";
 import { computeMove, computeResize } from "../model/edit";
 import { boxFromState, anchorXY } from "../model/bbox";
 import type { Token, Project } from "../types";
@@ -891,6 +892,37 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
     dispatch("merge_events", { gidxs: [sel.gi, sel.gi + 1] });
   }
 
+  // ── Events-panel handlers (set_event_label/_section/_color) ──
+  const setEventLabel = useCallback((gi: number, label: string) => {
+    dispatch("set_event_label", { gi, label });
+  }, [dispatch]);
+  const setEventSection = useCallback((gi: number, section: string) => {
+    dispatch("set_event_section", { gi, section });
+  }, [dispatch]);
+  const setEventColor = useCallback((gi: number, color: string) => {
+    dispatch("set_event_color", { gi, color });
+  }, [dispatch]);
+  // Linger for an arbitrary event (the panel acts on any gi, not just sel.gi);
+  // mirrors set_layout_props but carries the target group's existing window.
+  const setEventLinger = useCallback((gi: number, linger: number) => {
+    const g = pRef.current?.layout[gi];
+    if (!g) return;
+    dispatch("set_layout_props", { gi, win_start: g.win_start, win_end: g.win_end, linger });
+  }, [dispatch]);
+  // Merge a contiguous run of events; Split the focused group at its focused
+  // cue's line boundary (the create primitive — spec §1, "New from selection").
+  const mergeEventRun = useCallback((gidxs: number[]) => {
+    if (gidxs.length >= 2) dispatch("merge_events", { gidxs });
+  }, [dispatch]);
+  const splitEventAtCue = useCallback((gi: number) => {
+    // focused cue's line within the focused group; default to line 1 so the
+    // split always produces a new event (split_event needs ≥2 lines / a >0 idx).
+    const g = pRef.current?.layout[gi];
+    if (!g || g.lines.length < 2) return;
+    const li = sel.gi === gi && sel.tok ? sel.tok.li : 1;
+    dispatch("split_event", { gi, line_index: Math.max(1, li) });
+  }, [dispatch, sel]);
+
   function ungroupEvent() {
     if (sel.gi == null) return;
     dispatch("ungroup_event", { gi: sel.gi });
@@ -992,6 +1024,23 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
   const dur = projectDur(P);
   const capWords = computeCapWords();
   const trackWords = computeTrackWords();
+  // Events panel view-model: one row per layout group. cueCount = total toks in
+  // the group; window resolved from the event's effective span.
+  const panelEvents = P.layout.map((g, gi) => {
+    const [ws, we] = eventWindow(P, gi);
+    let cueCount = 0;
+    for (const ln of g.lines) cueCount += ln.toks.length;
+    return {
+      gi,
+      label: g.label ?? "",
+      section: g.section ?? "",
+      color: eventColor(g, gi),
+      win_start: ws,
+      win_end: we,
+      linger: g.linger ?? 0,
+      cueCount,
+    };
+  });
   // event/group boundary spans (min start / max end of each event's track words)
   // for the playhead/block magnet candidates.
   const tlEventBounds = P.layout
@@ -1091,6 +1140,14 @@ export function Editor({ projectName, onHome }: { projectName: string; onHome: (
                   catch (e) { setErrMsg(e instanceof Error ? e.message : String(e)); }
                 }}
                 onOpenInspector={() => setRailTab("inspector")}
+                events={panelEvents}
+                focusedGi={sel.scope === "group" || sel.scope === "cue" ? sel.gi : null}
+                onSetEventLabel={setEventLabel}
+                onSetEventSection={setEventSection}
+                onSetEventColor={setEventColor}
+                onSetEventLinger={setEventLinger}
+                onMergeEvents={mergeEventRun}
+                onSplitEvent={splitEventAtCue}
               />
             )}
             {railTab === "inspector" && (

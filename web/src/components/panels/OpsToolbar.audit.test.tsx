@@ -208,7 +208,7 @@ void user;
       const { container } = render(<Editor projectName="test" onHome={() => {}} />);
       await waitFor(() => expect(FakeWS.last).toBeTruthy());
       emitState(baseProject());
-      await waitFor(() => screen.getByText("Verse 1"));
+      await waitFor(() => expect(screen.getAllByText("Verse 1").length).toBeGreaterThan(0));
       const wrap = container.querySelector(".cue-tools-wrap") as HTMLElement;
       expect(within(wrap).queryByRole("button", { name: /Undo/i })).toBeNull();
       expect(within(wrap).queryByRole("button", { name: /Redo/i })).toBeNull();
@@ -444,7 +444,7 @@ describe("OpsToolbar undo/redo", () => {
       render(<Editor projectName="test" onHome={() => {}} />);
       await waitFor(() => expect(FakeWS.last).toBeTruthy());
       emitState(baseProject());
-      await waitFor(() => screen.getByText("Verse 1"));
+      await waitFor(() => expect(screen.getAllByText("Verse 1").length).toBeGreaterThan(0));
       clearDispatches();
       await user.click(screen.getByTitle("Undo"));
 
@@ -462,7 +462,7 @@ describe("OpsToolbar undo/redo", () => {
       render(<Editor projectName="test" onHome={() => {}} />);
       await waitFor(() => expect(FakeWS.last).toBeTruthy());
       emitState(baseProject());
-      await waitFor(() => screen.getByText("Verse 1"));
+      await waitFor(() => expect(screen.getAllByText("Verse 1").length).toBeGreaterThan(0));
       clearDispatches();
       await user.click(screen.getByTitle("Redo"));
 

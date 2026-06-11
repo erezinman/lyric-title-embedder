@@ -28,7 +28,7 @@ async function renderEditor(onHome = vi.fn()) {
   const result = render(<Editor projectName="audit" onHome={onHome} />);
   await waitFor(() => expect(FakeWS.last).toBeTruthy());
   emitState(baseProject());
-  await waitFor(() => screen.getByText("Verse 1"));
+  await waitFor(() => expect(screen.getAllByText("Verse 1").length).toBeGreaterThan(0));
   return result;
 }
 

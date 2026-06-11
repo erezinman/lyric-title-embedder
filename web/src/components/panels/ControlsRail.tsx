@@ -4,6 +4,8 @@
 import { Icon } from "../icons/Icon";
 import { AlignGrid } from "../atoms/AlignGrid";
 import { VideoControl } from "./VideoControl";
+import { EventsPanel } from "./EventsPanel";
+import type { EventRow } from "../../model/events";
 import type { Project, TextDirection } from "../../types";
 import { posActive } from "../../model/bbox";
 
@@ -37,17 +39,44 @@ export interface ControlsRailProps {
   /** Switch the rail to the Inspector tab (where the real AnimSection lives).
    *  The "Coming soon" animation stub was removed; this points at the live entry. */
   onOpenInspector?: () => void;
+  // ── Events panel (Project rail) ──
+  events?: EventRow[];
+  focusedGi?: number | null;
+  onSetEventLabel?: (gi: number, label: string) => void;
+  onSetEventSection?: (gi: number, section: string) => void;
+  onSetEventColor?: (gi: number, color: string) => void;
+  onSetEventLinger?: (gi: number, linger: number) => void;
+  onMergeEvents?: (gidxs: number[]) => void;
+  onSplitEvent?: (gi: number) => void;
 }
 
 export function ControlsRail({ project, projectName, onSetGlobal, onTogglePos,
-  onUploadVideo, onClearVideo, onOpenInspector }: ControlsRailProps) {
+  onUploadVideo, onClearVideo, onOpenInspector,
+  events, focusedGi = null, onSetEventLabel, onSetEventSection, onSetEventColor,
+  onSetEventLinger, onMergeEvents, onSplitEvent }: ControlsRailProps) {
   const pl = project.placement;
   const posOn = posActive(pl);
   const dir: TextDirection = project.globals.text_direction ?? "auto";
   const bidiOn = project.globals.bidi_marks ?? true;
   return (
     <div>
-      <div className="sec-t"><Icon name="film" size={13} />Source &amp; output</div>
+      {events && (
+        <>
+          <div className="sec-t"><Icon name="layers" size={13} />Events</div>
+          <EventsPanel
+            events={events}
+            focusedGi={focusedGi}
+            onSetLabel={(gi, l) => onSetEventLabel?.(gi, l)}
+            onSetSection={(gi, s) => onSetEventSection?.(gi, s)}
+            onSetColor={(gi, c) => onSetEventColor?.(gi, c)}
+            onSetLinger={(gi, v) => onSetEventLinger?.(gi, v)}
+            onMerge={(gidxs) => onMergeEvents?.(gidxs)}
+            onSplit={(gi) => onSplitEvent?.(gi)}
+          />
+        </>
+      )}
+
+      <div className="sec-t spacer"><Icon name="film" size={13} />Source &amp; output</div>
       <div className="ctl">
         <label>Lyrics</label>
         <div className="text-inp" style={{ maxWidth: 168 }}>

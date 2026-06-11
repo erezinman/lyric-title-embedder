@@ -37,7 +37,11 @@ describe("Editor integration", () => {
     render(<Editor projectName="s" onHome={() => {}} />);
     await waitFor(() => expect(FakeWS.last).toBeTruthy());
     act(() => FakeWS.last!.emit({ type: "state", state: projectWithGroup0() }));
-    await userEvent.click(await screen.findByText("Verse 1"));        // select the group
+    // select the group via the CueLanes event header (the rail Events panel also
+    // shows the label now, so scope to the dock's .lane-evt).
+    await waitFor(() => expect(screen.getAllByText("Verse 1").length).toBeGreaterThan(0));
+    const verseHeader = screen.getAllByText("Verse 1").find((el) => el.closest(".lane-evt")) as HTMLElement;
+    await userEvent.click(verseHeader.closest(".lane-evt") as HTMLElement);
     await userEvent.click(screen.getByText("Inspector"));             // open inspector rail tab
     // disambiguate: the animations section also has a "GROUP" tag chip — pick the style tier (.tier3)
     const groupTier = screen.getAllByText("GROUP")
